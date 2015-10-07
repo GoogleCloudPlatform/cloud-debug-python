@@ -32,7 +32,7 @@ def remove_prefixes(optlist, bad_prefixes):
   return optlist
 
 
-readme = os.path.join(os.path.dirname(__file__), 'README.md')
+readme = os.path.join(os.path.dirname(__file__), '../README.md')
 LONG_DESCRIPTION = open(readme).read()
 
 try:
