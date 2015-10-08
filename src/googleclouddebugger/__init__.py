@@ -87,7 +87,7 @@ def _DebuggerMain():
 
   _StartDebugger()
 
-  # Run the app. The following code was copied from pdb.py.
+  # Run the app. The following code was mostly copied from pdb.py.
   app_path = sys.argv[0]
 
   sys.path[0] = os.path.dirname(app_path)
@@ -98,6 +98,8 @@ def _DebuggerMain():
                             '__file__': app_path,
                             '__builtins__': __builtins__})
   locals = globals = __main__.__dict__  # pylint: disable=redefined-builtin
+
+  sys.modules['__main__'] = __main__
 
   exec 'execfile(%r)' % app_path in globals, locals  # pylint: disable=exec-used
 
