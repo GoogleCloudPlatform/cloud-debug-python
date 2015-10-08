@@ -113,12 +113,17 @@ def _CommonSuffix(path1, path2):
   Returns:
     Number of common consecutive directory segments from right.
   """
+
+  # Normalize the paths just to be on the safe side
+  path1 = path1.strip(os.sep)
+  path2 = path2.strip(os.sep)
+
   counter = 0
   while path1 and path2:
     path1, cur1 = os.path.split(path1)
     path2, cur2 = os.path.split(path2)
 
-    if cur1 != cur2:
+    if cur1 != cur2 or not cur1:
       break
 
     counter += 1
