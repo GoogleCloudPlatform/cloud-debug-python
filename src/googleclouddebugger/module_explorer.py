@@ -14,6 +14,7 @@
 
 """Finds all the code objects defined by a module."""
 
+import os
 import sys
 import types
 
@@ -74,8 +75,21 @@ def _GetCodeObjects(module, item, code_objects, visit_recorder):
   """
 
   def _IsCodeObjectInModule(code_object):
-    """Checks if the code object originated from "module"."""
-    return code_object.co_filename == module.__file__
+    """Checks if the code object originated from "module".
+
+    If the module was precompiled, the code object may point to .py file, while
+    the module says that it originated from .pyc file. We just strip extension
+    altogether to work around it.
+
+    Args:
+      code_object: code object that we want to check against module.
+
+    Returns:
+      True if code_object was implemented in module or false otherwise.
+    """
+    code_object_file = os.path.splitext(code_object.co_filename)[0]
+    module_file = os.path.splitext(module.__file__)[0]
+    return code_object_file == module_file
 
   def _IgnoreClass(cls):
     """Returns true if the class is definitely not coming from "module"."""
