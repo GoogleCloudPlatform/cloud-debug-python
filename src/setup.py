@@ -23,7 +23,7 @@ from distutils import sysconfig
 import googleclouddebugger
 
 
-def remove_prefixes(optlist, bad_prefixes):
+def RemovePrefixes(optlist, bad_prefixes):
   for bad_prefix in bad_prefixes:
     for i, flag in enumerate(optlist):
       if flag.startswith(bad_prefix):
@@ -32,15 +32,23 @@ def remove_prefixes(optlist, bad_prefixes):
   return optlist
 
 
+def ReadConfig(section, value, default):
+  try:
+    config = ConfigParser.ConfigParser()
+    config.read('setup.cfg')
+    return config.get(section, value)
+  except:  # pylint: disable=bare-except
+    return default
+
+
 readme = os.path.join(os.path.dirname(__file__), '../README.md')
 LONG_DESCRIPTION = open(readme).read()
 
-try:
-  config = ConfigParser.ConfigParser()
-  config.read('setup.cfg')
-  lib_dirs = config.get('build_ext', 'library_dirs').split(':')
-except:  # pylint: disable=bare-except
-  lib_dirs = [sysconfig.get_config_var('LIBDIR')]
+lib_dirs = ReadConfig('build_ext',
+                      'library_dirs',
+                      sysconfig.get_config_var('LIBDIR')).split(':')
+extra_compile_args = ReadConfig('cc_options', 'extra_compile_args', '').split()
+extra_link_args = ReadConfig('cc_options', 'extra_link_args', '').split()
 
 static_libs = []
 deps = ['libgflags.a', 'libglog.a']
@@ -52,7 +60,7 @@ for dep in deps:
 assert len(static_libs) == len(deps), (static_libs, deps, lib_dirs)
 
 cvars = sysconfig.get_config_vars()
-cvars['OPT'] = str.join(' ', remove_prefixes(
+cvars['OPT'] = str.join(' ', RemovePrefixes(
     cvars.get('OPT').split(),
     ['-g', '-O', '-Wstrict-prototypes']))
 
@@ -61,12 +69,11 @@ cdbg_native_module = Extension(
     sources=glob('googleclouddebugger/*.cc'),
     extra_compile_args=[
         '-std=c++0x',
-        '-static-libstdc++',
         '-Werror',
         '-g0',
         '-O3',
-    ],
-    extra_link_args=static_libs + ['-static-libstdc++'],
+    ] + extra_compile_args,
+    extra_link_args=static_libs + extra_link_args,
     libraries=['rt'])
 
 setup(
