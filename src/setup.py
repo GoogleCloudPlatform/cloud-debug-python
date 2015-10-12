@@ -59,13 +59,14 @@ cvars['OPT'] = str.join(' ', remove_prefixes(
 cdbg_native_module = Extension(
     'googleclouddebugger.cdbg_native',
     sources=glob('googleclouddebugger/*.cc'),
-        '-std=c++0x',
     extra_compile_args=[
+        '-std=c++0x',
+        '-static-libstdc++',
         '-Werror',
         '-g0',
         '-O3',
     ],
-    extra_link_args=static_libs,
+    extra_link_args=static_libs + ['-static-libstdc++'],
     libraries=['rt'])
 
 setup(
