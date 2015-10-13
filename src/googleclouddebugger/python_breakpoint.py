@@ -21,6 +21,7 @@ from threading import Lock
 
 import capture_collector
 import cdbg_native as native
+import deferred_modules
 import module_explorer
 import module_lookup
 
@@ -73,6 +74,11 @@ class PythonBreakpoint(object):
   def __init__(self, definition, hub_client, breakpoints_manager):
     """Class constructor.
 
+    Tries to set the breakpoint. If the source location is invalid, the
+    breakpoint is completed with an error message. If the source location is
+    valid, but the module hasn't been loaded yet, the breakpoint is initialized
+    as deferred.
+
     Args:
       definition: breakpoint definition as it came from the backend.
       hub_client: asynchronously sends breakpoint updates to the backend.
@@ -86,51 +92,13 @@ class PythonBreakpoint(object):
     self._hub_client = hub_client
     self._breakpoints_manager = breakpoints_manager
     self._cookie = None
-
-    # Find the code object in which the breakpoint is being set.
-    path = self.definition['location']['path']
-    line = self.definition['location']['line']
-
-    code_object = self._FindCodeObject(path, line)
-    if not code_object:
-      return  # _FindCodeObject already completed the breakpoint with an error.
-
-    # Compile the breakpoint condition.
-    condition = None
-    if self.definition.get('condition'):
-      try:
-        condition = compile(self.definition.get('condition'),
-                            '<condition_expression>',
-                            'eval')
-      except TypeError as e:  # condition string contains null bytes.
-        self._CompleteBreakpoint({
-            'status': {
-                'isError': True,
-                'refersTo': 'BREAKPOINT_CONDITION',
-                'description': {
-                    'format': 'Invalid expression',
-                    'parameters': [str(e)]}}})
-        return
-      except SyntaxError as e:
-        self._CompleteBreakpoint({
-            'status': {
-                'isError': True,
-                'refersTo': 'BREAKPOINT_CONDITION',
-                'description': {
-                    'format': 'Expression could not be compiled: $0',
-                    'parameters': [e.msg]}}})
-        return
-
-    native.LogInfo('Creating new Python breakpoint %s in %s, line %d' % (
-        self.GetBreakpointId(), code_object, line))
+    self._import_hook_cleanup = None
 
     self._lock = Lock()
     self._completed = False
-    self._cookie = native.SetConditionalBreakpoint(
-        code_object,
-        line,
-        condition,
-        self._BreakpointEvent)
+
+    if not self._TryActivateBreakpoint() and not self._completed:
+      self._DeferBreakpoint()
 
   def Clear(self):
     """Clears the breakpoint and releases all breakpoint resources.
@@ -138,10 +106,13 @@ class PythonBreakpoint(object):
     This function is assumed to be called by BreakpointsManager. Therefore we
     don't call CompleteBreakpoint from here.
     """
+    self._RemoveImportHook()
     if self._cookie is not None:
       native.LogInfo('Clearing breakpoint %s' % self.GetBreakpointId())
       native.ClearConditionalBreakpoint(self._cookie)
       self._cookie = None
+
+    self._completed = True  # Never again send updates for this breakpoint.
 
   def BreakpointsEmulatorQuotaExceeded(self):
     self._CompleteBreakpoint({
@@ -171,35 +142,83 @@ class PythonBreakpoint(object):
             'refersTo': 'UNSPECIFIED',
             'description': {'format': BREAKPOINT_EXPIRED}}})
 
-  def _FindCodeObject(self, source_path, line):
+  def _TryActivateBreakpoint(self):
+    """Sets the breakpoint if the module has already been loaded.
+
+    This function will complete the breakpoint with error if breakpoint
+    definition is incorrect. Examples: invalid line or bad condition.
+
+    If the code object corresponding to the source path can't be found,
+    this function returns False. In this case, the breakpoint is not
+    completed, since the breakpoint may be deferred.
+
+    Returns:
+      True if breakpoint was set or false otherwise. False can be returned
+      for potentially deferred breakpoints or in case of a bad breakpoint
+      definition. The self._completed flag distinguishes between the two cases.
+    """
+
+    # Find the code object in which the breakpoint is being set.
+    code_object = self._FindCodeObject()
+    if not code_object:
+      return False
+
+    # Compile the breakpoint condition.
+    condition = None
+    if self.definition.get('condition'):
+      try:
+        condition = compile(self.definition.get('condition'),
+                            '<condition_expression>',
+                            'eval')
+      except TypeError as e:  # condition string contains null bytes.
+        self._CompleteBreakpoint({
+            'status': {
+                'isError': True,
+                'refersTo': 'BREAKPOINT_CONDITION',
+                'description': {
+                    'format': 'Invalid expression',
+                    'parameters': [str(e)]}}})
+        return False
+      except SyntaxError as e:
+        self._CompleteBreakpoint({
+            'status': {
+                'isError': True,
+                'refersTo': 'BREAKPOINT_CONDITION',
+                'description': {
+                    'format': 'Expression could not be compiled: $0',
+                    'parameters': [e.msg]}}})
+        return False
+
+    line = self.definition['location']['line']
+
+    native.LogInfo('Creating new Python breakpoint %s in %s, line %d' % (
+        self.GetBreakpointId(), code_object, line))
+
+    self._cookie = native.SetConditionalBreakpoint(
+        code_object,
+        line,
+        condition,
+        self._BreakpointEvent)
+
+    return True
+
+  def _FindCodeObject(self):
     """Finds the target code object for the breakpoint.
 
-    If module is not found or if there is no code at the specified line, this
-    function completes the breakpoint with error.
-
-    Args:
-      source_path: breakpoint location.
-      line: 1-based source line number.
+    This function completes breakpoint with error if the module was found,
+    but the line number is invalid. When code object is not found for the
+    breakpoint source location, this function just returns None. It does not
+    assume error, because it might be a deferred breakpoint.
 
     Returns:
       Python code object object in which the breakpoint will be set or None if
       module not found or if there is no code at the specified line.
     """
-    if os.path.splitext(source_path)[1] not in ['.py', '.pyc']:
-      self._CompleteBreakpoint({
-          'status': {
-              'isError': True,
-              'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
-              'description': {'format': BREAKPOINT_ONLY_SUPPORTS_PY_FILES}}})
-      return None
+    path = self.definition['location']['path']
+    line = self.definition['location']['line']
 
-    module = module_lookup.FindModule(source_path)
+    module = module_lookup.FindModule(path)
     if not module:
-      self._CompleteBreakpoint({
-          'status': {
-              'isError': True,
-              'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
-              'description': {'format': MODULE_NOT_FOUND}}})
       return None
 
     code_object = module_explorer.GetCodeObjectAtLine(module, line)
@@ -215,7 +234,51 @@ class PythonBreakpoint(object):
 
     return code_object
 
+  # Enables deferred breakpoints.
+  def _DeferBreakpoint(self):
+    """Defers breakpoint activation until the module has been loaded.
+
+    This function first verifies that a module corresponding to breakpoint
+    location exists. This way if the user sets breakpoint in a file that
+    doesn't even exist, the debugger will not be waiting forever. If there
+    is definitely no module that matches this breakpoint, this function
+    completes the breakpoint with error status.
+
+    Otherwise the debugger assumes that the module corresponding to breakpoint
+    location hasn't been loaded yet. The debugger will then start waiting for
+    the module to get loaded. Once the module is loaded, the debugger
+    will automatically try to activate the breakpoint.
+    """
+    path = self.definition['location']['path']
+
+    if os.path.splitext(path)[1] != '.py':
+      self._CompleteBreakpoint({
+          'status': {
+              'isError': True,
+              'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
+              'description': {'format': BREAKPOINT_ONLY_SUPPORTS_PY_FILES}}})
+      return
+
+    if not deferred_modules.IsValidSourcePath(path):
+      self._CompleteBreakpoint({
+          'status': {
+              'isError': True,
+              'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
+              'description': {'format': MODULE_NOT_FOUND}}})
+
+    assert not self._import_hook_cleanup
+    self._import_hook_cleanup = deferred_modules.AddImportCallback(
+        self.definition['location']['path'],
+        lambda unused_module_name: self._TryActivateBreakpoint())
+
+  def _RemoveImportHook(self):
+    """Removes the import hook if one was installed."""
+    if self._import_hook_cleanup:
+      self._import_hook_cleanup()
+      self._import_hook_cleanup = None
+
   def _CompleteBreakpoint(self, data, is_incremental=True):
+    """Sends breakpoint update and deactivates the breakpoint."""
     if is_incremental:
       data = dict(self.definition, **data)
     data['isFinalState'] = True
