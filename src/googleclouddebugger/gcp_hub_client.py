@@ -259,6 +259,9 @@ class GcpHubClient(object):
     Returns:
       (registration_required, delay) tuple
     """
+    version = googleclouddebugger.__version__
+    major_version = version.split('.')[0]
+
     try:
       request = {
           'debuggee': {
@@ -266,8 +269,7 @@ class GcpHubClient(object):
               'uniquifier': self._ComputeUniquifier(),
               'description': self._GetDebuggeeDescription(),
               'labels': self._debuggee_labels,
-              'agentVersion':
-                  googleclouddebugger.__version__
+              'agentVersion': 'google.com/python2.7-' + major_version
           }
       }
 
