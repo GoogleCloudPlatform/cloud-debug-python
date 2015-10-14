@@ -31,7 +31,7 @@ using google::LogMessage;
 
 DEFINE_bool(
     enable_bytecode_rewrite_breakpoints,
-    false,
+    true,
     "Enables experimental support for zero overhead breakpoints instead of "
     "using profile/trace callbacks to emulate breakpoint support");
 
