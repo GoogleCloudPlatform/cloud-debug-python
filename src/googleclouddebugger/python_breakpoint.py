@@ -45,10 +45,15 @@ MUTABLE_CONDITION = (
     'Only immutable expressions can be used in snapshot conditions')
 BREAKPOINT_EXPIRED = (
     'The snapshot has expired')
+INTERNAL_ERROR = (
+    'Internal error occurred')
 
 # Status messages for different breakpoint events (except of "hit").
 _BREAKPOINT_EVENT_STATUS = dict(
-    [(native.BREAKPOINT_EVENT_GLOBAL_CONDITION_QUOTA_EXCEEDED,
+    [(native.BREAKPOINT_EVENT_ERROR,
+      {'isError': True,
+       'description': {'format': INTERNAL_ERROR}}),
+     (native.BREAKPOINT_EVENT_GLOBAL_CONDITION_QUOTA_EXCEEDED,
       {'isError': True,
        'refersTo': 'BREAKPOINT_CONDITION',
        'description': {'format': GLOBAL_CONDITION_QUOTA_EXCEEDED}}),
