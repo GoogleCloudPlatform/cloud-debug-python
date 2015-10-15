@@ -168,7 +168,7 @@ void WriteInstruction(
     it[0] = instruction.opcode;
 
     if (HAS_ARG(instruction.opcode)) {
-      DCHECK_LE(instruction.argument, 0xFFFF);
+      DCHECK_LE(instruction.argument, 0xFFFFU);
       WritePythonBytecodeUInt16(
           it + 1,
           static_cast<uint16>(instruction.argument));
