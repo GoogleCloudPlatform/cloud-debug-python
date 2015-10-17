@@ -21,7 +21,11 @@ import types
 
 import cdbg_native as native
 
-_VECTOR_TYPES = {types.TupleType, types.ListType, types.SliceType}
+_VECTOR_TYPES = {types.TupleType, types.ListType, types.SliceType, set}
+
+EMPTY_DICTIONARY = 'Empty dictionary'
+EMPTY_COLLECTION = 'Empty collection'
+OBJECT_HAS_NO_FIELDS = 'Object has no fields'
 
 
 class CaptureCollector(object):
@@ -187,12 +191,13 @@ class CaptureCollector(object):
     v['name'] = name
     return v
 
-  def CaptureVariablesList(self, items, depth):
+  def CaptureVariablesList(self, items, depth, empty_message):
     """Captures list of named items.
 
     Args:
       items: iterable of (name, value) tuples.
       depth: nested depth of dictionaries and vectors for items.
+      empty_message: info status message to set if items is empty.
 
     Returns:
       List of formatted variable objects.
@@ -208,6 +213,13 @@ class CaptureCollector(object):
                     'parameters': [str(len(v))]}}})
         break
       v.append(self.CaptureNamedVariable(name, value, depth))
+
+    if not v:
+      return [{'status': {
+          'is_error': False,
+          'refers_to': 'VARIABLE_NAME',
+          'description': {'format': empty_message}}}]
+
     return v
 
   def CaptureVariable(self, value, depth=1, can_enqueue=True):
@@ -243,12 +255,14 @@ class CaptureCollector(object):
 
     if type(value) is dict:
       return {'members': self.CaptureVariablesList(value.iteritems(),
-                                                   depth + 1)}
+                                                   depth + 1,
+                                                   EMPTY_DICTIONARY)}
 
     if type(value) in _VECTOR_TYPES:
       return {'members': self.CaptureVariablesList(
           (('[%d]' % i, x) for i, x in enumerate(value)),
-          depth + 1)}
+          depth + 1,
+          EMPTY_COLLECTION)}
 
     if type(value) is types.FunctionType:
       self._total_size += len(value.func_name)
@@ -266,12 +280,20 @@ class CaptureCollector(object):
     for pretty_printer in CaptureCollector.pretty_printers:
       fields = pretty_printer(value)
       if fields:
-        return {'members': self.CaptureVariablesList(fields, depth + 1)}
+        return {'members': self.CaptureVariablesList(fields,
+                                                     depth + 1,
+                                                     OBJECT_HAS_NO_FIELDS)}
 
     if not hasattr(value, '__dict__'):
       r = str(type(value))
       self._total_size += len(r)
       return {'value': r}
+
+    if not value.__dict__:
+      return {'members': [{'status': {
+          'is_error': False,
+          'refers_to': 'VARIABLE_NAME',
+          'description': {'format': OBJECT_HAS_NO_FIELDS}}}]}
 
     return self.CaptureVariable(value.__dict__, depth + 1)
 
