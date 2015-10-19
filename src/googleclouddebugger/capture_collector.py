@@ -17,6 +17,8 @@
 import copy
 import datetime
 import inspect
+import os
+import sys
 import types
 
 import cdbg_native as native
@@ -123,7 +125,7 @@ class CaptureCollector(object):
       breakpoint_frames.append({
           'function': code.co_name,
           'location': {
-              'path': code.co_filename,
+              'path': CaptureCollector._NormalizePath(code.co_filename),
               'line': frame.f_lineno},
           'arguments': frame_arguments,
           'locals': frame_locals})
@@ -373,3 +375,33 @@ class CaptureCollector(object):
       ProcessBufferFull(stack_frame['locals'])
     ProcessBufferFull(self._var_table)
     ProcessBufferFull(self.breakpoint['evaluatedExpressions'])
+
+  @staticmethod
+  def _NormalizePath(path):
+    """Converts an absolute path to a relative one.
+
+    Python keeps almost all paths absolute. This is not what we actually
+    want to return. This loops through system paths (directories in which
+    Python will load modules). If "path" is relative to one of them, the
+    directory prefix is removed.
+
+    Args:
+      path: absolute path to normalize (relative paths will not be altered)
+
+    Returns:
+      Relative path if "path" is within one of the sys.path directories or
+      the input otherwise.
+    """
+    path = os.path.normpath(path)
+
+    for sys_path in sys.path:
+      if not sys_path:
+        continue
+
+      # Append '/' at the end of the path if it's not there already.
+      sys_path = os.path.join(sys_path, '')
+
+      if path.startswith(sys_path):
+        return path[len(sys_path):]
+
+    return path
