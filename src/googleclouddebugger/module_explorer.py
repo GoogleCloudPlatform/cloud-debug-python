@@ -89,7 +89,13 @@ def _GetCodeObjects(module, item, code_objects, visit_recorder):
     """
     code_object_file = os.path.splitext(code_object.co_filename)[0]
     module_file = os.path.splitext(module.__file__)[0]
-    return code_object_file == module_file
+
+    # The simple case.
+    if code_object_file == module_file:
+      return True
+
+
+    return False
 
   def _IgnoreClass(cls):
     """Returns true if the class is definitely not coming from "module"."""
