@@ -33,12 +33,17 @@ class PythonCallback {
   // when invoked. The callback returns will always return None.
   static ScopedPyObject Wrap(std::function<void()> callback);
 
+  // Disables any futher invocations of "callback_". The "method" is the
+  // return value of "Wrap".
+  static void Disable(PyObject* method);
+
   static PyTypeObject python_type_;
 
  private:
   static PyObject* Run(PyObject* self);
 
  private:
+  // Callback to invoke or nullptr if the callback was cancelled.
   std::function<void()> callback_;
 
   static PyMethodDef callback_method_def_;

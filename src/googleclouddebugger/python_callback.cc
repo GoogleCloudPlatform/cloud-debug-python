@@ -45,8 +45,23 @@ ScopedPyObject PythonCallback::Wrap(std::function<void()> callback) {
 }
 
 
+void PythonCallback::Disable(PyObject* method) {
+  DCHECK(PyCFunction_Check(method));
+
+  auto instance = py_object_cast<PythonCallback>(PyCFunction_GET_SELF(method));
+  DCHECK(instance);
+
+  instance->callback_ = nullptr;
+}
+
+
 PyObject* PythonCallback::Run(PyObject* self) {
-  py_object_cast<PythonCallback>(self)->callback_();
+  auto instance = py_object_cast<PythonCallback>(self);
+
+  if (instance->callback_ != nullptr) {
+    instance->callback_();
+  }
+
   Py_RETURN_NONE;
 }
 

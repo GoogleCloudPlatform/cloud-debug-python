@@ -399,6 +399,8 @@ void BytecodeBreakpoint::ClearBreakpoint(int cookie) {
     return;  // No breakpoint with this cookie.
   }
 
+  PythonCallback::Disable(it_breakpoint->second->hit_callable.get());
+
   auto it_code = patches_.find(it_breakpoint->second->code_object);
   if (it_code != patches_.end()) {
     CodeObjectBreakpoints* code = it_code->second;
