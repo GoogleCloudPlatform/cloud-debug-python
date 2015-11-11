@@ -248,21 +248,14 @@ void BytecodeBreakpoint::PatchCodeObject(CodeObjectBreakpoints* code) {
     return;
   }
 
-  const size_t bytecode_size = PyString_GET_SIZE(code->original_code.get());
-  const uint8* const bytecode_data = reinterpret_cast<uint8*>(
-      PyString_AS_STRING(code->original_code.get()));
-  std::vector<uint8> bytecode(bytecode_data, bytecode_data + bytecode_size);
+  std::vector<uint8> bytecode = PyStringToByteArray(code->original_code.get());
 
   bool has_lnotab = false;
   std::vector<uint8> lnotab;
   if (!code->original_lnotab.is_null() &&
       PyString_CheckExact(code->original_lnotab.get())) {
-    const size_t lnotab_size = PyString_GET_SIZE(code->original_lnotab.get());
-    const uint8* const lnotab_data = reinterpret_cast<uint8*>(
-        PyString_AS_STRING(code->original_lnotab.get()));
-
     has_lnotab = true;
-    lnotab.assign(lnotab_data, lnotab_data + lnotab_size);
+    lnotab = PyStringToByteArray(code->original_lnotab.get());
   }
 
   BytecodeManipulator bytecode_manipulator(

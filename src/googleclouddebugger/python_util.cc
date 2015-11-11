@@ -238,6 +238,16 @@ string CodeObjectDebugString(PyCodeObject* code_object) {
   return str;
 }
 
+
+std::vector<uint8> PyStringToByteArray(PyObject* obj) {
+  DCHECK(PyString_CheckExact(obj));
+
+  const size_t bytecode_size = PyString_GET_SIZE(obj);
+  const uint8* const bytecode_data =
+      reinterpret_cast<uint8*>(PyString_AS_STRING(obj));
+  return std::vector<uint8>(bytecode_data, bytecode_data + bytecode_size);
+}
+
 }  // namespace cdbg
 }  // namespace devtools
 

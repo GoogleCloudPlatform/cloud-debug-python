@@ -305,6 +305,10 @@ PyObject* GetDebugletModuleObject(const char* key);
 // Formats the name and the origin of the code object for logging.
 string CodeObjectDebugString(PyCodeObject* code_object);
 
+// Reads Python string as a byte array. The function does not verify that
+// "obj" is of a string type.
+std::vector<uint8> PyStringToByteArray(PyObject* obj);
+
 }  // namespace cdbg
 }  // namespace devtools
 
