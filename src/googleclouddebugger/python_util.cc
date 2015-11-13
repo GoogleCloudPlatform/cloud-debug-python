@@ -248,6 +248,28 @@ std::vector<uint8> PyStringToByteArray(PyObject* obj) {
   return std::vector<uint8>(bytecode_data, bytecode_data + bytecode_size);
 }
 
+
+// Creates a new tuple by appending "items" to elements in "tuple".
+ScopedPyObject AppendTuple(
+    PyObject* tuple,
+    const std::vector<PyObject*>& items) {
+  const size_t tuple_size = PyTuple_GET_SIZE(tuple);
+  ScopedPyObject new_tuple(PyTuple_New(tuple_size + items.size()));
+
+  for (size_t i = 0; i < tuple_size; ++i) {
+    PyObject* item = PyTuple_GET_ITEM(tuple, i);
+    Py_XINCREF(item);
+    PyTuple_SET_ITEM(new_tuple.get(), i, item);
+  }
+
+  for (size_t i = 0; i < items.size(); ++i) {
+    Py_XINCREF(items[i]);
+    PyTuple_SET_ITEM(new_tuple.get(), tuple_size + i, items[i]);
+  }
+
+  return new_tuple;
+}
+
 }  // namespace cdbg
 }  // namespace devtools
 

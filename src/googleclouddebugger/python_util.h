@@ -309,6 +309,11 @@ string CodeObjectDebugString(PyCodeObject* code_object);
 // "obj" is of a string type.
 std::vector<uint8> PyStringToByteArray(PyObject* obj);
 
+// Creates a new tuple by appending "items" to elements in "tuple".
+ScopedPyObject AppendTuple(
+    PyObject* tuple,
+    const std::vector<PyObject*>& items);
+
 }  // namespace cdbg
 }  // namespace devtools
 
