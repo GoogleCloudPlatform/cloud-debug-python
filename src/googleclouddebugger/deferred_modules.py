@@ -204,18 +204,23 @@ def _InstallImportHook():
   builtin.__import__ = _ImportHook
 
 
-def _ImportHook(name, globs=None, locs=None, from_list=None, level=-1):
-  """Callback when a module is being imported by Python interpreter."""
+# pylint: disable=redefined-builtin, g-doc-args, g-doc-return-or-yield
+def _ImportHook(name, globals=None, locals=None, fromlist=None, level=-1):
+  """Callback when a module is being imported by Python interpreter.
 
-  module = _real_import(name, globs, locs, from_list, level)
+  Argument names have to exactly match those of __import__. Otherwise calls
+  to __import__ that use keyword syntax will fail: __import('a', fromlist=[]).
+  """
+
+  module = _real_import(name, globals, locals, fromlist, level)
 
   # Invoke callbacks for the imported module. No need to lock, since all
   # operations are atomic.
   pos = name.rfind('.') + 1
   _InvokeImportCallback(name[pos:])
 
-  if from_list:
-    for module_name in from_list:
+  if fromlist:
+    for module_name in fromlist:
       _InvokeImportCallback(module_name)
 
   return module

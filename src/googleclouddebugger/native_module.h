@@ -23,9 +23,6 @@ namespace cdbg {
 // Python Cloud Debugger native module entry point
 void InitDebuggerNativeModule();
 
-// Enables the Python Cloud debugger on the current Python thread.
-void AttachNativeThread();
-
 }  // namespace cdbg
 }  // namespace devtools
 

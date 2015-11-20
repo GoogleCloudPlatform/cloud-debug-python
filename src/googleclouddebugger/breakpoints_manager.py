@@ -114,13 +114,6 @@ class BreakpointsManager(object):
     for breakpoint in expired_breakpoints:
       breakpoint.ExpireBreakpoint()
 
-  def BreakpointsEmulatorQuotaExceeded(self):
-    """Clears all breakpoints when breakpoints emulator quota is exceeded."""
-    with self._lock:
-      breakpoints = self._active.values()
-    for breakpoint in breakpoints:
-      breakpoint.BreakpointsEmulatorQuotaExceeded()
-
   @staticmethod
   def _GetCurrentTime():
     """Wrapper around datetime.now() function.

@@ -32,8 +32,6 @@ MODULE_NOT_FOUND = (
     'Python module not found')
 NO_CODE_FOUND_AT_LINE = (
     'No code found at line $0')
-BREAKPOINTS_EMULATOR_QUOTA_EXCEEDED = (
-    'Active snapshots might affect the application performance')
 GLOBAL_CONDITION_QUOTA_EXCEEDED = (
     'Snapshot cancelled. The condition evaluation cost for all active '
     'snapshots might affect the application performance.')
@@ -118,12 +116,6 @@ class PythonBreakpoint(object):
       self._cookie = None
 
     self._completed = True  # Never again send updates for this breakpoint.
-
-  def BreakpointsEmulatorQuotaExceeded(self):
-    self._CompleteBreakpoint({
-        'status': {
-            'isError': True,
-            'description': {'format': BREAKPOINTS_EMULATOR_QUOTA_EXCEEDED}}})
 
   def GetBreakpointId(self):
     return self.definition['id']
@@ -325,7 +317,5 @@ class PythonBreakpoint(object):
       collector.Collect(frame)
 
       self._CompleteBreakpoint(collector.breakpoint, is_incremental=False)
-    elif event == native.BREAKPOINT_EVENT_EMULATOR_QUOTA_EXCEEDED:
-      self._breakpoints_manager.BreakpointsEmulatorQuotaExceeded()
     else:
       self._CompleteBreakpoint({'status': _BREAKPOINT_EVENT_STATUS[event]})

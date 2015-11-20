@@ -18,11 +18,32 @@
 #define DEVTOOLS_CDBG_DEBUGLETS_PYTHON_CONDITIONAL_BREAKPOINT_H_
 
 #include "leaky_bucket.h"
-#include "breakpoints_emulator.h"
 #include "common.h"
+#include "python_util.h"
 
 namespace devtools {
 namespace cdbg {
+
+// Breakpoints emulator will typically notify the next layer when a breakpoint
+// hits. However there are other situations that the next layer need to be
+// aware of.
+enum class BreakpointEvent {
+  // The breakpoint was hit.
+  Hit,
+
+  // Error occurred (e.g. breakpoint could not be set).
+  Error,
+
+  // Evaluation of conditional expression is consuming too much resources. It is
+  // a responsibility of the next layer to disable the offending breakpoint.
+  GlobalConditionQuotaExceeded,
+  BreakpointConditionQuotaExceeded,
+
+  // The conditional expression changes state of the program and therefore not
+  // allowed.
+  ConditionExpressionMutable,
+};
+
 
 // Implements breakpoint action to evaluate optional breakpoint condition. If
 // the condition matches, calls Python callable object.
@@ -32,15 +53,9 @@ class ConditionalBreakpoint {
 
   ~ConditionalBreakpoint();
 
-  void OnBreakpointEvent(BreakpointEvent event, PyFrameObject* frame);
+  void OnBreakpointHit();
 
-  // New callback method for bytecode rewriting breakpoints.
-  // TODO(vlif): deprecate OnBreakpointEvent and refactor the code to get frame
-  // in the Python code.
-  template <BreakpointEvent event>
-  void OnBreakpointEvent2() {
-    OnBreakpointEvent(event, PyThreadState_Get()->frame);
-  }
+  void OnBreakpointError();
 
  private:
   // Evaluates breakpoint condition within the context of the specified frame.

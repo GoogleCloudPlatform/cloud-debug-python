@@ -41,8 +41,13 @@ def ReadConfig(section, value, default):
     return default
 
 
-readme = os.path.join(os.path.dirname(__file__), '../README.md')
-LONG_DESCRIPTION = open(readme).read()
+LONG_DESCRIPTION = (
+    'The Cloud Debugger lets you inspect the state of an application at any\n'
+    'code location without stopping or slowing it down. The debugger makes it\n'
+    'easier to view the application state without adding logging statements.\n'
+    '\n'
+    'For more details please see '
+    'https://github.com/GoogleCloudPlatform/cloud-debug-python\n')
 
 lib_dirs = ReadConfig('build_ext',
                       'library_dirs',

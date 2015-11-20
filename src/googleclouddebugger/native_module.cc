@@ -17,7 +17,6 @@
 // Ensure that Python.h is included before any other header.
 #include "common.h"
 
-#include "breakpoints_emulator.h"
 #include "bytecode_breakpoint.h"
 #include "common.h"
 #include "conditional_breakpoint.h"
@@ -29,20 +28,12 @@
 
 using google::LogMessage;
 
-DEFINE_bool(
-    enable_bytecode_rewrite_breakpoints,
-    true,
-    "Enables experimental support for zero overhead breakpoints instead of "
-    "using profile/trace callbacks to emulate breakpoint support");
-
 namespace devtools {
 namespace cdbg {
 
 const LogSeverity LOG_SEVERITY_INFO = ::google::INFO;
 const LogSeverity LOG_SEVERITY_WARNING = ::google::WARNING;
 const LogSeverity LOG_SEVERITY_ERROR = ::google::ERROR;
-
-static const char kBreakpointsEmulatorKey[] = "breakpoints_emulator";
 
 struct INTEGER_CONSTANT {
   const char* name;
@@ -53,10 +44,6 @@ static const INTEGER_CONSTANT kIntegerConstants[] = {
   {
     "BREAKPOINT_EVENT_HIT",
     static_cast<int32>(BreakpointEvent::Hit)
-  },
-  {
-    "BREAKPOINT_EVENT_EMULATOR_QUOTA_EXCEEDED",
-    static_cast<int32>(BreakpointEvent::EmulatorQuotaExceeded)
   },
   {
     "BREAKPOINT_EVENT_ERROR",
@@ -77,7 +64,6 @@ static const INTEGER_CONSTANT kIntegerConstants[] = {
 };
 
 // Class to set zero overhead breakpoints.
-// NOTE: not used as long as enable_bytecode_rewrite_breakpoints flag is false.
 static BytecodeBreakpoint g_bytecode_breakpoint;
 
 // Condition and dynamic logging rate limits are defined as the maximum
@@ -315,37 +301,17 @@ static PyObject* SetConditionalBreakpoint(PyObject* self, PyObject* py_args) {
 
   int cookie = -1;
 
-  if (FLAGS_enable_bytecode_rewrite_breakpoints) {
-    cookie = g_bytecode_breakpoint.SetBreakpoint(
-        code_object,
-        line,
-        std::bind(
-            &ConditionalBreakpoint::OnBreakpointEvent2<BreakpointEvent::Hit>,
-            conditional_breakpoint),
-        std::bind(
-            &ConditionalBreakpoint::OnBreakpointEvent2<BreakpointEvent::Error>,
-            conditional_breakpoint));
-    if (cookie == -1) {
-      conditional_breakpoint->OnBreakpointEvent(
-          BreakpointEvent::Error,
-          nullptr);
-    }
-  } else {
-    auto* emulator = py_object_cast<BreakpointsEmulator>(
-        GetDebugletModuleObject(kBreakpointsEmulatorKey));
-    if (emulator == nullptr) {
-      PyErr_SetString(PyExc_RuntimeError, "breakpoints emulator not found");
-      return nullptr;
-    }
-
-    cookie = emulator->SetBreakpoint(
-        code_object,
-        line,
-        std::bind(
-            &ConditionalBreakpoint::OnBreakpointEvent,
-            conditional_breakpoint,
-            std::placeholders::_1,
-            std::placeholders::_2));
+  cookie = g_bytecode_breakpoint.SetBreakpoint(
+      code_object,
+      line,
+      std::bind(
+          &ConditionalBreakpoint::OnBreakpointHit,
+          conditional_breakpoint),
+      std::bind(
+          &ConditionalBreakpoint::OnBreakpointError,
+          conditional_breakpoint));
+  if (cookie == -1) {
+    conditional_breakpoint->OnBreakpointError();
   }
 
   return PyInt_FromLong(cookie);
@@ -363,34 +329,9 @@ static PyObject* ClearConditionalBreakpoint(PyObject* self, PyObject* py_args) {
     return nullptr;
   }
 
-  if (FLAGS_enable_bytecode_rewrite_breakpoints) {
-    g_bytecode_breakpoint.ClearBreakpoint(cookie);
-  } else {
-    auto* emulator = py_object_cast<BreakpointsEmulator>(
-        GetDebugletModuleObject(kBreakpointsEmulatorKey));
-    if (emulator == nullptr) {
-      PyErr_SetString(PyExc_RuntimeError, "breakpoints emulator not found");
-      return nullptr;
-    }
-
-    emulator->ClearBreakpoint(cookie);
-  }
+  g_bytecode_breakpoint.ClearBreakpoint(cookie);
 
   Py_RETURN_NONE;
-}
-
-
-// Disables breakpoints emulator for the current thread. No effect if zero
-// overhead breakpoints are enabled.
-// TODO(vlif): remove this function when breakpoint emulator is retired.
-static PyObject* DisableDebuggerOnCurrentThread(
-    PyObject* self,
-    PyObject* py_args) {
-  if (FLAGS_enable_bytecode_rewrite_breakpoints) {
-    Py_RETURN_NONE;
-  }
-
-  return BreakpointsEmulator::DisableDebuggerOnCurrentThread(self, py_args);
 }
 
 
@@ -434,39 +375,6 @@ static PyObject* CallImmutable(PyObject* self, PyObject* py_args) {
   ScopedImmutabilityTracer immutability_tracer;
   return PyEval_EvalCode(code, frame->f_globals, frame->f_locals);
 }
-
-
-// Attaches the debuglet to the current thread.
-//
-// This is only needed for native threads as Python is not even aware they
-// exist. If the debugger is already attached to this thread or if the
-// debugger is disabled for this thread, this function does nothing.
-void AttachNativeThread() {
-  if (FLAGS_enable_bytecode_rewrite_breakpoints) {
-    return;
-  }
-
-  auto* emulator = py_object_cast<BreakpointsEmulator>(
-      GetDebugletModuleObject(kBreakpointsEmulatorKey));
-  if (emulator == nullptr) {
-    LOG(ERROR) << "Breakpoints emulator not found";
-    return;
-  }
-
-  emulator->AttachNativeThread();
-}
-
-// Python wrapper of AttachNativeThread.
-PyObject* PyAttachNativeThread(
-    PyObject* self,
-    PyObject* py_args) {
-  AttachNativeThread();
-
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-
 
 
 static PyMethodDef g_module_functions[] = {
@@ -519,20 +427,6 @@ static PyMethodDef g_module_functions[] = {
     METH_VARARGS,
     "Invokes a Python callable object with immutability tracer."
   },
-  {
-    "AttachNativeThread",
-    PyAttachNativeThread,
-    METH_NOARGS,
-    "Attaches the debugger to the current thread (only needed for native "
-    "threads).",
-  },
-  {
-    "DisableDebuggerOnCurrentThread",
-    DisableDebuggerOnCurrentThread,
-    METH_NOARGS,
-    "Disables breakpoints emulator on the current thread "
-    "(if not attached already).",
-  },
   { nullptr, nullptr, 0, nullptr }  // sentinel
 };
 
@@ -548,28 +442,6 @@ void InitDebuggerNativeModule() {
   if (!RegisterPythonType<PythonCallback>() ||
       !RegisterPythonType<ImmutabilityTracer>()) {
     return;
-  }
-
-  if (!FLAGS_enable_bytecode_rewrite_breakpoints) {
-    if (!RegisterPythonType<ThreadBreakpoints>() ||
-        !RegisterPythonType<BreakpointsEmulator>() ||
-        !RegisterPythonType<DisableDebuggerKey>()) {
-      return;
-    }
-
-    // Create singleton instance of "BreakpointsEmulator" and associate
-    // it with the module.
-    auto emulator = NewNativePythonObject<BreakpointsEmulator>();
-    if (emulator == nullptr) {
-      return;
-    }
-
-    if (PyModule_AddObject(module,
-                           kBreakpointsEmulatorKey,
-                           emulator.release())) {
-      LOG(ERROR) << "Failed to add breakpoints emulator object to cdbg_native";
-      return;
-    }
   }
 
   // Add constants we want to share with the Python code.

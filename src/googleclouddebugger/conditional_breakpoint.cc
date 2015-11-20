@@ -38,17 +38,20 @@ ConditionalBreakpoint::~ConditionalBreakpoint() {
 }
 
 
-void ConditionalBreakpoint::OnBreakpointEvent(
-    BreakpointEvent event,
-    PyFrameObject* frame) {
-  // Evaluate breakpoint condition if it's a breakpoint hit event.
-  if (event == BreakpointEvent::Hit) {
-    if (!EvaluateCondition(frame)) {
-      return;
-    }
+
+void ConditionalBreakpoint::OnBreakpointHit() {
+  PyFrameObject* frame = PyThreadState_Get()->frame;
+
+  if (!EvaluateCondition(frame)) {
+    return;
   }
 
-  NotifyBreakpointEvent(event, frame);
+  NotifyBreakpointEvent(BreakpointEvent::Hit, frame);
+}
+
+
+void ConditionalBreakpoint::OnBreakpointError() {
+  NotifyBreakpointEvent(BreakpointEvent::Error, nullptr);
 }
 
 

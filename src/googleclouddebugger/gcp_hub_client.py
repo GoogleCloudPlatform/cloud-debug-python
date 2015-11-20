@@ -17,7 +17,9 @@
 from collections import deque
 import copy
 import hashlib
+import json
 import os
+import sys
 import threading
 import time
 import traceback
@@ -33,6 +35,7 @@ from oauth2client.gce import AppAssertionCredentials
 
 import googleclouddebugger
 import cdbg_native as native
+import uniquifier_computer
 
 # This module catches all exception. This is safe because it runs in
 # a daemon thread (so we are not blocking Ctrl+C). We need to catch all
@@ -213,8 +216,6 @@ class GcpHubClient(object):
 
   def _MainThreadProc(self):
     """Entry point for the worker thread."""
-    native.DisableDebuggerOnCurrentThread()
-
     registration_required = True
     while not self._shutdown:
       if registration_required:
@@ -232,8 +233,6 @@ class GcpHubClient(object):
 
   def _TransmissionThreadProc(self):
     """Entry point for the transmission worker thread."""
-    native.DisableDebuggerOnCurrentThread()
-
     reconnect = True
 
     while not self._shutdown:
@@ -259,19 +258,8 @@ class GcpHubClient(object):
     Returns:
       (registration_required, delay) tuple
     """
-    version = googleclouddebugger.__version__
-    major_version = version.split('.')[0]
-
     try:
-      request = {
-          'debuggee': {
-              'project': self._project_number(),
-              'uniquifier': self._ComputeUniquifier(),
-              'description': self._GetDebuggeeDescription(),
-              'labels': self._debuggee_labels,
-              'agentVersion': 'google.com/python2.7-' + major_version
-          }
-      }
+      request = {'debuggee': self._GetDebuggee()}
 
       try:
         response = service.debuggees().register(body=request).execute()
@@ -281,10 +269,10 @@ class GcpHubClient(object):
             self._debuggee_id))
         self.register_backoff.Succeeded()
         return (False, 0)  # Proceed immediately to list active breakpoints.
-      except Exception:
+      except BaseException:
         native.LogInfo('Failed to register debuggee: %s, %s' %
                        (request, traceback.format_exc()))
-    except Exception:
+    except BaseException:
       native.LogWarning('Debuggee information not available: ' +
                         traceback.format_exc())
 
@@ -407,18 +395,47 @@ class GcpHubClient(object):
 
     return content
 
+  def _GetDebuggee(self):
+    """Builds the debuggee structure."""
+    version = googleclouddebugger.__version__
+    major_version = version.split('.')[0]
+
+    debuggee = {
+        'project': self._project_number(),
+        'description': self._GetDebuggeeDescription(),
+        'labels': self._debuggee_labels,
+        'agentVersion': 'google.com/python2.7-' + major_version
+    }
+
+    source_context = self._ReadAppJsonFile('source-context.json')
+    if source_context:
+      debuggee['sourceContexts'] = [source_context]
+
+    source_contexts = self._ReadAppJsonFile('source-contexts.json')
+    if source_contexts:
+      debuggee['extSourceContexts'] = source_contexts
+    elif source_context:
+      debuggee['extSourceContexts'] = [{'context': source_context}]
+
+    debuggee['uniquifier'] = self._ComputeUniquifier(debuggee)
+
+    return debuggee
+
   def _GetDebuggeeDescription(self):
     """Formats debuggee description based on debuggee labels."""
     return '-'.join(self._debuggee_labels[label]
                     for label in _DESCRIPTION_LABELS
                     if label in self._debuggee_labels)
 
-  def _ComputeUniquifier(self):
+  def _ComputeUniquifier(self, debuggee):
     """Computes debuggee uniquifier.
 
     The debuggee uniquifier has to be identical on all instances. Therefore the
     uniquifier should not include any random numbers and should only be based
     on inputs that are guaranteed to be the same on all instances.
+
+    Args:
+      debuggee: complete debuggee message without the uniquifier
 
     Returns:
       Hex string of SHA1 hash of project information, debuggee labels and
@@ -430,12 +447,30 @@ class GcpHubClient(object):
     uniquifier.update(self._project_id())
     uniquifier.update(self._project_number())
 
-    # Debuggee labels (this hopefully includes minor version).
-    for (name, value) in self._debuggee_labels.iteritems():
-      uniquifier.update(name)
-      uniquifier.update(value)
+    # Debuggee information.
+    uniquifier.update(str(debuggee))
 
-    uniquifier.update(
-        googleclouddebugger.__version__)
+    # Compute hash of application files if we don't have source context. This
+    # way we can still distinguish between different deployments.
+    if ('minorversion' not in debuggee.get('labels', []) and
+        'sourceContexts' not in debuggee and
+        'extSourceContexts' not in debuggee):
+      uniquifier_computer.ComputeApplicationUniquifier(uniquifier)
 
     return uniquifier.hexdigest()
+
+  def _ReadAppJsonFile(self, relative_path):
+    """Reads JSON file from an application directory.
+
+    Args:
+      relative_path: file name relative to application root directory.
+
+    Returns:
+      Parsed JSON data or None if the file does not exist, can't be read or
+      not a valid JSON file.
+    """
+    try:
+      with open(os.path.join(sys.path[0], relative_path), 'r') as f:
+        return json.load(f)
+    except (IOError, ValueError):
+      return None
