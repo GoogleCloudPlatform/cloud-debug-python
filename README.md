@@ -51,8 +51,9 @@ The easiest way to install the Python Cloud Debugger is with PyPI:
 pip install google-python-cloud-debugger
 ```
 
-Alternatively, download the *egg* package from Releases and install the debugger
-agent with:
+Alternatively, download the *egg* package from
+[Releases](https://github.com/GoogleCloudPlatform/cloud-debug-python/releases)
+and install the debugger agent with:
 
 ```shell
 easy_install google_python_cloud_debugger-py2.7-linux-x86_64.egg
@@ -66,6 +67,7 @@ script):
 git clone https://github.com/GoogleCloudPlatform/cloud-debug-python.git
 cd cloud-debug-python/src/
 ./build.sh
+easy_install dist/google_python_cloud_debugger-*.egg
 ```
 
 ## Setup
