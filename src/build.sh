@@ -37,6 +37,9 @@ GLOG_URL=https://github.com/google/glog/archive/v0.3.4.tar.gz
 
 ROOT=$(cd $(dirname "${BASH_SOURCE[0]}") >/dev/null; /bin/pwd -P)
 
+# Parallelize the build over N threads where N is the number of cores * 1.5.
+PARALLEL_BUILD_OPTION="-j $(($(nproc 2> /dev/null || echo 4)*3/2))"
+
 # Clean up any previous build files.
 rm -rf ${ROOT}/build ${ROOT}/dist ${ROOT}/setup.cfg
 
@@ -54,7 +57,7 @@ cmake -DCMAKE_CXX_FLAGS=-fpic \
       -DGFLAGS_NAMESPACE=google \
       -DCMAKE_INSTALL_PREFIX:PATH=${ROOT}/build/third_party \
       ..
-make
+make ${PARALLEL_BUILD_OPTION}
 make install
 popd
 
@@ -66,7 +69,7 @@ cd glog-*
 ./configure --with-pic \
             --prefix=${ROOT}/build/third_party \
             --with-gflags=${ROOT}/build/third_party
-make
+make ${PARALLEL_BUILD_OPTION}
 make install
 popd
 
