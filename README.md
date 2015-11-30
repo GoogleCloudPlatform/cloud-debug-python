@@ -109,11 +109,11 @@ easy_install dist/google_python_cloud_debugger-*.egg
 ### Service Account
 
 Service account authentication lets you run the debugger agent on any Linux
-machine. The debugger agent authenticates against the backend with the service
-account created in
-[Google Developers Console](https://console.developers.google.com). If your
-application runs on Google Compute Engine,
-[machine account authentication](#Google_Compute_Engine) is an easier option.
+machine, including outside of [Google Cloud Platform](https://cloud.google.com).
+The debugger agent authenticates against the backend with the service account
+created in [Google Developers Console](https://console.developers.google.com).
+If your application runs on Google Compute Engine,
+[metadata service authentication](#Google_Compute_Engine) is an easier option.
 
 The first step for this setup is to create the service account in .p12 format.
 Please see this [page](https://cloud.google.com/storage/docs/authentication?hl=en#generating-a-private-key)
