@@ -24,6 +24,6 @@ def PrettyPrinter(obj):
   """Pretty printers for AppEngine objects."""
 
   if ndb and isinstance(obj, ndb.Model):
-    return obj.to_dict().iteritems()
+    return obj.to_dict().iteritems(), 'ndb.Model(%s)' % type(obj).__name__
 
   return None

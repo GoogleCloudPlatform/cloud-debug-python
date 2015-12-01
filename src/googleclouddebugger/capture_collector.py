@@ -46,8 +46,9 @@ class CaptureCollector(object):
   """
 
   # Additional type-specific printers. Each pretty printer is a callable
-  # that returns None if it doesn't recognize the object or returns iterable
-  # enumerating object fields (name-value tuple).
+  # that returns None if it doesn't recognize the object or returns a tuple
+  # with iterable enumerating object fields (name-value tuple) and object type
+  # string.
   pretty_printers = []
 
   def __init__(self, definition):
@@ -248,26 +249,29 @@ class CaptureCollector(object):
     if isinstance(value, (int, long, float, complex, str, unicode, bool)):
       r = self.TrimString(repr(value))  # Primitive type, always immutable.
       self._total_size += len(r)
-      return {'value': r}
+      return {'value': r, 'type': type(value).__name__}
 
     if isinstance(value, (datetime.date, datetime.time, datetime.timedelta)):
       r = str(value)  # Safe to call str().
       self._total_size += len(r)
-      return {'value': r}
+      return {'value': r, 'type': 'datetime.'+ type(value).__name__}
 
     if type(value) is dict:
       return {'members': self.CaptureVariablesList(value.iteritems(),
                                                    depth + 1,
-                                                   EMPTY_DICTIONARY)}
+                                                   EMPTY_DICTIONARY),
+              'type': 'dict'}
 
     if type(value) in _VECTOR_TYPES:
-      return {'members': self.CaptureVariablesList(
+      fields = self.CaptureVariablesList(
           (('[%d]' % i, x) for i, x in enumerate(value)),
           depth + 1,
-          EMPTY_COLLECTION)}
+          EMPTY_COLLECTION)
+      return {'members': fields, 'type': type(value).__name__}
 
     if type(value) is types.FunctionType:
       self._total_size += len(value.func_name)
+      # TODO(vlif): set value to func_name and type to 'function'
       return {'value': 'function ' + value.func_name}
 
     if can_enqueue:
@@ -280,24 +284,42 @@ class CaptureCollector(object):
       return {'varTableIndex': index}
 
     for pretty_printer in CaptureCollector.pretty_printers:
-      fields = pretty_printer(value)
-      if fields:
-        return {'members': self.CaptureVariablesList(fields,
-                                                     depth + 1,
-                                                     OBJECT_HAS_NO_FIELDS)}
+      pretty_value = pretty_printer(value)
+      if not pretty_value:
+        continue
+
+      fields, object_type = pretty_value
+      return {'members': self.CaptureVariablesList(fields,
+                                                   depth + 1,
+                                                   OBJECT_HAS_NO_FIELDS),
+              'type': object_type}
 
     if not hasattr(value, '__dict__'):
+      # TODO(vlif): keep "value" empty and populate the "type" field instead.
       r = str(type(value))
       self._total_size += len(r)
       return {'value': r}
 
-    if not value.__dict__:
-      return {'members': [{'status': {
-          'is_error': False,
-          'refers_to': 'VARIABLE_NAME',
-          'description': {'format': OBJECT_HAS_NO_FIELDS}}}]}
+    if value.__dict__:
+      v = self.CaptureVariable(value.__dict__, depth + 1)
+    else:
+      v = {'members':
+           [
+               {'status': {
+                   'is_error': False,
+                   'refers_to': 'VARIABLE_NAME',
+                   'description': {'format': OBJECT_HAS_NO_FIELDS}}}
+           ]}
 
-    return self.CaptureVariable(value.__dict__, depth + 1)
+    object_type = type(value)
+    if hasattr(object_type, '__name__'):
+      type_string = getattr(object_type, '__module__', '')
+      if type_string:
+        type_string += '.'
+      type_string += object_type.__name__
+      v['type'] = type_string
+
+    return v
 
   def _EvaluateExpression(self, frame, expression):
     """Compiles and evaluates watched expression to a Variable message.
