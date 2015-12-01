@@ -38,7 +38,7 @@ This document only focuses on the Python debugger agent. Please see the
 this [page](https://cloud.google.com/tools/cloud-debugger/debugging) for
 explanation how to debug an application with the Cloud Debugger.
 
-### Options for Getting Help
+## Options for Getting Help
 
 1.  StackOverflow: http://stackoverflow.com/questions/tagged/google-cloud-debugger
 2.  Google Group: cdbg-feedback@google.com
