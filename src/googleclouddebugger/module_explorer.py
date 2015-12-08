@@ -14,14 +14,26 @@
 
 """Finds all the code objects defined by a module."""
 
+import gc
 import os
 import sys
 import types
 
 import cdbg_native as native
 
-_METHOD_TYPES = (types.FunctionType, types.MethodType, types.LambdaType)
-_CLASS_TYPES = (type, types.ClassType)
+# Maximum traversal depth when looking for all the code objects referenced by
+# a module or another code object.
+_MAX_REFERENTS_BFS_DEPTH = 15
+
+# Absolute limit on the amount of objects to scan when looking for all the code
+# objects implemented in a module.
+_MAX_VISIT_OBJECTS = 100000
+
+# Object types to ignore when looking for the code objects.
+_BFS_IGNORE_TYPES = (types.ModuleType, types.NoneType, types.BooleanType,
+                     types.IntType, types.LongType, types.FloatType,
+                     types.StringType, types.UnicodeType,
+                     types.BuiltinFunctionType, types.BuiltinMethodType)
 
 
 def GetCodeObjectAtLine(module, line):
@@ -34,6 +46,9 @@ def GetCodeObjectAtLine(module, line):
   Returns:
     Code object or None if not found.
   """
+  if not hasattr(module, '__file__'):
+    return None
+
   for code_object in _GetModuleCodeObjects(module):
     if native.HasSourceLine(code_object, line):
       return code_object
@@ -44,6 +59,18 @@ def GetCodeObjectAtLine(module, line):
 def _GetModuleCodeObjects(module):
   """Gets all code objects defined in the specified module.
 
+  There are two BFS traversals involved. One in this function and the other in
+  _FindCodeObjectsReferents. Only the BFS in _FindCodeObjectsReferents has
+  a depth limit. This function does not. The motivation is that this function
+  explores code object of the module and they can have any arbitrary nesting
+  level. _FindCodeObjectsReferents, on the other hand, traverses through class
+  definitions and random references. It's much more expensive and will likely
+  go into unrelated objects.
+
+  There is also a limit on how many total objects are going to be traversed in
+  all. This limit makes sure that if something goes wrong, the lookup doesn't
+  hang.
+
   Args:
     module: module to explore.
 
@@ -51,30 +78,42 @@ def _GetModuleCodeObjects(module):
     Set of code objects defined in module.
   """
 
-  if not hasattr(module, '__file__'):
-    return set()
-
-  code_objects = set()
   visit_recorder = _VisitRecorder()
-  for item in _GetMembers(module):
-    _GetCodeObjects(module, item, code_objects, visit_recorder)
+  current = [module]
+  code_objects = set()
+  while current:
+    current = _FindCodeObjectsReferents(module, current, visit_recorder)
+    code_objects |= current
+
+    # Unfortunately Python code objects don't implement tp_traverse, so this
+    # type can't be used with gc.get_referents. The workaround is to get the
+    # relevant objects explicitly here.
+    current = [code_object.co_consts for code_object in current]
+
   return code_objects
 
 
-def _GetCodeObjects(module, item, code_objects, visit_recorder):
-  """Gets all the code objects deriving from the specified object.
+def _FindCodeObjectsReferents(module, start_objects, visit_recorder):
+  """Looks for all the code objects referenced by objects in start_objects.
 
-  Only code objects in the specified module are recorded.
+  The traversal implemented by this function is a shallow one. In other words
+  if the reference chain is a -> b -> co1 -> c -> co2, this function will
+  return [co1] only.
+
+  The traversal is implemented with BFS. The maximum depth is limited to avoid
+  touching all the objects in the process. Each object is only visited once
+  using visit_recorder.
 
   Args:
-    module: module to filter the code objects.
-    item: class, method or any other element to explore.
-    code_objects: target set to record the found code objects.
-    visit_recorder: instance of _VisitRecorder class keeping track of already
-        visited items to avoid infinite recursion in case of an error.
-  """
+    module: module in which we are looking for code objects.
+    start_objects: initial set of objects for the BFS traversal.
+    visit_recorder: instance of _VisitRecorder class to ensure each object is
+        visited at most once.
 
-  def _IsCodeObjectInModule(code_object):
+  Returns:
+    List of code objects.
+  """
+  def CheckIgnoreCodeObject(code_object):
     """Checks if the code object originated from "module".
 
     If the module was precompiled, the code object may point to .py file, while
@@ -85,20 +124,20 @@ def _GetCodeObjects(module, item, code_objects, visit_recorder):
       code_object: code object that we want to check against module.
 
     Returns:
-      True if code_object was implemented in module or false otherwise.
+      False if code_object was implemented in module or True otherwise.
     """
     code_object_file = os.path.splitext(code_object.co_filename)[0]
     module_file = os.path.splitext(module.__file__)[0]
 
     # The simple case.
     if code_object_file == module_file:
-      return True
+      return False
 
 
-    return False
+    return True
 
-  def _IgnoreClass(cls):
-    """Returns true if the class is definitely not coming from "module"."""
+  def CheckIgnoreClass(cls):
+    """Returns True if the class is definitely not coming from "module"."""
     cls_module = sys.modules.get(cls.__module__)
     if not cls_module:
       return False  # We can't tell for sure, so explore this class.
@@ -107,57 +146,34 @@ def _GetCodeObjects(module, item, code_objects, visit_recorder):
         cls_module is not module and
         getattr(cls_module, '__file__', None) != module.__file__)
 
-  if not visit_recorder.Record(item):
-    return
+  code_objects = set()
+  current = start_objects
+  depth = 0
+  while current and depth < _MAX_REFERENTS_BFS_DEPTH:
+    referents = gc.get_referents(*current)
+    current = []
+    for obj in referents:
+      if isinstance(obj, _BFS_IGNORE_TYPES) or not visit_recorder.Record(obj):
+        continue
 
-  if isinstance(item, types.CodeType):
-    if not _IsCodeObjectInModule(item):
-      return
+      if isinstance(obj, types.CodeType) and CheckIgnoreCodeObject(obj):
+        continue
 
-    code_objects.add(item)
+      if isinstance(obj, types.ClassType) and CheckIgnoreClass(obj):
+        continue
 
-    for const in item.co_consts:
-      _GetCodeObjects(module, const, code_objects, visit_recorder)
-    return
+      if isinstance(obj, types.CodeType):
+        code_objects.add(obj)
+      else:
+        current.append(obj)
 
-  if isinstance(item, _METHOD_TYPES):
-    if not item.func_code:
-      return
+    depth += 1
 
-    _GetCodeObjects(module, item.func_code, code_objects, visit_recorder)
-    return
-
-  if isinstance(item, _CLASS_TYPES):
-    if _IgnoreClass(item):
-      return
-
-    for class_item in _GetMembers(item):
-      _GetCodeObjects(module, class_item, code_objects, visit_recorder)
-    return
-
-
-def _GetMembers(obj):
-  """Return all members of an object.
-
-  This function is very similar to inspect.getmembers, but it doesn't return
-  object name, doesn't sort and uses iterator syntax. Iterator is more efficient
-  in our case, because it doesn't allocate temporary lists.
-
-  Args:
-    obj: object to explore (module, class, etc.).
-
-  Yields:
-    Item in the object (e.g. method in a class, or class in a module).
-  """
-  for name in dir(obj):
-    try:
-      yield getattr(obj, name)
-    except AttributeError:
-      continue
+  return code_objects
 
 
 class _VisitRecorder(object):
-  """Helper class to track of already visited objects.
+  """Helper class to track of already visited objects and implement quota.
 
   This class keeps a map from integer to object. The key is a unique object
   ID (raw object pointer). The value is the object itself. We need to keep the
@@ -175,9 +191,11 @@ class _VisitRecorder(object):
       obj: visited object.
 
     Returns:
-      True if the object hasn't been previously visited or first if it has
-      already been recorded.
+      True if the object hasn't been previously visited or False if it has
+      already been recorded or the quota has been exhausted.
     """
+    if len(self._visit_recorder_objects) >= _MAX_VISIT_OBJECTS:
+      return False
 
     obj_id = id(obj)
     if obj_id in self._visit_recorder_objects:
