@@ -304,7 +304,15 @@ class PythonBreakpoint(object):
       event: breakpoint event (see kIntegerConstants in native_module.cc).
       frame: Python stack frame of breakpoint hit or None for other events.
     """
-    # TODO(vlif): support dynamic log breakpoints.
+    error_status = None
+
+    if event != native.BREAKPOINT_EVENT_HIT:
+      error_status = _BREAKPOINT_EVENT_STATUS[event]
+    elif self.definition.get('action') == 'LOG':
+      collector = capture_collector.LogCollector(self.definition)
+      error_status = collector.Log(frame)
+      if not error_status:
+        return  # Log action successful, no need to clear the breakpoint.
 
     # Let only one thread capture the data and complete the breakpoint.
     if not self._SetCompleted():
@@ -312,10 +320,11 @@ class PythonBreakpoint(object):
 
     self.Clear()
 
-    if event == native.BREAKPOINT_EVENT_HIT:
-      collector = capture_collector.CaptureCollector(self.definition)
-      collector.Collect(frame)
+    if error_status:
+      self._CompleteBreakpoint({'status': error_status})
+      return
 
-      self._CompleteBreakpoint(collector.breakpoint, is_incremental=False)
-    else:
-      self._CompleteBreakpoint({'status': _BREAKPOINT_EVENT_STATUS[event]})
+    collector = capture_collector.CaptureCollector(self.definition)
+    collector.Collect(frame)
+
+    self._CompleteBreakpoint(collector.breakpoint, is_incremental=False)

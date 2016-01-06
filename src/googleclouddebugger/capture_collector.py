@@ -14,20 +14,35 @@
 
 """Captures application state on a breakpoint hit."""
 
+# TODO(vlif): rename this file to collector.py.
+
 import copy
 import datetime
 import inspect
 import os
+import re
 import sys
 import types
 
 import cdbg_native as native
 
-_VECTOR_TYPES = {types.TupleType, types.ListType, types.SliceType, set}
+# Externally defined functions to actually log a message. If these variables
+# are not initialized, the log action for breakpoints is invalid.
+log_info_message = None
+log_warning_message = None
+log_error_message = None
 
+_PRIMITIVE_TYPES = (int, long, float, complex, str, unicode, bool,
+                    types.NoneType)
+_DATE_TYPES = (datetime.date, datetime.time, datetime.timedelta)
+_VECTOR_TYPES = (types.TupleType, types.ListType, types.SliceType, set)
+
+# TODO(vlif): move to messages.py module.
 EMPTY_DICTIONARY = 'Empty dictionary'
 EMPTY_COLLECTION = 'Empty collection'
 OBJECT_HAS_NO_FIELDS = 'Object has no fields'
+LOG_ACTION_NOT_SUPPORTED = 'Log action on a breakpoint not supported'
+INVALID_EXPRESSION_INDEX = '<N/A>'
 
 
 class CaptureCollector(object):
@@ -135,7 +150,7 @@ class CaptureCollector(object):
     # Evaluate watched expressions.
     if 'expressions' in self.breakpoint:
       self.breakpoint['evaluatedExpressions'] = [
-          self._EvaluateExpression(top_frame, expression) for expression
+          self._CaptureExpression(top_frame, expression) for expression
           in self.breakpoint['expressions']]
 
     # Explore variables table in BFS fashion. The variables table will grow
@@ -246,30 +261,31 @@ class CaptureCollector(object):
       self._total_size += 4
       return {'value': 'None'}
 
-    if isinstance(value, (int, long, float, complex, str, unicode, bool)):
-      r = self.TrimString(repr(value))  # Primitive type, always immutable.
+    if isinstance(value, _PRIMITIVE_TYPES):
+      r = _TrimString(repr(value),  # Primitive type, always immutable.
+                      self.max_value_len)
       self._total_size += len(r)
       return {'value': r, 'type': type(value).__name__}
 
-    if isinstance(value, (datetime.date, datetime.time, datetime.timedelta)):
+    if isinstance(value, _DATE_TYPES):
       r = str(value)  # Safe to call str().
       self._total_size += len(r)
       return {'value': r, 'type': 'datetime.'+ type(value).__name__}
 
-    if type(value) is dict:
+    if isinstance(value, dict):
       return {'members': self.CaptureVariablesList(value.iteritems(),
                                                    depth + 1,
                                                    EMPTY_DICTIONARY),
               'type': 'dict'}
 
-    if type(value) in _VECTOR_TYPES:
+    if isinstance(value, _VECTOR_TYPES):
       fields = self.CaptureVariablesList(
           (('[%d]' % i, x) for i, x in enumerate(value)),
           depth + 1,
           EMPTY_COLLECTION)
       return {'members': fields, 'type': type(value).__name__}
 
-    if type(value) is types.FunctionType:
+    if isinstance(value, types.FunctionType):
       self._total_size += len(value.func_name)
       # TODO(vlif): set value to func_name and type to 'function'
       return {'value': 'function ' + value.func_name}
@@ -321,55 +337,22 @@ class CaptureCollector(object):
 
     return v
 
-  def _EvaluateExpression(self, frame, expression):
-    """Compiles and evaluates watched expression to a Variable message.
+  def _CaptureExpression(self, frame, expression):
+    """Evalutes the expression and captures it into a Variable object.
 
     Args:
       frame: evaluation context.
       expression: watched expression to compile and evaluate.
 
     Returns:
-      Formatted object corresponding to the evaluation result.
+      Variable object (which will have error status if the expression fails
+      to evaluate).
     """
-    try:
-      code = compile(expression, '<watched_expression>', 'eval')
-    except TypeError as e:  # condition string contains null bytes.
-      return {
-          'name': expression,
-          'status': {
-              'isError': True,
-              'refersTo': 'VARIABLE_NAME',
-              'description': {
-                  'format': 'Invalid expression',
-                  'parameters': [str(e)]}}}
-    except SyntaxError as e:
-      return {
-          'name': expression,
-          'status': {
-              'isError': True,
-              'refersTo': 'VARIABLE_NAME',
-              'description': {
-                  'format': 'Expression could not be compiled: $0',
-                  'parameters': [e.msg]}}}
+    rc, value = _EvaluateExpression(frame, expression)
+    if not rc:
+      return {'name': expression, 'status': value}
 
-    try:
-      value = native.CallImmutable(frame, code)
-    except BaseException as e:
-      return {
-          'name': expression,
-          'status': {
-              'isError': True,
-              'refersTo': 'VARIABLE_VALUE',
-              'description': {
-                  'format': 'Exception occurred: $0',
-                  'parameters': [e.message]}}}
     return self.CaptureNamedVariable(expression, value)
-
-  def TrimString(self, s):
-    """Trims the string if it exceeds max_value_len."""
-    if len(s) <= self.max_value_len:
-      return s
-    return s[:self.max_value_len] + '...'
 
   def TrimVariableTable(self, new_size):
     """Trims the variable table in the formatted breakpoint message.
@@ -427,3 +410,223 @@ class CaptureCollector(object):
         return path[len(sys_path):]
 
     return path
+
+
+class LogCollector(object):
+  """Captures minimal application snapshot and logs it to application log.
+
+  This is similar to CaptureCollector, but we don't need to capture local
+  variables, arguments and the objects tree. All we need to do is to format a
+  log message. We still need to evaluate watched expressions.
+
+  The actual log functions are defined globally outside of this module.
+  """
+
+  def __init__(self, definition):
+    """Class constructor.
+
+    Args:
+      definition: breakpoint definition indicating log level, message, etc.
+    """
+    self._definition = definition
+
+    # Maximum number of character to allow for a single value. Longer strings
+    # are truncated.
+    self.max_value_len = 256
+
+    # Maximum number of items in a list to capture.
+    self.max_list_items = 10
+
+    # Select log function.
+    level = self._definition.get('logLevel')
+    if level == 'INFO':
+      self._log_message = log_info_message
+    elif level == 'WARNING':
+      self._log_message = log_warning_message
+    elif level == 'ERROR':
+      self._log_message = log_error_message
+    else:
+      self._log_message = None
+
+  def Log(self, frame):
+    """Captures the minimal application states, formats it and logs the message.
+
+    Args:
+      frame: Python stack frame of breakpoint hit.
+
+    Returns:
+      None on success or status message on error.
+    """
+    # Return error if log methods were not configured globally.
+    if not self._log_message:
+      return {'isError': True,
+              'description': {'format': LOG_ACTION_NOT_SUPPORTED}}
+
+    # Evaluate watched expressions.
+    message = _FormatMessage(
+        self._definition.get('logMessageFormat', ''),
+        self._EvaluateExpressions(frame))
+
+    self._log_message(message)
+    return None
+
+  def _EvaluateExpressions(self, frame):
+    """Evaluates watched expressions into a string form.
+
+    If expression evaluation fails, the error message is used as evaluated
+    expression string.
+
+    Args:
+      frame: Python stack frame of breakpoint hit.
+
+    Returns:
+      Array of strings where each string corresponds to the breakpoint
+      expression with the same index.
+    """
+    return [self._FormatExpression(frame, expression) for expression in
+            self._definition.get('expressions') or []]
+
+  def _FormatExpression(self, frame, expression):
+    """Evaluates a single watched expression and formats it into a string form.
+
+    If expression evaluation fails, returns error message string.
+
+    Args:
+      frame: Python stack frame in which the expression is evaluated.
+      expression: string expression to evaluate.
+
+    Returns:
+      Formatted expression value that can be used in the log message.
+    """
+    rc, value = _EvaluateExpression(frame, expression)
+    if not rc:
+      message = _FormatMessage(value['description']['format'],
+                               value['description'].get('parameters'))
+      return '<' + message + '>'
+
+    return self._FormatValue(value)
+
+  def _FormatValue(self, value, level=0):
+    """Pretty-prints an object for a logger.
+
+    This function is very similar to the standard pprint. The main difference
+    is that it enforces limits to make sure we never produce an extremely long
+    string or take too much time.
+
+    Args:
+      value: Python object to print.
+      level: current recursion level.
+
+    Returns:
+      Formatted string.
+    """
+
+    def FormatDictItem(key_value):
+      """Formats single dictionary item."""
+      key, value = key_value
+      return (self._FormatValue(key, level + 1) +
+              ': ' +
+              self._FormatValue(value, level + 1))
+
+    def LimitedEnumerate(items, formatter):
+      """Returns items in the specified enumerable enforcing threshold."""
+      count = 0
+      for item in items:
+        if count == self.max_list_items:
+          yield '...'
+          break
+
+        yield formatter(item)
+        count += 1
+
+    def FormatList(items, formatter):
+      """Formats a list using a custom item formatter enforcing threshold."""
+      return ', '.join(LimitedEnumerate(items, formatter))
+
+    if isinstance(value, _PRIMITIVE_TYPES):
+      return _TrimString(repr(value),  # Primitive type, always immutable.
+                         self.max_value_len)
+
+    if isinstance(value, _DATE_TYPES):
+      return str(value)
+
+    if level > 0:
+      return str(type(value))
+
+    if isinstance(value, dict):
+      return '{' + FormatList(value.iteritems(), FormatDictItem) + '}'
+
+    if isinstance(value, _VECTOR_TYPES):
+      return FormatList(value, lambda item: self._FormatValue(item, level + 1))
+
+    if isinstance(value, types.FunctionType):
+      return 'function ' + value.func_name
+
+    if hasattr(value, '__dict__') and value.__dict__:
+      return self._FormatValue(value.__dict__, level)
+
+    return str(type(value))
+
+
+def _EvaluateExpression(frame, expression):
+  """Compiles and evaluates watched expression.
+
+  Args:
+    frame: evaluation context.
+    expression: watched expression to compile and evaluate.
+
+  Returns:
+    (False, status) on error or (True, value) on success.
+  """
+  try:
+    code = compile(expression, '<watched_expression>', 'eval')
+  except TypeError as e:  # condition string contains null bytes.
+    return (False, {
+        'isError': True,
+        'refersTo': 'VARIABLE_NAME',
+        'description': {
+            'format': 'Invalid expression',
+            'parameters': [str(e)]}})
+  except SyntaxError as e:
+    return (False, {
+        'isError': True,
+        'refersTo': 'VARIABLE_NAME',
+        'description': {
+            'format': 'Expression could not be compiled: $0',
+            'parameters': [e.msg]}})
+
+  try:
+    return (True, native.CallImmutable(frame, code))
+  except BaseException as e:
+    return (False, {
+        'isError': True,
+        'refersTo': 'VARIABLE_VALUE',
+        'description': {
+            'format': 'Exception occurred: $0',
+            'parameters': [e.message]}})
+
+
+def _FormatMessage(template, parameters):
+  """Formats the message.
+
+  Args:
+    template: message template (e.g. 'a = $0, b = $1').
+    parameters: substitution parameters for the format.
+
+  Returns:
+    Formatted message with parameters embedded in template placeholders.
+  """
+  def GetParameter(m):
+    try:
+      return parameters[int(m.group(0)[1:])]
+    except IndexError:
+      return INVALID_EXPRESSION_INDEX
+
+  return re.sub(r'\$\d+', GetParameter, template)
+
+
+def _TrimString(s, max_len):
+  """Trims the string if it exceeds max_len."""
+  if len(s) <= max_len:
+    return s
+  return s[:max_len+1] + '...'

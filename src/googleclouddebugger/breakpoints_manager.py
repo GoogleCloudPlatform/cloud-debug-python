@@ -30,6 +30,10 @@ class BreakpointsManager(object):
   longer active.
 
   This class is thread safe.
+
+  Args:
+    hub_client: queries active breakpoints from the backend and sends
+        breakpoint updates back to the backend.
   """
 
   def __init__(self, hub_client):
