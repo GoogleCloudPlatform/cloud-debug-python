@@ -17,6 +17,7 @@
 #ifndef DEVTOOLS_CDBG_DEBUGLETS_PYTHON_IMMUTABILITY_TRACER_H_
 #define DEVTOOLS_CDBG_DEBUGLETS_PYTHON_IMMUTABILITY_TRACER_H_
 
+#include <unordered_set>
 #include "common.h"
 #include "python_util.h"
 
@@ -70,6 +71,9 @@ class ImmutabilityTracer {
   // Python tracer callback function (instance function for convenience).
   int OnTraceCallbackInternal(PyFrameObject* frame, int what, PyObject* arg);
 
+  // Verifies that the code object doesn't include calls to blocked primitives.
+  void VerifyCodeObject(ScopedPyCodeObject code_object);
+
   // Verifies immutability of code on a single line.
   void ProcessCodeLine(PyCodeObject* code_object, int line_number);
 
@@ -92,6 +96,11 @@ class ImmutabilityTracer {
 
   // Evaluation thread.
   PyThreadState* thread_state_;
+
+  // Set of code object verified to not have any blocked primitives.
+  std::unordered_set<
+      ScopedPyCodeObject,
+      ScopedPyCodeObject::Hash> verified_code_objects_;
 
   // Original value of PyThreadState::tracing. We revert it to 0 to enforce
   // trace callback on this thread, even if the whole thing was executed from

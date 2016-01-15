@@ -98,6 +98,20 @@ static const char* kWhitelistedCFunctions[] = {
 };
 
 
+static const char* kBlacklistedCodeObjectNames[] = {
+  "__setattr__",
+  "__delattr__",
+  "__del__",
+  "__new__",
+  "__set__",
+  "__delete__",
+  "__call__",
+  "__setitem__",
+  "__delitem__",
+  "__setslice__",
+  "__delslice__",
+};
+
 ImmutabilityTracer::ImmutabilityTracer()
     : self_(nullptr),
       thread_state_(nullptr),
@@ -152,6 +166,7 @@ int ImmutabilityTracer::OnTraceCallbackInternal(
     PyObject* arg) {
   switch (what) {
     case PyTrace_CALL:
+      VerifyCodeObject(ScopedPyCodeObject::NewReference(frame->f_code));
       break;
 
     case PyTrace_EXCEPTION:
@@ -188,6 +203,48 @@ int ImmutabilityTracer::OnTraceCallbackInternal(
   }
 
   return 0;
+}
+
+
+void ImmutabilityTracer::VerifyCodeObject(ScopedPyCodeObject code_object) {
+  if (code_object == nullptr) {
+    return;
+  }
+
+  if (verified_code_objects_.count(code_object) != 0) {
+    return;
+  }
+
+  // Try to block expressions like "x.__setattr__('a', 1)". Python interpreter
+  // doesn't generate any trace callback for calls to built-in primitives like
+  // "__setattr__". Our best effort is to enumerate over all names in the code
+  // object and block ones with names like "__setprop__". The user can still
+  // bypass it, so this is just best effort.
+  PyObject* names = code_object.get()->co_names;
+  if ((names == nullptr) || !PyTuple_CheckExact(names)) {
+    LOG(WARNING) << "Corrupted code object: co_names is not a valid tuple";
+    mutable_code_detected_ = true;
+    return;
+  }
+
+  int count = PyTuple_GET_SIZE(names);
+  for (int i = 0; i != count; ++i) {
+    const char* name = PyString_AsString(PyTuple_GET_ITEM(names, i));
+    if (name == nullptr) {
+      LOG(WARNING) << "Corrupted code object: name " << i << " is not a string";
+      mutable_code_detected_ = true;
+      return;
+    }
+
+    for (int j = 0; j != arraysize(kBlacklistedCodeObjectNames); ++j) {
+      if (!strcmp(kBlacklistedCodeObjectNames[j], name)) {
+        mutable_code_detected_ = true;
+        return;
+      }
+    }
+  }
+
+  verified_code_objects_.insert(code_object);
 }
 
 
