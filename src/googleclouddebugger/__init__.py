@@ -25,6 +25,12 @@ actual app.
 import os
 import sys
 
+import appengine_pretty_printers
+import breakpoints_manager
+import capture_collector
+import cdbg_native
+import gcp_hub_client
+
 # Versioning scheme: MAJOR.MINOR
 # The major version should only change on breaking changes. Minor version
 # changes go between regular updates. Instances running debuggers with
@@ -35,12 +41,6 @@ _flags = None
 
 
 def _StartDebugger():
-  import appengine_pretty_printers
-  import breakpoints_manager
-  import capture_collector
-  import cdbg_native
-  import gcp_hub_client
-
   global _hub_client
   global _breakpoints_manager
 
