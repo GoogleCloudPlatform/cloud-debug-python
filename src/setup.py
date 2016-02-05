@@ -14,13 +14,13 @@
 
 """Python Cloud Debugger build and packaging script."""
 
+import ConfigParser
 from glob import glob
 import os
-import ConfigParser
-
-from setuptools import setup, Extension
+import re
 from distutils import sysconfig
-import googleclouddebugger
+from setuptools import Extension
+from setuptools import setup
 
 
 def RemovePrefixes(optlist, bad_prefixes):
@@ -69,6 +69,20 @@ cvars['OPT'] = str.join(' ', RemovePrefixes(
     cvars.get('OPT').split(),
     ['-g', '-O', '-Wstrict-prototypes']))
 
+# Determine the current version of the package. The easiest way would be to
+# import "googleclouddebugger" and read its __version__ attribute.
+# Unfortunately we can't do that because "googleclouddebugger" depends on
+# "cdbg_native" that hasn't been built yet.
+version = None
+with open('googleclouddebugger/__init__.py', 'r') as init_file:
+  version_pattern = re.compile(r"^\s*__version__\s*=\s*'([0-9.]*)'")
+  for line in init_file:
+    match = version_pattern.match(line)
+    if match:
+      version = match.groups()[0]
+print 'clouddebugger module version is {0}'.format(version)
+assert version
+
 cdbg_native_module = Extension(
     'googleclouddebugger.cdbg_native',
     sources=glob('googleclouddebugger/*.cc'),
@@ -87,11 +101,11 @@ setup(
     long_description=LONG_DESCRIPTION,
     url='https://github.com/GoogleCloudPlatform/cloud-debug-python',
     author='Google Inc.',
-    version=googleclouddebugger.__version__,
+    version=version,
     install_requires=['google-api-python-client'],
     packages=['googleclouddebugger'],
     ext_modules=[cdbg_native_module],
-    license="Apache License, Version 2.0",
+    license='Apache License, Version 2.0',
     keywords='google cloud debugger',
     classifiers=[
         'Programming Language :: Python :: 2.7',
