@@ -80,7 +80,6 @@ with open('googleclouddebugger/__init__.py', 'r') as init_file:
     match = version_pattern.match(line)
     if match:
       version = match.groups()[0]
-print 'clouddebugger module version is {0}'.format(version)
 assert version
 
 cdbg_native_module = Extension(
