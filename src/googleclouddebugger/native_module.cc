@@ -17,6 +17,9 @@
 // Ensure that Python.h is included before any other header.
 #include "common.h"
 
+#ifndef NACL_BUILD
+#include "base/log_severity.h"
+#endif  // !NACL_BUILD
 #include "bytecode_breakpoint.h"
 #include "common.h"
 #include "conditional_breakpoint.h"
