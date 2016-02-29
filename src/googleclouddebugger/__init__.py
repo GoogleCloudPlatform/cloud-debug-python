@@ -22,6 +22,7 @@ the application command line. It then attaches the debugger and runs the
 actual app.
 """
 
+import logging
 import os
 import sys
 
@@ -48,6 +49,13 @@ def _StartDebugger():
 
   _hub_client = gcp_hub_client.GcpHubClient()
   _breakpoints_manager = breakpoints_manager.BreakpointsManager(_hub_client)
+
+  # Set up loggers for logpoints. App Engine will capture normal logging
+  # using a special log handler that it adds to the default logger during
+  # initialization.
+  capture_collector.log_info_message = logging.info
+  capture_collector.log_warning_message = logging.warning
+  capture_collector.log_error_message = logging.error
 
   """Configures and starts the debugger."""
   capture_collector.CaptureCollector.pretty_printers.append(
