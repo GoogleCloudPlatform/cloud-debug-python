@@ -31,7 +31,7 @@ from apiclient import discovery  # pylint: disable=unused-import
 from backoff import Backoff
 import httplib2
 import oauth2client
-from oauth2client.gce import AppAssertionCredentials
+from oauth2client.contrib.gce import AppAssertionCredentials
 
 import googleclouddebugger
 import cdbg_native as native
