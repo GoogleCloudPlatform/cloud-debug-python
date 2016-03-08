@@ -69,6 +69,10 @@ _DESCRIPTION_LABELS = [
     labels.Debuggee.PROJECT_ID, labels.Debuggee.MODULE, labels.Debuggee.VERSION
 ]
 
+# HTTP timeout when accessing the cloud debugger API. It is selected to be
+# longer than the typical controller.breakpoints.list hanging get latency
+# of 40 seconds.
+_HTTP_TIMEOUT_SECONDS = 100
 
 class GcpHubClient(object):
   """Controller API client.
@@ -264,7 +268,7 @@ class GcpHubClient(object):
     self._new_updates.set()  # Wake up the worker thread to send immediately.
 
   def _BuildService(self):
-    http = httplib2.Http()
+    http = httplib2.Http(timeout=_HTTP_TIMEOUT_SECONDS)
     http = self._credentials.authorize(http)
 
     api = apiclient.discovery.build('clouddebugger', 'v2', http=http)
