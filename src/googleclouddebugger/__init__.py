@@ -50,9 +50,7 @@ def _StartDebugger():
   _hub_client = gcp_hub_client.GcpHubClient()
   _breakpoints_manager = breakpoints_manager.BreakpointsManager(_hub_client)
 
-  # Set up loggers for logpoints. App Engine will capture normal logging
-  # using a special log handler that it adds to the default logger during
-  # initialization.
+  # Set up loggers for logpoints.
   capture_collector.log_info_message = logging.info
   capture_collector.log_warning_message = logging.warning
   capture_collector.log_error_message = logging.error
