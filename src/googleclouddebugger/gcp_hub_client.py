@@ -17,7 +17,9 @@
 from collections import deque
 import copy
 import hashlib
+import inspect
 import json
+import logging
 import os
 import sys
 import threading
@@ -33,9 +35,9 @@ import httplib2
 import oauth2client
 from oauth2client.contrib.gce import AppAssertionCredentials
 
-import googleclouddebugger
 import cdbg_native as native
 import uniquifier_computer
+import googleclouddebugger
 
 # This module catches all exception. This is safe because it runs in
 # a daemon thread (so we are not blocking Ctrl+C). We need to catch all
@@ -54,9 +56,9 @@ _LOCAL_METADATA_SERVICE_PROJECT_URL = ('http://metadata.google.internal/'
 # a map is optional environment variable that can be used to set the flag
 # (flags still take precedence).
 _DEBUGGEE_LABELS = {
-    'module' : 'GAE_MODULE_NAME',
-    'version' : 'GAE_MODULE_VERSION',
-    'minorversion' : 'GAE_MINOR_VERSION'}
+    'module': 'GAE_MODULE_NAME',
+    'version': 'GAE_MODULE_VERSION',
+    'minorversion': 'GAE_MINOR_VERSION'}
 
 # Debuggee labels used to format debuggee description (ordered). The minor
 # version is excluded for the sake of consistency with AppEngine UX.
@@ -91,6 +93,28 @@ class GcpHubClient(object):
     self._transmission_thread_startup_lock = threading.Lock()
     self._transmission_queue = deque(maxlen=100)
     self._new_updates = threading.Event(False)
+
+    # Disable logging in the discovery API to avoid excessive logging.
+    class _ChildLogFilter(logging.Filter):
+      """Filter to eliminate info-level logging when called from this module."""
+
+      def __init__(self, filter_levels=None):
+        super(_ChildLogFilter, self).__init__()
+        self._filter_levels = filter_levels or set(logging.INFO)
+        # Get name without extension to avoid .py vs .pyc issues
+        self._my_filename = os.path.splitext(
+            inspect.getmodule(_ChildLogFilter).__file__)[0]
+
+      def filter(self, record):
+        if record.levelno not in self._filter_levels:
+          return True
+        callerframes = inspect.getouterframes(inspect.currentframe())
+        for f in callerframes:
+          if os.path.splitext(f[1])[0] == self._my_filename:
+            return False
+        return True
+    self._log_filter = _ChildLogFilter({logging.INFO})
+    discovery.logger.addFilter(self._log_filter)
 
     #
     # Configuration options (constants only modified by unit test)
