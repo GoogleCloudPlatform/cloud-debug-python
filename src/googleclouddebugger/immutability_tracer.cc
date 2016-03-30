@@ -62,7 +62,7 @@ static const char* kWhitelistedCFunctions[] = {
   "list",
   "unichr",
   "format",
-  "locals"
+  "locals",
   "reduce",
   "unicode",
   "chr",
