@@ -439,7 +439,7 @@ class LogCollector(object):
 
     # Select log function.
     level = self._definition.get('logLevel')
-    if level == 'INFO':
+    if not level or level == 'INFO':
       self._log_message = log_info_message
     elif level == 'WARNING':
       self._log_message = log_warning_message
