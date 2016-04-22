@@ -19,12 +19,6 @@
 
 #include "rate_limit.h"
 
-DEFINE_int64(
-    max_trace_rate,
-    25000,
-    "maximum number of Python trace callbacks per second before all "
-    "breakpoints are disabled");
-
 DEFINE_int32(
     max_condition_lines_rate,
     5000,
@@ -47,7 +41,6 @@ namespace cdbg {
 static const double kMaxTraceRateCapacityFactor = 10;
 static const double kConditionCostCapacityFactor = 0.1;
 
-static std::unique_ptr<LeakyBucket> g_trace_quota;
 static std::unique_ptr<LeakyBucket> g_global_condition_quota;
 
 
@@ -57,12 +50,6 @@ static int64 GetBaseConditionQuotaCapacity() {
 
 
 void LazyInitializeRateLimit() {
-  if (g_trace_quota == nullptr) {
-    g_trace_quota.reset(new LeakyBucket(
-        FLAGS_max_trace_rate * kMaxTraceRateCapacityFactor,
-        FLAGS_max_trace_rate));
-  }
-
   if (g_global_condition_quota == nullptr) {
     g_global_condition_quota.reset(new LeakyBucket(
         GetBaseConditionQuotaCapacity(),
@@ -72,13 +59,7 @@ void LazyInitializeRateLimit() {
 
 
 void CleanupRateLimit() {
-  g_trace_quota = nullptr;
   g_global_condition_quota = nullptr;
-}
-
-
-LeakyBucket* GetTraceQuota() {
-  return g_trace_quota.get();
 }
 
 
