@@ -134,7 +134,7 @@ _Option A_: add this code to the beginning of your `main()` function:
 try:
   import googleclouddebugger
   googleclouddebugger.AttachDebugger(
-      enable_service_account=True,
+      enable_service_account_auth=True,
       project_id='my-gcp-project-id',
       project_number='123456789',
       service_account_email='123@developer.gserviceaccount.com',
