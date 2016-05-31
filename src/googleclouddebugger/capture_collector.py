@@ -467,7 +467,7 @@ class LogCollector(object):
         self._definition.get('logMessageFormat', ''),
         self._EvaluateExpressions(frame))
 
-    self._log_message(message)
+    self._log_message('LOGPOINT: ' + message)
     return None
 
   def _EvaluateExpressions(self, frame):
