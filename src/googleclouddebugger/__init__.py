@@ -39,9 +39,12 @@ import gcp_hub_client
 __version__ = '1.9'
 
 _flags = None
+_hub_client = None
+_breakpoints_manager = None
 
 
 def _StartDebugger():
+  """Configures and starts the debugger."""
   global _hub_client
   global _breakpoints_manager
 
@@ -55,7 +58,6 @@ def _StartDebugger():
   capture_collector.log_warning_message = logging.warning
   capture_collector.log_error_message = logging.error
 
-  """Configures and starts the debugger."""
   capture_collector.CaptureCollector.pretty_printers.append(
       appengine_pretty_printers.PrettyPrinter)
 
@@ -112,7 +114,8 @@ def _DebuggerMain():
   exec 'execfile(%r)' % app_path in globals, locals  # pylint: disable=exec-used
 
 
-def AttachDebugger(**kwargs):
+# pylint: disable=invalid-name
+def enable(**kwargs):
   """Starts the debugger for already running application.
 
   This function should only be called once.
@@ -132,3 +135,6 @@ def AttachDebugger(**kwargs):
   _flags = kwargs
   _StartDebugger()
 
+
+# AttachDebugger is an alias for enable, preserved for compatibility.
+AttachDebugger = enable

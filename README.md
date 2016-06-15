@@ -95,7 +95,7 @@ easy_install dist/google_python_cloud_debugger-*.egg
     # Attach Python Cloud Debugger
     try:
       import googleclouddebugger
-      googleclouddebugger.AttachDebugger()
+      googleclouddebugger.enable()
     except ImportError:
       pass
     ```
@@ -133,7 +133,7 @@ _Option A_: add this code to the beginning of your `main()` function:
 # Attach Python Cloud Debugger
 try:
   import googleclouddebugger
-  googleclouddebugger.AttachDebugger(
+  googleclouddebugger.enable(
       enable_service_account_auth=True,
       project_id='my-gcp-project-id',
       project_number='123456789',
