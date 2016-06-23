@@ -35,6 +35,7 @@ import httplib2
 import oauth2client
 from oauth2client.contrib.gce import AppAssertionCredentials
 
+import labels
 import cdbg_native as native
 import uniquifier_computer
 import googleclouddebugger
@@ -56,13 +57,16 @@ _LOCAL_METADATA_SERVICE_PROJECT_URL = ('http://metadata.google.internal/'
 # a map is optional environment variable that can be used to set the flag
 # (flags still take precedence).
 _DEBUGGEE_LABELS = {
-    'module': 'GAE_MODULE_NAME',
-    'version': 'GAE_MODULE_VERSION',
-    'minorversion': 'GAE_MINOR_VERSION'}
+    labels.Debuggee.MODULE: 'GAE_MODULE_NAME',
+    labels.Debuggee.VERSION: 'GAE_MODULE_VERSION',
+    labels.Debuggee.MINOR_VERSION: 'GAE_MINOR_VERSION'
+}
 
 # Debuggee labels used to format debuggee description (ordered). The minor
 # version is excluded for the sake of consistency with AppEngine UX.
-_DESCRIPTION_LABELS = ['projectid', 'module', 'version']
+_DESCRIPTION_LABELS = [
+    labels.Debuggee.PROJECT_ID, labels.Debuggee.MODULE, labels.Debuggee.VERSION
+]
 
 
 class GcpHubClient(object):
