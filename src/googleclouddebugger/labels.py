@@ -18,25 +18,25 @@ DO NOT EDIT - This file is auto-generated
 """
 
 
+class Debuggee(object):
+  MINOR_VERSION = 'minorversion'
+  PROJECT_ID = 'projectid'
+  MODULE = 'module'
+  DOMAIN = 'domain'
+  VERSION = 'version'
+
+  SET_ALL = frozenset([
+      'minorversion',
+      'projectid',
+      'module',
+      'domain',
+      'version',
+      ])
+
 class Breakpoint(object):
   REQUEST_LOG_ID = 'requestlogid'
 
   SET_ALL = frozenset([
       'requestlogid',
-      ])
-
-class Debuggee(object):
-  MINOR_VERSION = 'minorversion'
-  MODULE = 'module'
-  VERSION = 'version'
-  PROJECT_ID = 'projectid'
-  DOMAIN = 'domain'
-
-  SET_ALL = frozenset([
-      'minorversion',
-      'module',
-      'version',
-      'projectid',
-      'domain',
       ])
 
