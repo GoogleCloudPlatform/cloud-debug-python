@@ -20,9 +20,10 @@
 # debugger is currently only supported on Linux.
 #
 # The build script assumes Python, cmake, curl and gcc are installed.
-# To install those on Debian, run this commandd:
-# sudo apt-get install curl ca-certificates gcc build-essential cmake \
-#                      python python-dev libpython2.7 python-setuptools
+# To install these dependencies on Debian, run this commandd:
+# sudo apt-get -y -q --no-install-recommends install \
+#     curl ca-certificates gcc build-essential cmake \
+#     python python-dev libpython2.7 python-setuptools
 #
 # The Python Cloud Debugger agent uses glog and gflags libraries. We build them
 # first. Then we use setuptools to build the debugger agent. The entire

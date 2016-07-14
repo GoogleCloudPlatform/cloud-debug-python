@@ -59,15 +59,22 @@ and install the debugger agent with:
 easy_install google_python_cloud_debugger-py2.7-linux-x86_64.egg
 ```
 
-You can also build the agent from source code (OS dependencies are listed in
-[build.sh](https://github.com/GoogleCloudPlatform/cloud-debug-python/blob/master/src/build.sh)
-script):
+You can also build the agent from source code:
 
 ```shell
 git clone https://github.com/GoogleCloudPlatform/cloud-debug-python.git
 cd cloud-debug-python/src/
 ./build.sh
 easy_install dist/google_python_cloud_debugger-*.egg
+```
+
+Note that the build script assumes some dependencies. To install these
+dependencies on Debian, run this command:
+
+```shell
+sudo apt-get -y -q --no-install-recommends install \
+    curl ca-certificates gcc build-essential cmake \
+    python python-dev libpython2.7 python-setuptools
 ```
 
 ## Setup
