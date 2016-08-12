@@ -188,7 +188,7 @@ class GcpHubClient(object):
     service. It is done lazily from the worker thread. The motivation is to
     speed up initialization and be able to recover from failures.
     """
-    self._credentials = AppAssertionCredentials(_CLOUD_PLATFORM_SCOPE)
+    self._credentials = AppAssertionCredentials()
     self._project_id = lambda: self._QueryGcpProject('project-id')
     self._project_number = lambda: self._QueryGcpProject('numeric-project-id')
 
