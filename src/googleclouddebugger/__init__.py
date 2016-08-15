@@ -36,7 +36,7 @@ import gcp_hub_client
 # The major version should only change on breaking changes. Minor version
 # changes go between regular updates. Instances running debuggers with
 # different major versions will show up as two different debuggees.
-__version__ = '1.10'
+__version__ = '1.11'
 
 _flags = None
 _hub_client = None
