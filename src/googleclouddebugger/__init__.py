@@ -54,9 +54,7 @@ def _StartDebugger():
   _breakpoints_manager = breakpoints_manager.BreakpointsManager(_hub_client)
 
   # Set up loggers for logpoints.
-  capture_collector.log_info_message = logging.info
-  capture_collector.log_warning_message = logging.warning
-  capture_collector.log_error_message = logging.error
+  capture_collector.SetLogger(logging.getLogger())
 
   capture_collector.CaptureCollector.pretty_printers.append(
       appengine_pretty_printers.PrettyPrinter)

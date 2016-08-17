@@ -19,6 +19,7 @@
 import copy
 import datetime
 import inspect
+import logging
 import os
 import re
 import sys
@@ -47,6 +48,82 @@ EMPTY_COLLECTION = 'Empty collection'
 OBJECT_HAS_NO_FIELDS = 'Object has no fields'
 LOG_ACTION_NOT_SUPPORTED = 'Log action on a breakpoint not supported'
 INVALID_EXPRESSION_INDEX = '<N/A>'
+
+
+def NormalizePath(path):
+  """Removes any Python system path prefix from the given path.
+
+  Python keeps almost all paths absolute. This is not what we actually
+  want to return. This loops through system paths (directories in which
+  Python will load modules). If "path" is relative to one of them, the
+  directory prefix is removed.
+
+  Args:
+    path: absolute path to normalize (relative paths will not be altered)
+
+  Returns:
+    Relative path if "path" is within one of the sys.path directories or
+    the input otherwise.
+  """
+  path = os.path.normpath(path)
+
+  for sys_path in sys.path:
+    if not sys_path:
+      continue
+
+    # Append '/' at the end of the path if it's not there already.
+    sys_path = os.path.join(sys_path, '')
+
+    if path.startswith(sys_path):
+      return path[len(sys_path):]
+
+  return path
+
+
+class LineNoFilter(logging.Filter):
+  """Enables overriding the path and line number in a logging record.
+
+  The "extra" parameter in logging cannot override existing fields in log
+  record, so we can't use it to directly set pathname and lineno. Instead,
+  we add this filter to the default logger, and it looks for "cdbg_pathname"
+  and "cdbg_lineno", moving them to the pathname and lineno fields accordingly.
+  """
+
+  def filter(self, record):
+    # This method gets invoked for user-generated logging, so verify that this
+    # particular invocation came from our logging code.
+    if record.pathname != inspect.currentframe().f_code.co_filename:
+      return True
+    pathname, lineno = GetLoggingFileAndLine()
+    if pathname and lineno:
+      record.pathname = pathname
+      record.lineno = lineno
+    return True
+
+
+def GetLoggingFileAndLine():
+  """Search for and return the file and line number from the log collector."""
+  frame = inspect.currentframe()
+  this_file = frame.f_code.co_filename
+  frame = frame.f_back
+  while frame:
+    if this_file == frame.f_code.co_filename:
+      if 'cdbg_logging_pathname' in frame.f_locals:
+        return (frame.f_locals['cdbg_logging_pathname'],
+                frame.f_locals.get('cdbg_logging_lineno', None))
+    frame = frame.f_back
+  return (None, None)
+
+
+def SetLogger(logger):
+  """Sets the logger object to use for all 'LOG' breakpoint actions."""
+  global log_info_message
+  global log_warning_message
+  global log_error_message
+  log_info_message = logger.info
+  log_warning_message = logger.warning
+  log_error_message = logger.error
+  logger.addFilter(LineNoFilter())
 
 
 class CaptureCollector(object):
@@ -145,7 +222,7 @@ class CaptureCollector(object):
       breakpoint_frames.append({
           'function': code.co_name,
           'location': {
-              'path': CaptureCollector._NormalizePath(code.co_filename),
+              'path': NormalizePath(code.co_filename),
               'line': frame.f_lineno},
           'arguments': frame_arguments,
           'locals': frame_locals})
@@ -403,36 +480,6 @@ class CaptureCollector(object):
         self.breakpoint['labels'][
             labels.Breakpoint.REQUEST_LOG_ID] = request_log_id
 
-  @staticmethod
-  def _NormalizePath(path):
-    """Converts an absolute path to a relative one.
-
-    Python keeps almost all paths absolute. This is not what we actually
-    want to return. This loops through system paths (directories in which
-    Python will load modules). If "path" is relative to one of them, the
-    directory prefix is removed.
-
-    Args:
-      path: absolute path to normalize (relative paths will not be altered)
-
-    Returns:
-      Relative path if "path" is within one of the sys.path directories or
-      the input otherwise.
-    """
-    path = os.path.normpath(path)
-
-    for sys_path in sys.path:
-      if not sys_path:
-        continue
-
-      # Append '/' at the end of the path if it's not there already.
-      sys_path = os.path.join(sys_path, '')
-
-      if path.startswith(sys_path):
-        return path[len(sys_path):]
-
-    return path
-
 
 class LogCollector(object):
   """Captures minimal application snapshot and logs it to application log.
@@ -489,7 +536,11 @@ class LogCollector(object):
         self._definition.get('logMessageFormat', ''),
         self._EvaluateExpressions(frame))
 
+    cdbg_logging_pathname = NormalizePath(frame.f_code.co_filename)
+    cdbg_logging_lineno = frame.f_lineno
     self._log_message('LOGPOINT: ' + message)
+    del cdbg_logging_pathname
+    del cdbg_logging_lineno
     return None
 
   def _EvaluateExpressions(self, frame):
