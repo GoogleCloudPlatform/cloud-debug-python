@@ -25,7 +25,6 @@ import re
 import sys
 import types
 
-import labels
 import cdbg_native as native
 
 # Externally defined functions to actually log a message. If these variables
@@ -33,9 +32,6 @@ import cdbg_native as native
 log_info_message = None
 log_warning_message = None
 log_error_message = None
-
-# Externally defined function to collect the request log id.
-request_log_id_collector = None
 
 _PRIMITIVE_TYPES = (int, long, float, complex, str, unicode, bool,
                     types.NoneType)
@@ -244,8 +240,6 @@ class CaptureCollector(object):
     # Trim variables table and change make all references to variables that
     # didn't make it point to var_index of 0 ("buffer full")
     self.TrimVariableTable(i)
-
-    self._CaptureRequestLogId()
 
   def CaptureFrameLocals(self, frame):
     """Captures local variables and arguments of the specified frame.
@@ -463,22 +457,6 @@ class CaptureCollector(object):
       ProcessBufferFull(stack_frame['locals'])
     ProcessBufferFull(self._var_table)
     ProcessBufferFull(self.breakpoint['evaluatedExpressions'])
-
-  def _CaptureRequestLogId(self):
-    """Captures the request log id if possible.
-
-    The request log id is stored inside the breakpoint labels.
-    """
-    # pylint: disable=not-callable
-    if callable(request_log_id_collector):
-      request_log_id = request_log_id_collector()
-      if request_log_id:
-        # We have a request_log_id, save it into the breakpoint labels
-        if 'labels' not in self.breakpoint:
-          self.breakpoint['labels'] = {}
-
-        self.breakpoint['labels'][
-            labels.Breakpoint.REQUEST_LOG_ID] = request_log_id
 
 
 class LogCollector(object):
