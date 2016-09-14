@@ -122,9 +122,14 @@ class PythonBreakpoint(object):
 
   def GetExpirationTime(self):
     """Computes the timestamp at which this breakpoint will expire."""
+    # TODO(emrekultursay): Move this to a common method.
+    if '.' not in self.definition['createTime']:
+      fmt = '%Y-%m-%dT%H:%M:%S%Z'
+    else:
+      fmt = '%Y-%m-%dT%H:%M:%S.%f%Z'
+
     create_datetime = datetime.strptime(
-        self.definition['createTime'].replace('Z', 'UTC'),
-        '%Y-%m-%dT%H:%M:%S.%f%Z')
+        self.definition['createTime'].replace('Z', 'UTC'), fmt)
     return create_datetime + self.expiration_period
 
   def ExpireBreakpoint(self):
