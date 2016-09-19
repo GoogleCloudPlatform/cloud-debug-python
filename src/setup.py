@@ -74,9 +74,9 @@ cvars['OPT'] = str.join(' ', RemovePrefixes(
 # Unfortunately we can't do that because "googleclouddebugger" depends on
 # "cdbg_native" that hasn't been built yet.
 version = None
-with open('googleclouddebugger/__init__.py', 'r') as init_file:
+with open('googleclouddebugger/version.py', 'r') as version_file:
   version_pattern = re.compile(r"^\s*__version__\s*=\s*'([0-9.]*)'")
-  for line in init_file:
+  for line in version_file:
     match = version_pattern.match(line)
     if match:
       version = match.groups()[0]

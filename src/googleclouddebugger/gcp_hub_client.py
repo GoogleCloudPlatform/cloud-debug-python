@@ -38,7 +38,7 @@ from oauth2client.contrib.gce import AppAssertionCredentials
 import labels
 import cdbg_native as native
 import uniquifier_computer
-import googleclouddebugger
+import version
 
 # This module catches all exception. This is safe because it runs in
 # a daemon thread (so we are not blocking Ctrl+C). We need to catch all
@@ -425,8 +425,7 @@ class GcpHubClient(object):
 
   def _GetDebuggee(self):
     """Builds the debuggee structure."""
-    version = googleclouddebugger.__version__
-    major_version = version.split('.')[0]
+    major_version = version.__version__.split('.')[0]
 
     debuggee = {
         'project': self._project_number(),

@@ -31,12 +31,9 @@ import breakpoints_manager
 import capture_collector
 import cdbg_native
 import gcp_hub_client
+import version
 
-# Versioning scheme: MAJOR.MINOR
-# The major version should only change on breaking changes. Minor version
-# changes go between regular updates. Instances running debuggers with
-# different major versions will show up as two different debuggees.
-__version__ = '1.11'
+__version__ = version.__version__
 
 _flags = None
 _hub_client = None
