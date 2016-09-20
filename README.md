@@ -122,17 +122,16 @@ created in [Google Developers Console](https://console.developers.google.com).
 If your application runs on Google Compute Engine,
 [metadata service authentication](#Google_Compute_Engine) is an easier option.
 
-The first step for this setup is to create the service account in .p12 format.
+The first step for this setup is to create the service account in .json format.
 Please see this [page](https://cloud.google.com/storage/docs/authentication?hl=en#generating-a-private-key)
 for detailed instructions. If you don't have a Google Cloud Platform project,
 you can create one for free on [Google Developers Console](https://console.developers.google.com).
 
 Once you have the service account, please note the service account e-mail,
 [project ID and project number](https://developers.google.com/console/help/new/#projectnumber).
-Then copy the .p12 file to all the machines that run your application.
+Then copy the .json file to all the machines that run your application.
 
-Then, enable the debugger agent in a similary way as described in
-the [previous](#Google_Compute_Engine) section:
+Then, enable the debugger agent using one of these two options:
 
 _Option A_: add this code to the beginning of your `main()` function:
 
@@ -144,8 +143,7 @@ try:
       enable_service_account_auth=True,
       project_id='my-gcp-project-id',
       project_number='123456789',
-      service_account_email='123@developer.gserviceaccount.com',
-      service_account_p12_file='/opt/cdbg/gcp.p12')
+      service_account_json_file='/opt/cdbg/gcp.json')
 except ImportError:
   pass
 ```
@@ -158,8 +156,7 @@ python \
     --enable_service_account_auth=1 \
     --project_id=<i>my-gcp-project-id</i> \
     --project_number=<i>123456789</i> \
-    --service_account_email=<i>123@developer.gserviceaccount.com</i> \
-    --service_account_p12_file=<i>/opt/cdbg/gcp.p12</i> \
+    --service_account_json_file=<i>/opt/cdbg/gcp.json</i> \
     --</b> \
     myapp.py
 </pre>

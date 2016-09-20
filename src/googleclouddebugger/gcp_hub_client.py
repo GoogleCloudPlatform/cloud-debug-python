@@ -33,6 +33,7 @@ from apiclient import discovery  # pylint: disable=unused-import
 from backoff import Backoff
 import httplib2
 import oauth2client
+from oauth2client import service_account
 from oauth2client.contrib.gce import AppAssertionCredentials
 
 import labels
@@ -165,19 +166,46 @@ class GcpHubClient(object):
 
     self._debuggee_labels['projectid'] = self._project_id()
 
-  def EnableServiceAccountAuth(self, project_id, project_number,
-                               email, p12_file):
-    """Selects to use the service account authentication.
+  def EnableServiceAccountAuthP12(self, project_id, project_number,
+                                  email, p12_file):
+    """Selects service account authentication with a p12 file.
+
+      Using this function is not recommended. Use EnableServiceAccountAuthJson
+      for authentication, instead. The p12 file format is no longer recommended.
+    Args:
+      project_id: GCP project ID (e.g. myproject).
+      project_number: numberic GCP project ID (e.g. 72386324623).
+      email: service account identifier for use with p12_file
+        (...@developer.gserviceaccount.com).
+      p12_file: (deprecated) path to an old-style p12 file with the
+        private key.
+    Raises:
+      NotImplementedError indicates that the installed version of oauth2client
+      does not support using a p12 file.
+    """
+    try:
+      with open(p12_file, 'rb') as f:
+        self._credentials = oauth2client.client.SignedJwtAssertionCredentials(
+            email, f.read(), scope=_CLOUD_PLATFORM_SCOPE)
+    except AttributeError:
+      raise NotImplementedError(
+          'P12 key files are no longer supported. Please use a JSON '
+          'credentials file instead.')
+    self._project_id = lambda: project_id
+    self._project_number = lambda: project_number
+
+  def EnableServiceAccountAuthJson(self, project_id, project_number,
+                                   auth_json_file):
+    """Selects service account authentication using Json credentials.
 
     Args:
       project_id: GCP project ID (e.g. myproject).
       project_number: numberic GCP project ID (e.g. 72386324623).
-      email: service account identifier (...@developer.gserviceaccount.com).
-      p12_file: path to the file with the private key.
+      auth_json_file: the JSON keyfile
     """
-    with open(p12_file, 'rb') as f:
-      self._credentials = oauth2client.client.SignedJwtAssertionCredentials(
-          email, f.read(), scope=_CLOUD_PLATFORM_SCOPE)
+    self._credentials = (
+        service_account.ServiceAccountCredentials
+        .from_json_keyfile_name(auth_json_file, scopes=_CLOUD_PLATFORM_SCOPE))
     self._project_id = lambda: project_id
     self._project_number = lambda: project_number
 
