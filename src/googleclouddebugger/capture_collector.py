@@ -207,39 +207,62 @@ class CaptureCollector(object):
     # Evaluate call stack.
     frame = top_frame
     breakpoint_frames = self.breakpoint['stackFrames']
-    while frame and (len(breakpoint_frames) < self.max_frames):
-      code = frame.f_code
-      if len(breakpoint_frames) < self.max_expand_frames:
-        frame_arguments, frame_locals = self.CaptureFrameLocals(frame)
-      else:
-        frame_arguments = []
-        frame_locals = []
+    # Number of entries in _var_table. Starts at 1 (index 0 is the 'buffer full'
+    # status value).
+    num_vars = 1
+    try:
+      while frame and (len(breakpoint_frames) < self.max_frames):
+        code = frame.f_code
+        if len(breakpoint_frames) < self.max_expand_frames:
+          frame_arguments, frame_locals = self.CaptureFrameLocals(frame)
+        else:
+          frame_arguments = []
+          frame_locals = []
 
-      breakpoint_frames.append({
-          'function': code.co_name,
-          'location': {
-              'path': NormalizePath(code.co_filename),
-              'line': frame.f_lineno},
-          'arguments': frame_arguments,
-          'locals': frame_locals})
-      frame = frame.f_back
+        breakpoint_frames.append({
+            'function': code.co_name,
+            'location': {
+                'path': NormalizePath(code.co_filename),
+                'line': frame.f_lineno},
+            'arguments': frame_arguments,
+            'locals': frame_locals})
+        frame = frame.f_back
 
-    # Evaluate watched expressions.
-    if 'expressions' in self.breakpoint:
-      self.breakpoint['evaluatedExpressions'] = [
-          self._CaptureExpression(top_frame, expression) for expression
-          in self.breakpoint['expressions']]
+      # Evaluate watched expressions.
+      if 'expressions' in self.breakpoint:
+        self.breakpoint['evaluatedExpressions'] = [
+            self._CaptureExpression(top_frame, expression) for expression
+            in self.breakpoint['expressions']]
 
-    # Explore variables table in BFS fashion. The variables table will grow
-    # inside CaptureVariable as we encounter new references.
-    i = 1
-    while (i < len(self._var_table)) and (self._total_size < self.max_size):
-      self._var_table[i] = self.CaptureVariable(self._var_table[i], 0, False)
-      i += 1
+      # Explore variables table in BFS fashion. The variables table will grow
+      # inside CaptureVariable as we encounter new references.
+      while (num_vars < len(self._var_table)) and (
+          self._total_size < self.max_size):
+        try:
+          self._var_table[num_vars] = self.CaptureVariable(
+              self._var_table[num_vars], 0, False)
+          num_vars += 1
+        except RuntimeError as e:
+          # Capture details on the failure and let the outer handler convert it
+          # to a status.
+          raise RuntimeError(
+              'Failed while capturing an object of type {0}: {1}'.format(
+                  type(self._var_table[num_vars]), e))
+
+    except BaseException as e:  # pylint: disable=broad-except
+      # The variable table will get serialized even though there was a
+      # failure. The results can be useful for diagnosing the internal
+      # error so just trim the excess values.
+      self.breakpoint['status'] = {
+          'isError': True,
+          'description': {
+              'format': (
+                  'INTERNAL ERROR: Debugger failed to capture frame $0: $1'),
+              'parameters': [str(len(breakpoint_frames)), str(e)]}}
 
     # Trim variables table and change make all references to variables that
     # didn't make it point to var_index of 0 ("buffer full")
-    self.TrimVariableTable(i)
+    self.TrimVariableTable(num_vars)
 
   def CaptureFrameLocals(self, frame):
     """Captures local variables and arguments of the specified frame.
@@ -276,14 +299,18 @@ class CaptureCollector(object):
     Returns:
       Formatted captured data as per Variable proto with name.
     """
-    if not hasattr(name, '__dict__'):
-      name = str(name)
-    else:  # TODO(vlif): call str(name) with immutability verifier here.
-      name = str(id(name))
-    self._total_size += len(name)
+    try:
+      if not hasattr(name, '__dict__'):
+        name = str(name)
+      else:  # TODO(vlif): call str(name) with immutability verifier here.
+        name = str(id(name))
+      self._total_size += len(name)
 
-    v = self.CaptureVariable(value, depth)
-    v['name'] = name
+      v = self.CaptureVariable(value, depth)
+      v['name'] = name
+    except RuntimeError as e:
+      raise RuntimeError(
+          'INTERNAL ERROR while capturing {0}: {1}'.format(name, e))
     return v
 
   def CaptureVariablesList(self, items, depth, empty_message):
@@ -298,23 +325,29 @@ class CaptureCollector(object):
       List of formatted variable objects.
     """
     v = []
-    for name, value in items:
-      if (self._total_size >= self.max_size) or (len(v) >= self.max_list_items):
-        v.append({
-            'status': {
-                'refers_to': 'VARIABLE_VALUE',
-                'description': {
-                    'format': 'Only first $0 items were captured',
-                    'parameters': [str(len(v))]}}})
-        break
-      v.append(self.CaptureNamedVariable(name, value, depth))
+    try:
+      for name, value in items:
+        if (self._total_size >= self.max_size) or (
+            len(v) >= self.max_list_items):
+          v.append({
+              'status': {
+                  'refers_to': 'VARIABLE_VALUE',
+                  'description': {
+                      'format': 'Only first $0 items were captured',
+                      'parameters': [str(len(v))]}}})
+          break
+        v.append(self.CaptureNamedVariable(name, value, depth))
 
-    if not v:
-      return [{'status': {
-          'is_error': False,
-          'refers_to': 'VARIABLE_NAME',
-          'description': {'format': empty_message}}}]
-
+      if not v:
+        return [{'status': {
+            'is_error': False,
+            'refers_to': 'VARIABLE_NAME',
+            'description': {'format': empty_message}}}]
+    except RuntimeError as e:
+      raise RuntimeError(
+          'Failed while capturing variables: {0}\n'
+          'The following elements were successfully captured: {1}'.format(
+              e, ', '.join([c['name'] for c in v if 'name' in c])))
     return v
 
   def CaptureVariable(self, value, depth=1, can_enqueue=True):
@@ -350,7 +383,10 @@ class CaptureCollector(object):
       return {'value': r, 'type': 'datetime.'+ type(value).__name__}
 
     if isinstance(value, dict):
-      return {'members': self.CaptureVariablesList(value.iteritems(),
+      # Do not use iteritems() here. If GC happens during iteration (which it
+      # often can for dictionaries containing large variables), you will get a
+      # RunTimeError exception.
+      return {'members': self.CaptureVariablesList(value.items(),
                                                    depth + 1,
                                                    EMPTY_DICTIONARY),
               'type': 'dict'}
@@ -648,7 +684,7 @@ def _EvaluateExpression(frame, expression):
 
   try:
     return (True, native.CallImmutable(frame, code))
-  except BaseException as e:
+  except BaseException as e:  # pylint: disable=broad-except
     return (False, {
         'isError': True,
         'refersTo': 'VARIABLE_VALUE',
