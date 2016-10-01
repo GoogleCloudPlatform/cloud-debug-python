@@ -38,9 +38,9 @@ log_error_message = None
 request_log_id_collector = None
 
 _PRIMITIVE_TYPES = (int, long, float, complex, str, unicode, bool,
-                    types.NoneType)
+                    types.NoneType, types.SliceType)
 _DATE_TYPES = (datetime.date, datetime.time, datetime.timedelta)
-_VECTOR_TYPES = (types.TupleType, types.ListType, types.SliceType, set)
+_VECTOR_TYPES = (types.TupleType, types.ListType, set)
 
 # TODO(vlif): move to messages.py module.
 EMPTY_DICTIONARY = 'Empty dictionary'
@@ -48,6 +48,16 @@ EMPTY_COLLECTION = 'Empty collection'
 OBJECT_HAS_NO_FIELDS = 'Object has no fields'
 LOG_ACTION_NOT_SUPPORTED = 'Log action on a breakpoint not supported'
 INVALID_EXPRESSION_INDEX = '<N/A>'
+
+
+def _ListTypeFormatString(value):
+  """Returns the appropriate format string for formatting a list object."""
+
+  if isinstance(value, types.TupleType):
+    return '({0})'
+  if isinstance(value, set):
+    return '{{{0}}}'
+  return '[{0}]'
 
 
 def NormalizePath(path):
@@ -539,8 +549,14 @@ class LogCollector(object):
     # are truncated.
     self.max_value_len = 256
 
-    # Maximum number of items in a list to capture.
+    # Maximum recursion depth.
+    self.max_depth = 2
+
+    # Maximum number of items in a list to capture at the top level.
     self.max_list_items = 10
+
+    # When capturing recursively, limit on the size of sublists.
+    self.max_sublist_items = 5
 
     # Select log function.
     level = self._definition.get('logLevel')
@@ -637,20 +653,21 @@ class LogCollector(object):
               ': ' +
               self._FormatValue(value, level + 1))
 
-    def LimitedEnumerate(items, formatter):
+    def LimitedEnumerate(items, formatter, level=0):
       """Returns items in the specified enumerable enforcing threshold."""
       count = 0
+      limit = self.max_sublist_items if level > 0 else self.max_list_items
       for item in items:
-        if count == self.max_list_items:
+        if count == limit:
           yield '...'
           break
 
         yield formatter(item)
         count += 1
 
-    def FormatList(items, formatter):
+    def FormatList(items, formatter, level=0):
       """Formats a list using a custom item formatter enforcing threshold."""
-      return ', '.join(LimitedEnumerate(items, formatter))
+      return ', '.join(LimitedEnumerate(items, formatter, level=level))
 
     if isinstance(value, _PRIMITIVE_TYPES):
       return _TrimString(repr(value),  # Primitive type, always immutable.
@@ -659,14 +676,15 @@ class LogCollector(object):
     if isinstance(value, _DATE_TYPES):
       return str(value)
 
-    if level > 0:
+    if level > self.max_depth:
       return str(type(value))
 
     if isinstance(value, dict):
       return '{' + FormatList(value.iteritems(), FormatDictItem) + '}'
 
     if isinstance(value, _VECTOR_TYPES):
-      return FormatList(value, lambda item: self._FormatValue(item, level + 1))
+      return _ListTypeFormatString(value).format(FormatList(
+          value, lambda item: self._FormatValue(item, level + 1), level=level))
 
     if isinstance(value, types.FunctionType):
       return 'function ' + value.func_name
