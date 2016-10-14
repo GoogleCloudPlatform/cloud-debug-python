@@ -41,8 +41,10 @@ BREAKPOINT_CONDITION_QUOTA_EXCEEDED = (
     'the snapshot to a less frequently called statement.')
 MUTABLE_CONDITION = (
     'Only immutable expressions can be used in snapshot conditions')
-BREAKPOINT_EXPIRED = (
+SNAPSHOT_EXPIRED = (
     'The snapshot has expired')
+LOGPOINT_EXPIRED = (
+    'The logpoint has expired')
 INTERNAL_ERROR = (
     'Internal error occurred')
 
@@ -138,11 +140,15 @@ class PythonBreakpoint(object):
     if not self._SetCompleted():
       return
 
+    if self.definition.get('action') == 'LOG':
+      message = LOGPOINT_EXPIRED
+    else:
+      message = SNAPSHOT_EXPIRED
     self._CompleteBreakpoint({
         'status': {
             'isError': True,
-            'refersTo': 'UNSPECIFIED',
-            'description': {'format': BREAKPOINT_EXPIRED}}})
+            'refersTo': 'BREAKPOINT_AGE',
+            'description': {'format': message}}})
 
   def _TryActivateBreakpoint(self):
     """Sets the breakpoint if the module has already been loaded.
