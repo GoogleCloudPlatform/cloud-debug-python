@@ -353,7 +353,8 @@ class GcpHubClient(object):
     """
     try:
       response = service.debuggees().breakpoints().list(
-          debuggeeId=self._debuggee_id, waitToken=self._wait_token).execute()
+          debuggeeId=self._debuggee_id, waitToken=self._wait_token,
+          successOnTimeout=True).execute()
       breakpoints = response.get('breakpoints') or []
       self._wait_token = response.get('nextWaitToken')
       if cmp(self._breakpoints, breakpoints) != 0:
@@ -363,15 +364,14 @@ class GcpHubClient(object):
                 len(self._breakpoints), self._wait_token))
         self.on_active_breakpoints_changed(copy.deepcopy(self._breakpoints))
     except Exception as e:
-      if not isinstance(e, apiclient.errors.HttpError) or e.resp.status != 409:
-        native.LogInfo('Failed to query active breakpoints: ' +
-                       traceback.format_exc())
+      native.LogInfo('Failed to query active breakpoints: ' +
+                     traceback.format_exc())
 
-        # Forget debuggee ID to trigger repeated debuggee registration. Once the
-        # registration succeeds, the worker thread will retry this query
-        self._debuggee_id = None
+      # Forget debuggee ID to trigger repeated debuggee registration. Once the
+      # registration succeeds, the worker thread will retry this query
+      self._debuggee_id = None
 
-        return (True, self.list_backoff.Failed())
+      return (True, self.list_backoff.Failed())
 
     self.list_backoff.Succeeded()
     return (False, 0)
