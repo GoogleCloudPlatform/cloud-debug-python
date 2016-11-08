@@ -208,6 +208,7 @@ class PythonBreakpoint(object):
         condition,
         self._BreakpointEvent)
 
+    self._RemoveImportHook()
     return True
 
   def _FindCodeObject(self):
