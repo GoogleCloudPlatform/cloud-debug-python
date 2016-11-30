@@ -136,6 +136,22 @@ def SetLogger(logger):
   logger.addFilter(LineNoFilter())
 
 
+class _CaptureLimits(object):
+  """Limits for variable capture.
+
+  Args:
+    max_value_len: Maximum number of character to allow for a single string
+      value.  Longer strings are truncated.
+    max_list_items: Maximum number of items in a list to capture.
+    max_depth: Maximum depth of dictionaries to capture.
+  """
+
+  def __init__(self, max_value_len=256, max_list_items=25, max_depth=5):
+    self.max_value_len = max_value_len
+    self.max_list_items = max_list_items
+    self.max_depth = max_depth
+
+
 class CaptureCollector(object):
   """Captures application state snapshot.
 
@@ -198,15 +214,16 @@ class CaptureCollector(object):
     # names is not counted.
     self.max_size = 32768  # 32 KB
 
-    # Maximum number of character to allow for a single value. Longer strings
-    # are truncated.
-    self.max_value_len = 256
+    self.default_capture_limits = _CaptureLimits()
 
-    # Maximum number of items in a list to capture.
-    self.max_list_items = 25
-
-    # Maximum depth of dictionaries to capture.
-    self.max_depth = 5
+    # When the user provides an expression, they've indicated that they're
+    # interested in some specific data. Use higher per-object capture limits
+    # for expressions. We don't want to globally increase capture limits,
+    # because in the case where the user has not indicated a preference, we
+    # don't want a single large object on the stack to use the entire max_size
+    # quota and hide the rest of the data.
+    self.expression_capture_limits = _CaptureLimits(max_value_len=32768,
+                                                    max_list_items=32768)
 
   def Collect(self, top_frame):
     """Collects call stack, local variables and objects.
@@ -225,6 +242,12 @@ class CaptureCollector(object):
     # status value).
     num_vars = 1
     try:
+      # Evaluate watched expressions.
+      if 'expressions' in self.breakpoint:
+        self.breakpoint['evaluatedExpressions'] = [
+            self._CaptureExpression(top_frame, expression) for expression
+            in self.breakpoint['expressions']]
+
       while frame and (len(breakpoint_frames) < self.max_frames):
         code = frame.f_code
         if len(breakpoint_frames) < self.max_expand_frames:
@@ -242,19 +265,14 @@ class CaptureCollector(object):
             'locals': frame_locals})
         frame = frame.f_back
 
-      # Evaluate watched expressions.
-      if 'expressions' in self.breakpoint:
-        self.breakpoint['evaluatedExpressions'] = [
-            self._CaptureExpression(top_frame, expression) for expression
-            in self.breakpoint['expressions']]
-
       # Explore variables table in BFS fashion. The variables table will grow
       # inside CaptureVariable as we encounter new references.
       while (num_vars < len(self._var_table)) and (
           self._total_size < self.max_size):
         try:
           self._var_table[num_vars] = self.CaptureVariable(
-              self._var_table[num_vars], 0, False)
+              self._var_table[num_vars], 0, self.default_capture_limits,
+              can_enqueue=False)
           num_vars += 1
         except RuntimeError as e:
           # Capture details on the failure and let the outer handler convert it
@@ -290,7 +308,8 @@ class CaptureCollector(object):
       (arguments, locals) tuple.
     """
     # Capture all local variables (including method arguments).
-    variables = {n: self.CaptureNamedVariable(n, v)
+    variables = {n: self.CaptureNamedVariable(n, v, 1,
+                                              self.default_capture_limits)
                  for n, v in frame.f_locals.viewitems()}
 
     # Split between locals and arguments (keeping arguments in the right order).
@@ -304,13 +323,14 @@ class CaptureCollector(object):
 
     return (frame_arguments, list(variables.viewvalues()))
 
-  def CaptureNamedVariable(self, name, value, depth=1):
+  def CaptureNamedVariable(self, name, value, depth, limits):
     """Appends name to the product of CaptureVariable.
 
     Args:
       name: name of the variable.
       value: data to capture
       depth: nested depth of dictionaries and vectors so far.
+      limits: Per-object limits for capturing variable data.
 
     Returns:
       Formatted captured data as per Variable proto with name.
@@ -322,20 +342,21 @@ class CaptureCollector(object):
         name = str(id(name))
       self._total_size += len(name)
 
-      v = self.CaptureVariable(value, depth)
+      v = self.CaptureVariable(value, depth, limits)
       v['name'] = name
     except RuntimeError as e:
       raise RuntimeError(
           'INTERNAL ERROR while capturing {0}: {1}'.format(name, e))
     return v
 
-  def CaptureVariablesList(self, items, depth, empty_message):
+  def CaptureVariablesList(self, items, depth, empty_message, limits):
     """Captures list of named items.
 
     Args:
       items: iterable of (name, value) tuples.
       depth: nested depth of dictionaries and vectors for items.
       empty_message: info status message to set if items is empty.
+      limits: Per-object limits for capturing variable data.
 
     Returns:
       List of formatted variable objects.
@@ -344,7 +365,7 @@ class CaptureCollector(object):
     try:
       for name, value in items:
         if (self._total_size >= self.max_size) or (
-            len(v) >= self.max_list_items):
+            len(v) >= limits.max_list_items):
           v.append({
               'status': {
                   'refers_to': 'VARIABLE_VALUE',
@@ -352,7 +373,7 @@ class CaptureCollector(object):
                       'format': 'Only first $0 items were captured',
                       'parameters': [str(len(v))]}}})
           break
-        v.append(self.CaptureNamedVariable(name, value, depth))
+        v.append(self.CaptureNamedVariable(name, value, depth, limits))
 
       if not v:
         return [{'status': {
@@ -366,7 +387,7 @@ class CaptureCollector(object):
               e, ', '.join([c['name'] for c in v if 'name' in c])))
     return v
 
-  def CaptureVariable(self, value, depth=1, can_enqueue=True):
+  def CaptureVariable(self, value, depth, limits, can_enqueue=True):
     """Captures a single nameless object into Variable message.
 
     TODO(vlif): safely evaluate iterable types.
@@ -375,12 +396,13 @@ class CaptureCollector(object):
     Args:
       value: data to capture
       depth: nested depth of dictionaries and vectors so far.
+      limits: Per-object limits for capturing variable data.
       can_enqueue: allows referencing the object in variables table.
 
     Returns:
       Formatted captured data as per Variable proto.
     """
-    if depth == self.max_depth:
+    if depth == limits.max_depth:
       return {'varTableIndex': 0}  # Buffer full.
 
     if value is None:
@@ -389,7 +411,8 @@ class CaptureCollector(object):
 
     if isinstance(value, _PRIMITIVE_TYPES):
       r = _TrimString(repr(value),  # Primitive type, always immutable.
-                      self.max_value_len)
+                      min(limits.max_value_len,
+                          self.max_size - self._total_size))
       self._total_size += len(r)
       return {'value': r, 'type': type(value).__name__}
 
@@ -402,16 +425,15 @@ class CaptureCollector(object):
       # Do not use iteritems() here. If GC happens during iteration (which it
       # often can for dictionaries containing large variables), you will get a
       # RunTimeError exception.
-      return {'members': self.CaptureVariablesList(value.items(),
-                                                   depth + 1,
-                                                   EMPTY_DICTIONARY),
+      return {'members':
+              self.CaptureVariablesList(value.items(), depth + 1,
+                                        EMPTY_DICTIONARY, limits),
               'type': 'dict'}
 
     if isinstance(value, _VECTOR_TYPES):
       fields = self.CaptureVariablesList(
           (('[%d]' % i, x) for i, x in enumerate(value)),
-          depth + 1,
-          EMPTY_COLLECTION)
+          depth + 1, EMPTY_COLLECTION, limits)
       return {'members': fields, 'type': type(value).__name__}
 
     if isinstance(value, types.FunctionType):
@@ -434,9 +456,9 @@ class CaptureCollector(object):
         continue
 
       fields, object_type = pretty_value
-      return {'members': self.CaptureVariablesList(fields,
-                                                   depth + 1,
-                                                   OBJECT_HAS_NO_FIELDS),
+      return {'members':
+              self.CaptureVariablesList(fields, depth + 1, OBJECT_HAS_NO_FIELDS,
+                                        limits),
               'type': object_type}
 
     if not hasattr(value, '__dict__'):
@@ -446,7 +468,7 @@ class CaptureCollector(object):
       return {'value': r}
 
     if value.__dict__:
-      v = self.CaptureVariable(value.__dict__, depth + 1)
+      v = self.CaptureVariable(value.__dict__, depth + 1, limits)
     else:
       v = {'members':
            [
@@ -481,7 +503,8 @@ class CaptureCollector(object):
     if not rc:
       return {'name': expression, 'status': value}
 
-    return self.CaptureNamedVariable(expression, value)
+    return self.CaptureNamedVariable(expression, value, 0,
+                                     self.expression_capture_limits)
 
   def TrimVariableTable(self, new_size):
     """Trims the variable table in the formatted breakpoint message.
@@ -504,11 +527,11 @@ class CaptureCollector(object):
           ProcessBufferFull(members)
 
     del self._var_table[new_size:]
+    ProcessBufferFull(self.breakpoint['evaluatedExpressions'])
     for stack_frame in self.breakpoint['stackFrames']:
       ProcessBufferFull(stack_frame['arguments'])
       ProcessBufferFull(stack_frame['locals'])
     ProcessBufferFull(self._var_table)
-    ProcessBufferFull(self.breakpoint['evaluatedExpressions'])
 
   def _CaptureRequestLogId(self):
     """Captures the request log id if possible.
