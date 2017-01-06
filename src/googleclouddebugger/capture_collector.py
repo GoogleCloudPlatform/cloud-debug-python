@@ -16,6 +16,7 @@
 
 # TODO(vlif): rename this file to collector.py.
 
+from collections import namedtuple
 import copy
 import datetime
 import inspect
@@ -250,19 +251,25 @@ class CaptureCollector(object):
 
       while frame and (len(breakpoint_frames) < self.max_frames):
         code = frame.f_code
+        function = code.co_name
+        frame_arguments = []
+        frame_locals = []
         if len(breakpoint_frames) < self.max_expand_frames:
-          frame_arguments, frame_locals = self.CaptureFrameLocals(frame)
-        else:
-          frame_arguments = []
-          frame_locals = []
+          frame_capture = self.CaptureFrameLocals(frame)
+          frame_arguments = frame_capture.arguments
+          frame_locals = frame_capture.locals
+          if frame_capture.classname:
+            function = frame_capture.classname + '.' + code.co_name
 
         breakpoint_frames.append({
-            'function': code.co_name,
+            'function': function,
             'location': {
                 'path': NormalizePath(code.co_filename),
-                'line': frame.f_lineno},
+                'line': frame.f_lineno
+            },
             'arguments': frame_arguments,
-            'locals': frame_locals})
+            'locals': frame_locals
+        })
         frame = frame.f_back
 
       # Explore variables table in BFS fashion. The variables table will grow
@@ -317,11 +324,20 @@ class CaptureCollector(object):
     if frame.f_code.co_flags & inspect.CO_VARARGS: nargs += 1
     if frame.f_code.co_flags & inspect.CO_VARKEYWORDS: nargs += 1
 
+    # Retrieve class name of function if we think it is a member function
+    # This functions under the assumption that member functions will name their
+    # first parameter argument 'self' but has some edge-cases.
+    if nargs >= 1 and 'self' == frame.f_code.co_varnames[0]:
+      frame_class = frame.f_locals['self'].__class__.__name__
+    else:
+      frame_class = None
+
     frame_arguments = []
     for argname in frame.f_code.co_varnames[:nargs]:
       if argname in variables: frame_arguments.append(variables.pop(argname))
 
-    return (frame_arguments, list(variables.viewvalues()))
+    frame = namedtuple('frame', 'classname arguments locals')
+    return frame(frame_class, frame_arguments, list(variables.viewvalues()))
 
   def CaptureNamedVariable(self, name, value, depth, limits):
     """Appends name to the product of CaptureVariable.
