@@ -66,6 +66,13 @@ _BREAKPOINT_EVENT_STATUS = dict(
        'refersTo': 'BREAKPOINT_CONDITION',
        'description': {'format': MUTABLE_CONDITION}})])
 
+# The implementation of datetime.strptime imports an undocumented module called
+# _strptime. If it happens at the wrong time, we can get an exception about
+# trying to import while another thread holds the import lock. This dummy call
+# to strptime ensures that the module is loaded at startup.
+# See http://bugs.python.org/issue7980 for discussion of the Python bug.
+datetime.strptime('2017-01-01', '%Y-%m-%d')
+
 
 class PythonBreakpoint(object):
   """Handles a single Python breakpoint.
