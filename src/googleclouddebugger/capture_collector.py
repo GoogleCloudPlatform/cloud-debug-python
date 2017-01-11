@@ -104,25 +104,34 @@ class LineNoFilter(logging.Filter):
     # particular invocation came from our logging code.
     if record.pathname != inspect.currentframe().f_code.co_filename:
       return True
-    pathname, lineno = GetLoggingFileAndLine()
-    if pathname and lineno:
+    pathname, lineno, func_name = GetLoggingLocation()
+    if pathname:
       record.pathname = pathname
+      record.filename = os.path.basename(pathname)
       record.lineno = lineno
+      record.funcName = func_name
     return True
 
 
-def GetLoggingFileAndLine():
-  """Search for and return the file and line number from the log collector."""
+def GetLoggingLocation():
+  """Search for and return the file and line number from the log collector.
+
+  Returns:
+    (pathname, lineno, func_name) The full path, line number, and function name
+    for the logpoint location.
+  """
   frame = inspect.currentframe()
   this_file = frame.f_code.co_filename
   frame = frame.f_back
   while frame:
     if this_file == frame.f_code.co_filename:
-      if 'cdbg_logging_pathname' in frame.f_locals:
-        return (frame.f_locals['cdbg_logging_pathname'],
-                frame.f_locals.get('cdbg_logging_lineno', None))
+      if 'cdbg_logging_location' in frame.f_locals:
+        ret = frame.f_locals['cdbg_logging_location']
+        if len(ret) != 3:
+          return (None, None, None)
+        return ret
     frame = frame.f_back
-  return (None, None)
+  return (None, None, None)
 
 
 def SetLogger(logger):
@@ -611,11 +620,11 @@ class LogCollector(object):
         self._definition.get('logMessageFormat', ''),
         self._EvaluateExpressions(frame))
 
-    cdbg_logging_pathname = NormalizePath(frame.f_code.co_filename)
-    cdbg_logging_lineno = frame.f_lineno
+    cdbg_logging_location = (
+        NormalizePath(frame.f_code.co_filename), frame.f_lineno,
+        frame.f_code.co_name)
     self._log_message('LOGPOINT: ' + message)
-    del cdbg_logging_pathname
-    del cdbg_logging_lineno
+    del cdbg_logging_location
     return None
 
   def _EvaluateExpressions(self, frame):
