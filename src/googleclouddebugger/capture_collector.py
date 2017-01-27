@@ -16,7 +16,6 @@
 
 # TODO(vlif): rename this file to collector.py.
 
-from collections import namedtuple
 import copy
 import datetime
 import inspect
@@ -260,18 +259,14 @@ class CaptureCollector(object):
 
       while frame and (len(breakpoint_frames) < self.max_frames):
         code = frame.f_code
-        function = code.co_name
-        frame_arguments = []
-        frame_locals = []
         if len(breakpoint_frames) < self.max_expand_frames:
-          frame_capture = self.CaptureFrameLocals(frame)
-          frame_arguments = frame_capture.arguments
-          frame_locals = frame_capture.locals
-          if frame_capture.classname:
-            function = frame_capture.classname + '.' + code.co_name
+          frame_arguments, frame_locals = self.CaptureFrameLocals(frame)
+        else:
+          frame_arguments = []
+          frame_locals = []
 
         breakpoint_frames.append({
-            'function': function,
+            'function': _GetFrameCodeObjectName(frame),
             'location': {
                 'path': NormalizePath(code.co_filename),
                 'line': frame.f_lineno
@@ -333,20 +328,11 @@ class CaptureCollector(object):
     if frame.f_code.co_flags & inspect.CO_VARARGS: nargs += 1
     if frame.f_code.co_flags & inspect.CO_VARKEYWORDS: nargs += 1
 
-    # Retrieve class name of function if we think it is a member function
-    # This functions under the assumption that member functions will name their
-    # first parameter argument 'self' but has some edge-cases.
-    if nargs >= 1 and 'self' == frame.f_code.co_varnames[0]:
-      frame_class = frame.f_locals['self'].__class__.__name__
-    else:
-      frame_class = None
-
     frame_arguments = []
     for argname in frame.f_code.co_varnames[:nargs]:
       if argname in variables: frame_arguments.append(variables.pop(argname))
 
-    frame = namedtuple('frame', 'classname arguments locals')
-    return frame(frame_class, frame_arguments, list(variables.viewvalues()))
+    return (frame_arguments, list(variables.viewvalues()))
 
   def CaptureNamedVariable(self, name, value, depth, limits):
     """Appends name to the product of CaptureVariable.
@@ -636,9 +622,9 @@ class LogCollector(object):
         self._definition.get('logMessageFormat', ''),
         self._EvaluateExpressions(frame))
 
-    cdbg_logging_location = (
-        NormalizePath(frame.f_code.co_filename), frame.f_lineno,
-        frame.f_code.co_name)
+    cdbg_logging_location = (NormalizePath(frame.f_code.co_filename),
+                             frame.f_lineno, _GetFrameCodeObjectName(frame))
+
     self._log_message('LOGPOINT: ' + message)
     del cdbg_logging_location
     return None
@@ -779,6 +765,25 @@ def _EvaluateExpression(frame, expression):
         'description': {
             'format': 'Exception occurred: $0',
             'parameters': [e.message]}})
+
+
+def _GetFrameCodeObjectName(frame):
+  """Gets the code object name for the frame.
+
+  Args:
+    frame: the frame to get the name from
+
+  Returns:
+    The function name if the code is a static function or the class name with
+    the method name if it is an member function.
+  """
+  # This functions under the assumption that member functions will name their
+  # first parameter argument 'self' but has some edge-cases.
+  if frame.f_code.co_argcount >= 1 and 'self' == frame.f_code.co_varnames[0]:
+    return (frame.f_locals['self'].__class__.__name__ +
+            '.' + frame.f_code.co_name)
+  else:
+    return frame.f_code.co_name
 
 
 def _FormatMessage(template, parameters):
