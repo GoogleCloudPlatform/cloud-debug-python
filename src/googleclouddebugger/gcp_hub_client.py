@@ -58,9 +58,9 @@ _LOCAL_METADATA_SERVICE_PROJECT_URL = ('http://metadata.google.internal/'
 # a map is optional environment variable that can be used to set the flag
 # (flags still take precedence).
 _DEBUGGEE_LABELS = {
-    labels.Debuggee.MODULE: 'GAE_MODULE_NAME',
-    labels.Debuggee.VERSION: 'GAE_MODULE_VERSION',
-    labels.Debuggee.MINOR_VERSION: 'GAE_MINOR_VERSION'
+    labels.Debuggee.MODULE: ['GAE_SERVICE', 'GAE_MODULE_NAME'],
+    labels.Debuggee.VERSION: ['GAE_VERSION', 'GAE_MODULE_VERSION'],
+    labels.Debuggee.MINOR_VERSION: ['GAE_DEPLOYMENT_ID', 'GAE_MINOR_VERSION']
 }
 
 # Debuggee labels used to format debuggee description (ordered). The minor
@@ -73,6 +73,7 @@ _DESCRIPTION_LABELS = [
 # longer than the typical controller.breakpoints.list hanging get latency
 # of 40 seconds.
 _HTTP_TIMEOUT_SECONDS = 100
+
 
 class GcpHubClient(object):
   """Controller API client.
@@ -155,13 +156,18 @@ class GcpHubClient(object):
     """
     self._debuggee_labels = {}
 
-    for (label, env) in _DEBUGGEE_LABELS.iteritems():
-      if env and env in os.environ:
-        # Special case for GAE_MODULE_NAME. We omit the "default" module
-        # to stay consistent with AppEngine.
-        if env == 'GAE_MODULE_NAME' and os.environ[env] == 'default':
-          continue
-        self._debuggee_labels[label] = os.environ[env]
+    for (label, var_names) in _DEBUGGEE_LABELS.iteritems():
+      # var_names is a list of possible environment variables that may contain
+      # the label value. Find the first one that is set.
+      for name in var_names:
+        value = os.environ.get(name)
+        if value:
+          # Special case for module. We omit the "default" module
+          # to stay consistent with AppEngine.
+          if label == labels.Debuggee.MODULE and value == 'default':
+            break
+          self._debuggee_labels[label] = value
+          break
 
     if flags:
       self._debuggee_labels.update(
