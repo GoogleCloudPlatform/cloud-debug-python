@@ -37,8 +37,8 @@ log_error_message = None
 # Externally defined function to collect the request log id.
 request_log_id_collector = None
 
-_PRIMITIVE_TYPES = (int, long, float, complex, str, unicode, bool,
-                    types.NoneType, types.SliceType)
+_PRIMITIVE_TYPES = (int, long, float, complex, types.StringTypes, bool,
+                    types.NoneType, types.SliceType, bytearray)
 _DATE_TYPES = (datetime.date, datetime.time, datetime.timedelta)
 _VECTOR_TYPES = (types.TupleType, types.ListType, set)
 
