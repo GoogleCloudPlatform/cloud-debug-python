@@ -381,7 +381,9 @@ class CaptureCollector(object):
               'status': {
                   'refers_to': 'VARIABLE_VALUE',
                   'description': {
-                      'format': 'Only first $0 items were captured',
+                      'format':
+                          ('Only first $0 items were captured. Use in an '
+                           'expression to see all items.'),
                       'parameters': [str(len(v))]}}})
           break
         v.append(self.CaptureNamedVariable(name, value, depth, limits))
