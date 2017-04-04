@@ -27,7 +27,7 @@ DEFINE_int32(
 namespace devtools {
 namespace cdbg {
 
-// Define capacity of "trace_quota_" leaky bucket:
+// Define capacity of leaky bucket:
 //   capacity = fill_rate * capacity_factor
 //
 // The capacity is conceptually unrelated to fill rate, but we don't want to
@@ -38,7 +38,6 @@ namespace cdbg {
 // debugger wil not impact the service throughput. Longer values will allow the
 // burst, and will only disable the breakpoint if CPU consumption due to
 // debugger is continuous for a prolonged period of time.
-static const double kMaxTraceRateCapacityFactor = 10;
 static const double kConditionCostCapacityFactor = 0.1;
 
 static std::unique_ptr<LeakyBucket> g_global_condition_quota;

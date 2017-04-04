@@ -30,18 +30,6 @@ void LazyInitializeRateLimit();
 // Release quota objects.
 void CleanupRateLimit();
 
-// Gets the global quota on number of trace calls per second. Once the quota is
-// exceeded we disable all the breakpoints. This is because the overhead is
-// due to having trace callback and a specific breakpoint doesn't impact
-// much.
-// We don't measure total time, because:
-// 1. There is an overhead of calling the trace function in CPython. We
-//    can't measure it.
-// 2. Most of these callbacks are too fast to reliably measure.
-// The quota is not a function of number of CPUs because Python is inherently
-// single threaded.
-LeakyBucket* GetTraceQuota();
-
 // Condition and dynamic logging rate limits are defined as the maximum
 // number of lines of Python code per second to execute. These rate are enforced
 // as following:
