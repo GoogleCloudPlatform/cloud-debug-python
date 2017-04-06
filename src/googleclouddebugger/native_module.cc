@@ -66,23 +66,6 @@ static const INTEGER_CONSTANT kIntegerConstants[] = {
 // Class to set zero overhead breakpoints.
 static BytecodeBreakpoint g_bytecode_breakpoint;
 
-// Condition and dynamic logging rate limits are defined as the maximum
-// amount of time in nanoseconds to spend on particular processing per
-// second. These rate are enforced as following:
-// 1. If a single breakpoint contributes to half the maximum rate, that
-//    breakpoint will be deactivated.
-// 2. If all breakpoints combined hit the maximum rate, any breakpoint to
-//    exceed the limit gets disabled.
-//
-// The first rule ensures that in vast majority of scenarios expensive
-// breakpoints will get deactivated. The second rule guarantees that in edge
-// case scenarios the total amount of time spent in condition evaluation will
-// not exceed the alotted limit.
-//
-// All limits ignore the number of CPUs since Python is inherently single
-// threaded.
-static std::unique_ptr<LeakyBucket> g_global_condition_quota_;
-
 // Initializes C++ flags and logging.
 //
 // This function should be called exactly once during debugger bootstrap. It
@@ -376,6 +359,31 @@ static PyObject* CallImmutable(PyObject* self, PyObject* py_args) {
   return PyEval_EvalCode(code, frame->f_globals, frame->f_locals);
 }
 
+// Applies the dynamic logs quota, which is limited by both total messages and
+// total bytes. This should be called before doing the actual logging call.
+//
+// Args:
+//   num_bytes: number of bytes in the message to log.
+// Returns:
+//   True if there is quota available, False otherwise.
+static PyObject* ApplyDynamicLogsQuota(PyObject* self, PyObject* py_args) {
+  LazyInitializeRateLimit();
+  int num_bytes = -1;
+  if (!PyArg_ParseTuple(py_args, "i", &num_bytes) || num_bytes < 1) {
+    Py_RETURN_FALSE;
+  }
+
+  LeakyBucket* global_dynamic_log_limiter = GetGlobalDynamicLogQuota();
+  LeakyBucket* global_dynamic_log_bytes_limiter =
+      GetGlobalDynamicLogBytesQuota();
+
+  if (global_dynamic_log_limiter->RequestTokens(1) &&
+      global_dynamic_log_bytes_limiter->RequestTokens(num_bytes)) {
+    Py_RETURN_TRUE;
+  } else {
+    Py_RETURN_FALSE;
+  }
+}
 
 static PyMethodDef g_module_functions[] = {
   {
@@ -426,6 +434,12 @@ static PyMethodDef g_module_functions[] = {
     CallImmutable,
     METH_VARARGS,
     "Invokes a Python callable object with immutability tracer."
+  },
+  {
+    "ApplyDynamicLogsQuota",
+    ApplyDynamicLogsQuota,
+    METH_VARARGS,
+    "Applies the dynamic log quota"
   },
   { nullptr, nullptr, 0, nullptr }  // sentinel
 };

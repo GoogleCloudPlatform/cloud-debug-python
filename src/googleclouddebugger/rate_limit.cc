@@ -24,6 +24,18 @@ DEFINE_int32(
     5000,
     "maximum number of Python lines/sec to spend on condition evaluation");
 
+DEFINE_int32(
+    max_dynamic_log_rate,
+    50,  // maximum of 50 log entries per second on average
+    "maximum rate of dynamic log entries in this process; short bursts are "
+    "allowed to exceed this limit");
+
+DEFINE_int32(
+    max_dynamic_log_bytes_rate,
+    20480,  // maximum of 20K bytes per second on average
+    "maximum rate of dynamic log bytes in this process; short bursts are "
+    "allowed to exceed this limit");
+
 namespace devtools {
 namespace cdbg {
 
@@ -39,26 +51,39 @@ namespace cdbg {
 // burst, and will only disable the breakpoint if CPU consumption due to
 // debugger is continuous for a prolonged period of time.
 static const double kConditionCostCapacityFactor = 0.1;
+static const double kDynamicLogCapacityFactor = 5;
+static const double kDynamicLogBytesCapacityFactor = 2;
 
 static std::unique_ptr<LeakyBucket> g_global_condition_quota;
+static std::unique_ptr<LeakyBucket> g_global_dynamic_log_quota;
+static std::unique_ptr<LeakyBucket> g_global_dynamic_log_bytes_quota;
 
 
 static int64 GetBaseConditionQuotaCapacity() {
   return FLAGS_max_condition_lines_rate * kConditionCostCapacityFactor;
 }
 
-
 void LazyInitializeRateLimit() {
   if (g_global_condition_quota == nullptr) {
     g_global_condition_quota.reset(new LeakyBucket(
         GetBaseConditionQuotaCapacity(),
         FLAGS_max_condition_lines_rate));
+
+    g_global_dynamic_log_quota.reset(new LeakyBucket(
+        FLAGS_max_dynamic_log_rate * kDynamicLogCapacityFactor,
+        FLAGS_max_dynamic_log_rate));
+
+    g_global_dynamic_log_bytes_quota.reset(new LeakyBucket(
+        FLAGS_max_dynamic_log_bytes_rate * kDynamicLogBytesCapacityFactor,
+        FLAGS_max_dynamic_log_bytes_rate));
   }
 }
 
 
 void CleanupRateLimit() {
   g_global_condition_quota = nullptr;
+  g_global_dynamic_log_quota = nullptr;
+  g_global_dynamic_log_bytes_quota = nullptr;
 }
 
 
@@ -66,6 +91,13 @@ LeakyBucket* GetGlobalConditionQuota() {
   return g_global_condition_quota.get();
 }
 
+LeakyBucket* GetGlobalDynamicLogQuota() {
+  return g_global_dynamic_log_quota.get();
+}
+
+LeakyBucket* GetGlobalDynamicLogBytesQuota() {
+  return g_global_dynamic_log_bytes_quota.get();
+}
 
 std::unique_ptr<LeakyBucket> CreatePerBreakpointConditionQuota() {
   return std::unique_ptr<LeakyBucket>(new LeakyBucket(

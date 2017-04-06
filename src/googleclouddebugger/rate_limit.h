@@ -48,7 +48,8 @@ void CleanupRateLimit();
 // single threaded.
 LeakyBucket* GetGlobalConditionQuota();
 std::unique_ptr<LeakyBucket> CreatePerBreakpointConditionQuota();
-
+LeakyBucket* GetGlobalDynamicLogQuota();
+LeakyBucket* GetGlobalDynamicLogBytesQuota();
 }  // namespace cdbg
 }  // namespace devtools
 

@@ -23,6 +23,7 @@ import logging
 import os
 import re
 import sys
+import time
 import types
 
 import labels
@@ -48,6 +49,9 @@ EMPTY_COLLECTION = 'Empty collection'
 OBJECT_HAS_NO_FIELDS = 'Object has no fields'
 LOG_ACTION_NOT_SUPPORTED = 'Log action on a breakpoint not supported'
 INVALID_EXPRESSION_INDEX = '<N/A>'
+DYNAMIC_LOG_OUT_OF_QUOTA = (
+    'LOGPOINT: Logpoint is paused due to high log rate until log '
+    'quota is restored')
 
 
 def _ListTypeFormatString(value):
@@ -594,6 +598,12 @@ class LogCollector(object):
     # When capturing recursively, limit on the size of sublists.
     self.max_sublist_items = 5
 
+    # Time to pause after dynamic log quota has run out.
+    self.quota_recovery_ms = 500
+
+    # The time when we first entered the quota period
+    self._quota_recovery_start_time = None
+
     # Select log function.
     level = self._definition.get('logLevel')
     if not level or level == 'INFO':
@@ -619,15 +629,28 @@ class LogCollector(object):
       return {'isError': True,
               'description': {'format': LOG_ACTION_NOT_SUPPORTED}}
 
+    if self._quota_recovery_start_time:
+      ms_elapsed = (time.time() - self._quota_recovery_start_time) * 1000
+      if ms_elapsed > self.quota_recovery_ms:
+        # We are out of the recovery period, clear the time and continue
+        self._quota_recovery_start_time = None
+      else:
+        # We are in the recovery period, exit
+        return
+
     # Evaluate watched expressions.
-    message = _FormatMessage(
+    message = 'LOGPOINT: ' + _FormatMessage(
         self._definition.get('logMessageFormat', ''),
         self._EvaluateExpressions(frame))
 
     cdbg_logging_location = (NormalizePath(frame.f_code.co_filename),
                              frame.f_lineno, _GetFrameCodeObjectName(frame))
 
-    self._log_message('LOGPOINT: ' + message)
+    if native.ApplyDynamicLogsQuota(len(message)):
+      self._log_message(message)
+    else:
+      self._quota_recovery_start_time = time.time()
+      self._log_message(DYNAMIC_LOG_OUT_OF_QUOTA)
     del cdbg_logging_location
     return None
 

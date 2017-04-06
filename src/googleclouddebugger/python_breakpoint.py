@@ -109,6 +109,9 @@ class PythonBreakpoint(object):
     self._lock = Lock()
     self._completed = False
 
+    if self.definition.get('action') == 'LOG':
+      self._collector = capture_collector.LogCollector(self.definition)
+
     if not self._TryActivateBreakpoint() and not self._completed:
       self._DeferBreakpoint()
 
@@ -328,8 +331,7 @@ class PythonBreakpoint(object):
     if event != native.BREAKPOINT_EVENT_HIT:
       error_status = _BREAKPOINT_EVENT_STATUS[event]
     elif self.definition.get('action') == 'LOG':
-      collector = capture_collector.LogCollector(self.definition)
-      error_status = collector.Log(frame)
+      error_status = self._collector.Log(frame)
       if not error_status:
         return  # Log action successful, no need to clear the breakpoint.
 
