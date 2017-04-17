@@ -250,6 +250,7 @@ class CaptureCollector(object):
     """
     # Evaluate call stack.
     frame = top_frame
+    top_line = self.breakpoint['location']['line']
     breakpoint_frames = self.breakpoint['stackFrames']
     # Number of entries in _var_table. Starts at 1 (index 0 is the 'buffer full'
     # status value).
@@ -262,6 +263,7 @@ class CaptureCollector(object):
             in self.breakpoint['expressions']]
 
       while frame and (len(breakpoint_frames) < self.max_frames):
+        line = top_line if frame == top_frame else frame.f_lineno
         code = frame.f_code
         if len(breakpoint_frames) < self.max_expand_frames:
           frame_arguments, frame_locals = self.CaptureFrameLocals(frame)
@@ -273,7 +275,7 @@ class CaptureCollector(object):
             'function': _GetFrameCodeObjectName(frame),
             'location': {
                 'path': NormalizePath(code.co_filename),
-                'line': frame.f_lineno
+                'line': line
             },
             'arguments': frame_arguments,
             'locals': frame_locals
@@ -643,8 +645,9 @@ class LogCollector(object):
         self._definition.get('logMessageFormat', ''),
         self._EvaluateExpressions(frame))
 
-    cdbg_logging_location = (NormalizePath(frame.f_code.co_filename),
-                             frame.f_lineno, _GetFrameCodeObjectName(frame))
+    line = self._definition['location']['line']
+    cdbg_logging_location = (NormalizePath(frame.f_code.co_filename), line,
+                             _GetFrameCodeObjectName(frame))
 
     if native.ApplyDynamicLogsQuota(len(message)):
       self._log_message(message)
