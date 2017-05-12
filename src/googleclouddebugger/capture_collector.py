@@ -815,7 +815,7 @@ def _GetFrameCodeObjectName(frame):
 
 
 def _FormatMessage(template, parameters):
-  """Formats the message.
+  """Formats the message. Unescapes '$$' with '$'.
 
   Args:
     template: message template (e.g. 'a = $0, b = $1').
@@ -830,7 +830,8 @@ def _FormatMessage(template, parameters):
     except IndexError:
       return INVALID_EXPRESSION_INDEX
 
-  return re.sub(r'\$\d+', GetParameter, template)
+  parts = template.split('$$')
+  return '$'.join(re.sub(r'\$\d+', GetParameter, part) for part in parts)
 
 
 def _TrimString(s, max_len):
