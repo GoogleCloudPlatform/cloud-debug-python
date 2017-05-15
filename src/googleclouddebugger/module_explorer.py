@@ -114,7 +114,10 @@ def _FindCodeObjectsReferents(module, start_objects, visit_recorder):
     List of code objects.
   """
   def CheckIgnoreCodeObject(code_object):
-    """Checks if the code object originated from "module".
+    """Checks if the code object can be ignored.
+
+    Code objects that are not implemented in the module, or are from a lambda or
+    generator expression can be ignored.
 
     If the module was precompiled, the code object may point to .py file, while
     the module says that it originated from .pyc file. We just strip extension
@@ -124,8 +127,11 @@ def _FindCodeObjectsReferents(module, start_objects, visit_recorder):
       code_object: code object that we want to check against module.
 
     Returns:
-      False if code_object was implemented in module or True otherwise.
+      True if the code object can be ignored, False otherwise.
     """
+    if code_object.co_name in ('<lambda>', '<genexpr>'):
+      return True
+
     code_object_file = os.path.splitext(code_object.co_filename)[0]
     module_file = os.path.splitext(module.__file__)[0]
 
@@ -203,4 +209,3 @@ class _VisitRecorder(object):
 
     self._visit_recorder_objects[obj_id] = obj
     return True
-
