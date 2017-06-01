@@ -29,7 +29,8 @@ import module_lookup
 BREAKPOINT_ONLY_SUPPORTS_PY_FILES = (
     'Only files with .py or .pyc extension are supported')
 MODULE_NOT_FOUND = (
-    'Python module not found')
+    'Python module not found. Please ensure this file is present in the '
+    'version of the service you are trying to debug.')
 NO_CODE_FOUND_AT_LINE = (
     'No code found at line $0')
 GLOBAL_CONDITION_QUOTA_EXCEEDED = (
