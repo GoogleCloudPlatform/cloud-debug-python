@@ -354,7 +354,10 @@ class CaptureCollector(object):
     """
     try:
       if not hasattr(name, '__dict__'):
-        name = str(name)
+        if isinstance(name, unicode):
+          name = name.encode('unicode_escape')
+        else:
+          name = str(name)
       else:  # TODO(vlif): call str(name) with immutability verifier here.
         name = str(id(name))
       self._total_size += len(name)
