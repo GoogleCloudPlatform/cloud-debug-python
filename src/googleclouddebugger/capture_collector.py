@@ -201,7 +201,11 @@ class CaptureCollector(object):
         'status': {
             'isError': True,
             'refersTo': 'VARIABLE_VALUE',
-            'description': {'format': 'Buffer full'}}}]
+            'description': {
+                'format': 'Buffer full. Use an expression to see more data'
+            }
+        }
+    }]
 
     # Shortcut to variables table in the breakpoint message.
     self._var_table = self.breakpoint['variableTable']
