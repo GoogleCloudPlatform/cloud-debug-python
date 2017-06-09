@@ -187,41 +187,6 @@ static PyObject* LogError(PyObject* self, PyObject* py_args) {
 }
 
 
-// Searches for a statement with the specified line number in the specified
-// code object.
-//
-// Args:
-//   code_object: Python code object to analyze.
-//   line: 1-based line number to search.
-//
-// Returns:
-//   True if code_object includes a statement that maps to the specified
-//   source line or False otherwise.
-static PyObject* HasSourceLine(PyObject* self, PyObject* py_args) {
-  PyCodeObject* code_object = nullptr;
-  int line = -1;
-  if (!PyArg_ParseTuple(py_args, "Oi", &code_object, &line)) {
-    return nullptr;
-  }
-
-  if ((code_object == nullptr) || !PyCode_Check(code_object)) {
-    PyErr_SetString(
-        PyExc_TypeError,
-        "code_object must be a code object");
-    return nullptr;
-  }
-
-  CodeObjectLinesEnumerator enumerator(code_object);
-  do {
-    if (enumerator.line_number() == line) {
-      Py_RETURN_TRUE;
-    }
-  } while (enumerator.Next());
-
-  Py_RETURN_FALSE;
-}
-
-
 // Sets a new breakpoint in Python code. The breakpoint may have an optional
 // condition to evaluate. When the breakpoint hits (and the condition matches)
 // a callable object will be invoked from that thread.
@@ -409,13 +374,6 @@ static PyMethodDef g_module_functions[] = {
     LogError,
     METH_VARARGS,
     "ERROR level logging from Python code."
-  },
-  {
-    "HasSourceLine",
-    HasSourceLine,
-    METH_VARARGS,
-    "Checks whether Python code object includes the specified source "
-    "line number."
   },
   {
     "SetConditionalBreakpoint",

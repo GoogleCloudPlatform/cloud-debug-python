@@ -31,8 +31,11 @@ BREAKPOINT_ONLY_SUPPORTS_PY_FILES = (
 MODULE_NOT_FOUND = (
     'Python module not found. Please ensure this file is present in the '
     'version of the service you are trying to debug.')
-NO_CODE_FOUND_AT_LINE = (
-    'No code found at line $0')
+NO_CODE_FOUND_AT_LINE = 'No code found at line $0 in $1'
+NO_CODE_FOUND_AT_LINE_ALT_LINE = (
+    'No code found at line $0 in $1. Try line $2.')
+NO_CODE_FOUND_AT_LINE_TWO_ALT_LINES = (
+    'No code found at line $0 in $1. Try lines $2 or $3.')
 GLOBAL_CONDITION_QUOTA_EXCEEDED = (
     'Snapshot cancelled. The condition evaluation cost for all active '
     'snapshots might affect the application performance.')
@@ -241,18 +244,31 @@ class PythonBreakpoint(object):
     if not module:
       return None
 
-    code_object = module_explorer.GetCodeObjectAtLine(module, line)
-    if code_object is None:
+    status, val = module_explorer.GetCodeObjectAtLine(module, line)
+    if not status:
+      # module.__file__ must be defined or else it wouldn't have been returned
+      # from FindModule
+      params = [str(line), module.__file__]
+      alt_lines = (str(l) for l in val if l is not None)
+      params += alt_lines
+
+      if len(params) == 4:
+        fmt = NO_CODE_FOUND_AT_LINE_TWO_ALT_LINES
+      elif len(params) == 3:
+        fmt = NO_CODE_FOUND_AT_LINE_ALT_LINE
+      else:
+        fmt = NO_CODE_FOUND_AT_LINE
+
       self._CompleteBreakpoint({
           'status': {
               'isError': True,
               'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
               'description': {
-                  'format': NO_CODE_FOUND_AT_LINE,
-                  'parameters': [str(line)]}}})
+                  'format': fmt,
+                  'parameters': params}}})
       return None
 
-    return code_object
+    return val
 
   # Enables deferred breakpoints.
   def _DeferBreakpoint(self):

@@ -19,8 +19,6 @@ import os
 import sys
 import types
 
-import cdbg_native as native
-
 # Maximum traversal depth when looking for all the code objects referenced by
 # a module or another code object.
 _MAX_REFERENTS_BFS_DEPTH = 15
@@ -44,16 +42,48 @@ def GetCodeObjectAtLine(module, line):
     line: 1-based line number of the statement.
 
   Returns:
-    Code object or None if not found.
+    (True, Code object) on success or (False, (prev_line, next_line)) on
+    failure, where prev_line and next_line are the closest lines with code above
+    and below the specified line, or None if they do not exist.
   """
   if not hasattr(module, '__file__'):
-    return None
+    return (False, (None, None))
+
+  prev_line = 0
+  next_line = sys.maxint
 
   for code_object in _GetModuleCodeObjects(module):
-    if native.HasSourceLine(code_object, line):
-      return code_object
+    for co_line_number in _GetLineNumbers(code_object):
+      if co_line_number == line:
+        return (True, code_object)
+      elif co_line_number < line:
+        prev_line = max(prev_line, co_line_number)
+      elif co_line_number > line:
+        next_line = min(next_line, co_line_number)
+        break
 
-  return None
+  prev_line = None if prev_line == 0 else prev_line
+  next_line = None if next_line == sys.maxint else next_line
+  return (False, (prev_line, next_line))
+
+
+def _GetLineNumbers(code_object):
+  """Generator for getting the line numbers of a code object.
+
+  Args:
+    code_object: the code object.
+
+  Yields:
+    The next line number in the code object.
+  """
+  # Get the line number deltas, which are the odd number entries, from the
+  # lnotab. See
+  # https://svn.python.org/projects/python/branches/pep-0384/Objects/lnotab_notes.txt
+  line_incrs = (ord(c) for c in code_object.co_lnotab[1::2])
+  current_line = code_object.co_firstlineno
+  for line_incr in line_incrs:
+    current_line += line_incr
+    yield current_line
 
 
 def _GetModuleCodeObjects(module):
