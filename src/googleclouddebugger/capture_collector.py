@@ -358,10 +358,7 @@ class CaptureCollector(object):
     """
     try:
       if not hasattr(name, '__dict__'):
-        if isinstance(name, unicode):
-          name = name.encode('unicode_escape')
-        else:
-          name = str(name)
+        name = str(name)
       else:  # TODO(vlif): call str(name) with immutability verifier here.
         name = str(id(name))
       self._total_size += len(name)
@@ -451,8 +448,9 @@ class CaptureCollector(object):
       # Do not use iteritems() here. If GC happens during iteration (which it
       # often can for dictionaries containing large variables), you will get a
       # RunTimeError exception.
+      items = [(repr(k), v) for (k, v) in value.items()]
       return {'members':
-              self.CaptureVariablesList(value.items(), depth + 1,
+              self.CaptureVariablesList(items, depth + 1,
                                         EMPTY_DICTIONARY, limits),
               'type': 'dict'}
 
@@ -493,16 +491,10 @@ class CaptureCollector(object):
       self._total_size += len(r)
       return {'value': r}
 
-    if value.__dict__:
-      v = self.CaptureVariable(value.__dict__, depth + 1, limits)
-    else:
-      v = {'members':
-           [
-               {'status': {
-                   'is_error': False,
-                   'refers_to': 'VARIABLE_NAME',
-                   'description': {'format': OBJECT_HAS_NO_FIELDS}}}
-           ]}
+    # Add an additional depth for the object itself
+    members = self.CaptureVariablesList(value.__dict__.items(), depth + 2,
+                                        OBJECT_HAS_NO_FIELDS, limits)
+    v = {'members': members}
 
     object_type = type(value)
     if hasattr(object_type, '__name__'):
