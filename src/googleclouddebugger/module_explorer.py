@@ -27,11 +27,17 @@ _MAX_REFERENTS_BFS_DEPTH = 15
 # objects implemented in a module.
 _MAX_VISIT_OBJECTS = 100000
 
+# Maximum referents an object can have before it is skipped in the BFS
+# traversal. This is to prevent things like long objects or dictionaries that
+# probably do not contain code objects from using the _MAX_VISIT_OBJECTS quota.
+_MAX_OBJECT_REFERENTS = 1000
+
 # Object types to ignore when looking for the code objects.
 _BFS_IGNORE_TYPES = (types.ModuleType, types.NoneType, types.BooleanType,
                      types.IntType, types.LongType, types.FloatType,
                      types.StringType, types.UnicodeType,
-                     types.BuiltinFunctionType, types.BuiltinMethodType)
+                     types.BuiltinFunctionType, types.BuiltinMethodType,
+                     types.ListType)
 
 
 def GetCodeObjectAtLine(module, line):
@@ -184,25 +190,34 @@ def _FindCodeObjectsReferents(module, start_objects, visit_recorder):
 
   code_objects = set()
   current = start_objects
+  for obj in current:
+    visit_recorder.Record(current)
+
   depth = 0
   while current and depth < _MAX_REFERENTS_BFS_DEPTH:
-    referents = gc.get_referents(*current)
-    current = []
-    for obj in referents:
-      if isinstance(obj, _BFS_IGNORE_TYPES) or not visit_recorder.Record(obj):
+    new_current = []
+    for current_obj in current:
+      referents = gc.get_referents(current_obj)
+      if (current_obj is not module.__dict__ and
+          len(referents) > _MAX_OBJECT_REFERENTS):
         continue
 
-      if isinstance(obj, types.CodeType) and CheckIgnoreCodeObject(obj):
-        continue
+      for obj in referents:
+        if isinstance(obj, _BFS_IGNORE_TYPES) or not visit_recorder.Record(obj):
+          continue
 
-      if isinstance(obj, types.ClassType) and CheckIgnoreClass(obj):
-        continue
+        if isinstance(obj, types.CodeType) and CheckIgnoreCodeObject(obj):
+          continue
 
-      if isinstance(obj, types.CodeType):
-        code_objects.add(obj)
-      else:
-        current.append(obj)
+        if isinstance(obj, types.ClassType) and CheckIgnoreClass(obj):
+          continue
 
+        if isinstance(obj, types.CodeType):
+          code_objects.add(obj)
+        else:
+          new_current.append(obj)
+
+    current = new_current
     depth += 1
 
   return code_objects
