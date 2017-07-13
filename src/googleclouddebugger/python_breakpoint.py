@@ -17,7 +17,6 @@
 from datetime import datetime
 from datetime import timedelta
 import os
-import sys
 from threading import Lock
 
 import capture_collector
@@ -86,23 +85,6 @@ _BREAKPOINT_EVENT_STATUS = dict(
 # to strptime ensures that the module is loaded at startup.
 # See http://bugs.python.org/issue7980 for discussion of the Python bug.
 datetime.strptime('2017-01-01', '%Y-%m-%d')
-
-
-def _GetLoadedModuleByPath(abspath):
-  """Returns the loaded module that matches abspath or None if not found."""
-
-  for module in sys.modules.values():
-    path = getattr(module, '__file__', None)
-    if not path:
-      continue  # This is a built-in module.
-
-    # module.__file__ may be relative or may contain symlinks inside it.
-    module_abspath = module_utils.GetAbsolutePath(path)
-
-    # Ignore file extension while comparing the file paths (e.g., /foo/bar.py vs
-    # /foo/bar.pyc should match).
-    if os.path.splitext(module_abspath)[0] == os.path.splitext(abspath)[0]:
-      return module
 
 
 def _IsRootInitPy(path):
@@ -233,7 +215,7 @@ class PythonBreakpoint(object):
       return
 
     # TODO(erezh): Handle the possible thread race condtion from lookup to hook.
-    module = _GetLoadedModuleByPath(paths[0])
+    module = module_utils.GetLoadedModuleByPath(paths[0])
     if module:
       self._ActivateBreakpoint(module)
     else:
