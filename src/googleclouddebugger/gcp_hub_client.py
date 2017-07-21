@@ -469,7 +469,7 @@ class GcpHubClient(object):
         'project': self._project_number(),
         'description': self._GetDebuggeeDescription(),
         'labels': self._debuggee_labels,
-        'agentVersion': 'google.com/python2.7-' + major_version
+        'agentVersion': 'google.com/python27-gcp/v' + major_version
     }
 
     source_context = self._ReadAppJsonFile('source-context.json')
