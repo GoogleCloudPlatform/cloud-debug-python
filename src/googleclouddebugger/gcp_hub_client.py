@@ -361,15 +361,16 @@ class GcpHubClient(object):
       response = service.debuggees().breakpoints().list(
           debuggeeId=self._debuggee_id, waitToken=self._wait_token,
           successOnTimeout=True).execute()
-      breakpoints = response.get('breakpoints') or []
-      self._wait_token = response.get('nextWaitToken')
-      if cmp(self._breakpoints, breakpoints) != 0:
-        self._breakpoints = breakpoints
-        native.LogInfo(
-            'Breakpoints list changed, %d active, wait token: %s' % (
-                len(self._breakpoints), self._wait_token))
-        self.on_active_breakpoints_changed(copy.deepcopy(self._breakpoints))
-    except Exception as e:
+      if not response.get('waitExpired'):
+        self._wait_token = response.get('nextWaitToken')
+        breakpoints = response.get('breakpoints') or []
+        if cmp(self._breakpoints, breakpoints) != 0:
+          self._breakpoints = breakpoints
+          native.LogInfo(
+              'Breakpoints list changed, %d active, wait token: %s' % (
+                  len(self._breakpoints), self._wait_token))
+          self.on_active_breakpoints_changed(copy.deepcopy(self._breakpoints))
+    except BaseException:
       native.LogInfo('Failed to query active breakpoints: ' +
                      traceback.format_exc())
 
@@ -433,7 +434,7 @@ class GcpHubClient(object):
           # This is very common if multiple instances are sending final update
           # simultaneously.
           native.LogInfo('%s, breakpoint: %s' % (err, breakpoint['id']))
-      except Exception:
+      except BaseException:
         native.LogWarning(
             'Fatal error sending breakpoint %s update: %s' % (
                 breakpoint['id'], traceback.format_exc()))
