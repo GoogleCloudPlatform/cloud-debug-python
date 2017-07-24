@@ -477,12 +477,6 @@ class GcpHubClient(object):
     if source_context:
       debuggee['sourceContexts'] = [source_context]
 
-    source_contexts = self._ReadAppJsonFile('source-contexts.json')
-    if source_contexts:
-      debuggee['extSourceContexts'] = source_contexts
-    elif source_context:
-      debuggee['extSourceContexts'] = [{'context': source_context}]
-
     debuggee['uniquifier'] = self._ComputeUniquifier(debuggee)
 
     return debuggee
@@ -519,8 +513,7 @@ class GcpHubClient(object):
     # Compute hash of application files if we don't have source context. This
     # way we can still distinguish between different deployments.
     if ('minorversion' not in debuggee.get('labels', []) and
-        'sourceContexts' not in debuggee and
-        'extSourceContexts' not in debuggee):
+        'sourceContexts' not in debuggee):
       uniquifier_computer.ComputeApplicationUniquifier(uniquifier)
 
     return uniquifier.hexdigest()
