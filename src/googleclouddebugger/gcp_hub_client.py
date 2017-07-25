@@ -503,13 +503,6 @@ class GcpHubClient(object):
     """
     uniquifier = hashlib.sha1()
 
-    # Project information.
-    uniquifier.update(self._project_id())
-    uniquifier.update(self._project_number())
-
-    # Debuggee information.
-    uniquifier.update(str(debuggee))
-
     # Compute hash of application files if we don't have source context. This
     # way we can still distinguish between different deployments.
     if ('minorversion' not in debuggee.get('labels', []) and
