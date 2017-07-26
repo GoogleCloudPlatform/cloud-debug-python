@@ -21,7 +21,7 @@ import time
 
 import cdbg_native as native
 
-# Maximum number of directories that IsValidSourcePath will scan.
+# Maximum number of directories that FindModulePath will scan.
 _DIRECTORY_LOOKUP_QUOTA = 250
 
 # Callbacks to invoke when a module is imported.
@@ -31,11 +31,12 @@ _import_callbacks = {}
 _real_import = None
 
 
-def IsValidSourcePath(source_path):
+# TODO(emrekultursay): Move this method out of deferred_modules.py file.
+def FindModulePath(source_path):
   """Checks availability of a Python module.
 
-  This function checks if it is possible that a module will match the specified
-  path. We only use the file name and we ignore the directory.
+  This function checks if it is possible that a module (loaded or not)
+  will match the specified path.
 
   There is no absolutely correct way to do this. The application may just
   import a module from a string, or dynamically change sys.path. This function
@@ -45,16 +46,14 @@ def IsValidSourcePath(source_path):
   There can be some edge cases when this code is going to scan a huge number
   of directories. This can be very expensive. To mitigate it, we limit the
   number of directories that can be scanned. If this threshold is reached,
-  false negatives are possible.
+  false negatives (i.e., missing modules in the output) are possible.
 
   Args:
     source_path: source path as specified in the breakpoint.
 
   Returns:
-    True if it is possible that a module matching source_path will ever be
-    loaded or false otherwise.
+    A list containing the paths of modules that best match source_path.
   """
-
   def IsPackage(path):
     """Checks if the specified directory is a valid Python package."""
     init_base_path = os.path.join(path, '__init__.py')
@@ -81,9 +80,12 @@ def IsValidSourcePath(source_path):
   start_time = time.time()
   directory_lookups = [0]
 
-  file_name = _GetModuleName(source_path)
-  if not file_name:
-    return False
+  # For packages, module_name will be the name of the package (e.g., for
+  # 'a/b/c/__init__.py' it will be 'c'). Otherwise, module_name will be the
+  # name of the module (e.g., for 'a/b/c/foo.py' it will be 'foo').
+  module_name = _GetModuleName(source_path)
+  if not module_name:
+    return []
 
   # Recursively discover all the subpackages in all the Python paths.
   paths = set()
@@ -104,23 +106,23 @@ def IsValidSourcePath(source_path):
     path, unused_name = os.path.split(file_path) if file_path else (None, None)
     paths.add(path or default_path)
 
-  try:
-    imp.find_module(file_name, list(paths))
-    rc = True
-  except ImportError:
-    rc = False
+  # Normalize paths and remove duplicates.
+  paths = set(os.path.abspath(path) for path in paths)
+
+  best_match = _FindBestMatch(source_path, module_name, paths)
 
   native.LogInfo(
       ('Look up for %s completed in %d directories, '
        'scanned %d directories (quota: %d), '
        'result: %r, total time: %f ms') % (
-           file_name,
+           module_name,
            len(paths),
            directory_lookups[0],
            _DIRECTORY_LOOKUP_QUOTA,
-           rc,
+           best_match,
            (time.time() - start_time) * 1000))
-  return rc
+
+  return best_match
 
 
 def AddImportCallback(source_path, callback):
@@ -235,4 +237,40 @@ def _InvokeImportCallback(module_name):
   # Clone the callbacks set, since it can change during enumeration.
   for callback in callbacks.copy():
     callback(module_name)
+
+
+# TODO(emrekultursay): Try reusing the Disambiguate method in module_lookup.py.
+def _FindBestMatch(source_path, module_name, paths):
+  """Returns paths entries that have longest suffix match with source_path."""
+  best = []
+  best_suffix_len = 0
+  for path in paths:
+    try:
+      (f, p, unused_d) = imp.find_module(module_name, [path])
+
+      # find_module returns f=None when it finds a package, in which case we
+      # should be finding common suffix against __init__.py in that package.
+      if not f:
+        p = os.path.join(p, '__init__.py')
+
+      suffix_len = _CommonSuffix(source_path, p)
+
+      if suffix_len > best_suffix_len:
+        best = [p]
+        best_suffix_len = suffix_len
+      elif suffix_len == best_suffix_len:
+        best.append(p)
+
+    except ImportError:
+      pass  # a module with the given name was not found inside path.
+
+  return best
+
+
+# TODO(emrekultursay): Remove duplicate copy in module_lookup.py.
+def _CommonSuffix(path1, path2):
+  """Returns the number of common directory names at the tail of the paths."""
+  return len(os.path.commonprefix([
+      path1[::-1].split(os.sep),
+      path2[::-1].split(os.sep)]))
 

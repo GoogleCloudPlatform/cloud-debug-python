@@ -116,6 +116,7 @@ class PythonBreakpoint(object):
     if self.definition.get('action') == 'LOG':
       self._collector = capture_collector.LogCollector(self.definition)
 
+    # TODO(emrekultursay): Check both loaded and deferred modules.
     if not self._TryActivateBreakpoint() and not self._completed:
       self._DeferBreakpoint()
 
@@ -295,16 +296,22 @@ class PythonBreakpoint(object):
               'description': {'format': BREAKPOINT_ONLY_SUPPORTS_PY_FILES}}})
       return
 
-    if not deferred_modules.IsValidSourcePath(path):
+    # This is a best-effort lookup to identify any modules that may be loaded in
+    # the future.
+    deferred_paths = deferred_modules.FindModulePath(path)
+    if not deferred_paths:
       self._CompleteBreakpoint({
           'status': {
               'isError': True,
               'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
               'description': {'format': MODULE_NOT_FOUND}}})
+      return
 
+    # TODO(emrekultursay): Print error if there are multiple deferred_paths.
+    # TODO(emrekultursay): Use deferred_paths[0] instead of path.
     assert not self._import_hook_cleanup
     self._import_hook_cleanup = deferred_modules.AddImportCallback(
-        self.definition['location']['path'],
+        path,
         lambda unused_module_name: self._TryActivateBreakpoint())
 
   def _RemoveImportHook(self):
