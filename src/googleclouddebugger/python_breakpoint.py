@@ -31,6 +31,10 @@ BREAKPOINT_ONLY_SUPPORTS_PY_FILES = (
 MODULE_NOT_FOUND = (
     'Python module not found. Please ensure this file is present in the '
     'version of the service you are trying to debug.')
+MULTIPLE_MODULES_FOUND2 = (
+    'Multiple modules matching $0 ($1, $2)')
+MULTIPLE_MODULES_FOUND3_OR_MORE = (
+    'Multiple modules matching $0 ($1, $2, and $3 more)')
 NO_CODE_FOUND_AT_LINE = 'No code found at line $0 in $1'
 NO_CODE_FOUND_AT_LINE_ALT_LINE = (
     'No code found at line $0 in $1. Try line $2.')
@@ -286,6 +290,38 @@ class PythonBreakpoint(object):
     the module to get loaded. Once the module is loaded, the debugger
     will automatically try to activate the breakpoint.
     """
+
+    def StripCommonPrefixSegments(paths):
+      """Removes common prefix segments from a list of path strings."""
+      # Find the longest common prefix in terms of characters.
+      common_prefix = os.path.commonprefix(paths)
+      # Truncate at last segment boundary. E.g. '/aa/bb1/x.py' and '/a/bb2/x.py'
+      # have '/aa/bb' as the common prefix, but we should strip '/aa/' instead.
+      # If there's no '/' found, returns -1+1=0.
+      common_prefix_len = common_prefix.rfind('/') + 1
+      return [path[common_prefix_len:] for path in paths]
+
+    def MultipleModulesFoundError(path, candidates):
+      """Generates an error message to be used when multiple matches are found.
+
+      Args:
+        path: The breakpoint location path that the user provided.
+        candidates: List of paths that match the user provided path. Must
+            contain at least 2 entries (throws AssertionError otherwise).
+
+      Returns:
+        A (format, parameters) tuple that should be used in the description
+        field of the breakpoint error status.
+      """
+      assert len(candidates) > 1
+      params = [path] + StripCommonPrefixSegments(candidates[:2])
+      if len(candidates) == 2:
+        fmt = MULTIPLE_MODULES_FOUND2
+      else:
+        fmt = MULTIPLE_MODULES_FOUND3_OR_MORE
+        params.append(str(len(candidates) - 2))
+      return fmt, params
+
     path = self.definition['location']['path']
 
     if os.path.splitext(path)[1] != '.py':
@@ -307,7 +343,17 @@ class PythonBreakpoint(object):
               'description': {'format': MODULE_NOT_FOUND}}})
       return
 
-    # TODO(emrekultursay): Print error if there are multiple deferred_paths.
+    if len(deferred_paths) > 1:
+      fmt, params = MultipleModulesFoundError(path, deferred_paths)
+      self._CompleteBreakpoint({
+          'status': {
+              'isError': True,
+              'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
+              'description': {
+                  'format': fmt,
+                  'parameters': params}}})
+      return
+
     # TODO(emrekultursay): Use deferred_paths[0] instead of path.
     assert not self._import_hook_cleanup
     self._import_hook_cleanup = deferred_modules.AddImportCallback(

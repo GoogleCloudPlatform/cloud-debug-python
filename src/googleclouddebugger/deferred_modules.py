@@ -121,8 +121,7 @@ def FindModulePath(source_path):
            _DIRECTORY_LOOKUP_QUOTA,
            best_match,
            (time.time() - start_time) * 1000))
-
-  return best_match
+  return sorted(best_match)
 
 
 def AddImportCallback(source_path, callback):
