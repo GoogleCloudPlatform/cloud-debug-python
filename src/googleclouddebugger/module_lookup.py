@@ -22,34 +22,45 @@ import os
 import sys
 
 
-def FindModule(source_path):
-  """Find the loaded module by source path.
+def FindModules(source_path):
+  """Finds the loaded modules whose paths match the given source_path best.
 
-  If there are multiple possible matches, chooses the best match.
+  If there are multiple possible matches, returns them all.
 
   Args:
     source_path: source file path as specified in the breakpoint.
 
   Returns:
-    Module object that best matches the source_path or None if no match found.
+    List of module objects that best match the source_path or [] if no
+    match is found.
   """
-  file_name, ext = os.path.splitext(os.path.basename(source_path))
+  # The lookup is performed in two steps. First, we search all modules whose
+  # name match the given source_path's file name (i.e., ignore the leading
+  # directory). Then, we select the results whose directory matches the given
+  # input best.
+  dirname, basename = os.path.split(source_path)
+  file_name_root, ext = os.path.splitext(basename)
   if ext != '.py':
-    return None  # ".py" extension is expected
+    return []  # ".py" extension is expected
 
-  candidates = _GetModulesByFileName(file_name)
+  candidates = _GetModulesByFileName(file_name_root)
   if not candidates:
-    return None
+    return []
 
   if len(candidates) == 1:
-    return candidates[0]
+    return candidates
 
-  return candidates[_Disambiguate(
-      os.path.split(source_path)[0],
-      [os.path.split(module.__file__)[0] for module in candidates])]
+  if not dirname:
+    return candidates  # No need disambiguate.
+
+  # Find the module that has the best path prefix.
+  indices = _Disambiguate(
+      dirname,
+      [os.path.dirname(module.__file__) for module in candidates])
+  return [candidates[i] for i in indices]
 
 
-def _GetModulesByFileName(lookup_file_name):
+def _GetModulesByFileName(lookup_file_name_root):
   """Gets list of all the loaded modules by file name (ignores directory)."""
   matches = []
 
@@ -58,15 +69,18 @@ def _GetModulesByFileName(lookup_file_name):
     if not hasattr(module, '__file__'):
       continue  # This is a built-in module.
 
-    file_name, ext = os.path.splitext(os.path.basename(module.__file__))
-    if file_name == lookup_file_name and (ext == '.py' or ext == '.pyc'):
+    file_name_root, ext = os.path.splitext(os.path.basename(module.__file__))
+
+    # TODO(emrekultursay): Verify why we are discarding .pyo files here.
+    if (file_name_root == lookup_file_name_root and
+        (ext == '.py' or ext == '.pyc')):
       matches.append(module)
 
   return matches
 
 
 def _Disambiguate(lookup_path, paths):
-  """Disambiguate multiple candidates based on the longest suffix.
+  """Disambiguates multiple candidates based on the longest suffix.
 
   Example when this disambiguation is needed:
     Breakpoint at: 'myproject/app/db/common.py'
@@ -76,26 +90,33 @@ def _Disambiguate(lookup_path, paths):
     lookup_path = 'myproject/app/db'
     paths = ['/home/root/fe', '/home/root/db']
 
-  The second path is clearly the best match, so this function will return 1.
+  The second path is clearly the best match, so this function will return [1].
 
   Args:
     lookup_path: the source path of the searched module (without file name
-        and extension).
-    paths: candidate paths (each without file name and extension).
+        and extension). Must be non-empty.
+    paths: candidate paths (each without file name and extension). Must have
+        two or more elements.
 
   Returns:
-    Index of the best match or arbitrary index if this function can't
-    discriminate.
+    List of indices of the best matches.
   """
-  best_index = 0
-  best_len = 0
-  for i in range(len(paths)):
-    current_len = _CommonSuffix(lookup_path, paths[i])
-    if current_len > best_len:
-      best_index = i
-      best_len = current_len
+  assert lookup_path
+  assert len(paths) > 1
 
-  return best_index
+  best_indices = []
+  best_len = 1  # zero-length matches should be discarded.
+
+  for i, path in enumerate(paths):
+    current_len = _CommonSuffix(lookup_path, path)
+
+    if current_len > best_len:
+      best_indices = [i]
+      best_len = current_len
+    elif current_len == best_len:
+      best_indices.append(i)
+
+  return best_indices
 
 
 def _CommonSuffix(path1, path2):

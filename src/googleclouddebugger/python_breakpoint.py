@@ -245,9 +245,13 @@ class PythonBreakpoint(object):
     path = self.definition['location']['path']
     line = self.definition['location']['line']
 
-    module = module_lookup.FindModule(path)
-    if not module:
+    modules = module_lookup.FindModules(path)
+    if not modules:
       return None
+
+    # If there are multiple matches, We pick any one of the matching modules
+    # arbitrarily. TODO(emrekultursay): Return error instead.
+    module = modules[0]
 
     status, val = module_explorer.GetCodeObjectAtLine(module, line)
     if not status:
