@@ -245,12 +245,14 @@ def _FindBestMatch(source_path, module_name, paths):
   best_suffix_len = 0
   for path in paths:
     try:
-      (f, p, unused_d) = imp.find_module(module_name, [path])
+      fp, p, unused_d = imp.find_module(module_name, [path])
 
       # find_module returns f=None when it finds a package, in which case we
       # should be finding common suffix against __init__.py in that package.
-      if not f:
+      if not fp:
         p = os.path.join(p, '__init__.py')
+      else:
+        fp.close()
 
       suffix_len = _CommonSuffix(source_path, p)
 
