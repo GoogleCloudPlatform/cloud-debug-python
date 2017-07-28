@@ -27,7 +27,7 @@ import module_lookup
 
 # TODO(vlif): move to messages.py module.
 BREAKPOINT_ONLY_SUPPORTS_PY_FILES = (
-    'Only files with .py or .pyc extension are supported')
+    'Only files with .py extension are supported')
 MODULE_NOT_FOUND = (
     'Python module not found. Please ensure this file is present in the '
     'version of the service you are trying to debug.')
@@ -119,6 +119,15 @@ class PythonBreakpoint(object):
 
     if self.definition.get('action') == 'LOG':
       self._collector = capture_collector.LogCollector(self.definition)
+
+    path = self.definition['location']['path']
+    if os.path.splitext(path)[1] != '.py':
+      self._CompleteBreakpoint({
+          'status': {
+              'isError': True,
+              'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
+              'description': {'format': BREAKPOINT_ONLY_SUPPORTS_PY_FILES}}})
+      return
 
     # TODO(emrekultursay): Check both loaded and deferred modules.
     if not self._TryActivateBreakpoint() and not self._completed:
@@ -327,14 +336,6 @@ class PythonBreakpoint(object):
       return fmt, params
 
     path = self.definition['location']['path']
-
-    if os.path.splitext(path)[1] != '.py':
-      self._CompleteBreakpoint({
-          'status': {
-              'isError': True,
-              'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
-              'description': {'format': BREAKPOINT_ONLY_SUPPORTS_PY_FILES}}})
-      return
 
     # This is a best-effort lookup to identify any modules that may be loaded in
     # the future.
