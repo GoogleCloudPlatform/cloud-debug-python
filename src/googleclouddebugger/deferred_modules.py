@@ -215,11 +215,43 @@ def _ImportHook(name, globals=None, locals=None, fromlist=None, level=-1):
 
   module = _real_import(name, globals, locals, fromlist, level)
 
+  # There are multiple ways to import modules which affects how the import
+  # hook is called. When importing a module, Python implicitly loads all
+  # the unloaded parents modules (e.g., import a.b loads a and b). Here are
+  # few examles of import statements and the __import__ hook calls:
+  #
+  # Example 1: import a
+  #   __import__(name='a', fromlist=None) loads a
+  #
+  # Example 2: import a.b.c
+  #   __import__(name='a.b.c', fromlist=None) loads a, b, c
+  #
+  # Example 3: import a.b.c, a.b.d
+  #   __import__(name='a.b.c', fromlist=None) loads a, b, c
+  #   __import__(name='a.b.d', fromlist=None) loads d (already loaded a, b)
+  #
+  # Example 4: from a import b
+  #   __import__(name='a', fromlist=('b')) loads a, b
+  #
+  # Example 5: from a.b import c, d, e
+  #   __import__(name='a.b', fromlist=('c', 'd', 'e')) loads a, b, c, d, e
+  #  Note that from...import... cannot have dotted module after import.
+  #
+  # Note that we don't really know which modules were actually loaded by
+  #  _real_import. Therefore, we try to invoke callbacks for every module
+  # that might get loaded, even if already loaded before calling _real_import.
+  #
+  # Also note that we only have the name of the modules, rather than their path.
+  # This also causes superfluous callback executions because a callback
+  # might have been registered for not-yet loaded module 'x.y.c', but gets
+  # executed when module 'a.b.c' is loaded.
+
   # Invoke callbacks for the imported module. No need to lock, since all
   # operations are atomic.
-  pos = name.rfind('.') + 1
-  _InvokeImportCallback(name[pos:])
+  for part in name.split('.'):
+    _InvokeImportCallback(part)
 
+  # TODO(emrekultursay): Consider handling 'from p import *' case.
   if fromlist:
     for module_name in fromlist:
       _InvokeImportCallback(module_name)
