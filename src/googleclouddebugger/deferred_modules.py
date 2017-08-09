@@ -279,7 +279,11 @@ def _FindBestMatch(source_path, module_name, paths):
     try:
       fp, p, unused_d = imp.find_module(module_name, [path])
 
-      # find_module returns f=None when it finds a package, in which case we
+      # find_module may return relative path (relative to current directory),
+      # which requires normalization.
+      p = os.path.abspath(p)
+
+      # find_module returns fp=None when it finds a package, in which case we
       # should be finding common suffix against __init__.py in that package.
       if not fp:
         p = os.path.join(p, '__init__.py')
