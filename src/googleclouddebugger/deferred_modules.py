@@ -17,6 +17,7 @@
 import imp
 import os
 import sys  # Must be imported, otherwise import hooks don't work.
+import threading
 import time
 
 import cdbg_native as native
@@ -26,6 +27,7 @@ _DIRECTORY_LOOKUP_QUOTA = 250
 
 # Callbacks to invoke when a module is imported.
 _import_callbacks = {}
+_import_callbacks_lock = threading.Lock()
 
 # Original __import__ function if import hook is installed or None otherwise.
 _real_import = None
@@ -148,17 +150,24 @@ def AddImportCallback(source_path, callback):
   """
 
   def RemoveCallback():
-    # Atomic operations, no need to lock.
-    callbacks = _import_callbacks.get(module_name)
-    if callbacks:
-      callbacks.remove(callback)
+    # This is a read-if-del operation on _import_callbacks. Lock to prevent
+    # callbacks from being inserted just before the key is deleted. Thus, it
+    # must be locked also when inserting a new entry below. On the other hand
+    # read only access, in the import hook, does not require a lock.
+    with _import_callbacks_lock:
+      callbacks = _import_callbacks.get(module_name)
+      if callbacks:
+        callbacks.remove(callback)
+        if not callbacks:
+          del _import_callbacks[module_name]
 
   module_name = _GetModuleName(source_path)
   if not module_name:
     return None
 
-  # Atomic operations, no need to lock.
-  _import_callbacks.setdefault(module_name, set()).add(callback)
+  with _import_callbacks_lock:
+    _import_callbacks.setdefault(module_name, set()).add(callback)
+
   _InstallImportHook()
 
   return RemoveCallback
