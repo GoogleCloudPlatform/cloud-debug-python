@@ -29,6 +29,9 @@ _DIRECTORY_LOOKUP_QUOTA = 250
 _import_callbacks = {}
 _import_callbacks_lock = threading.Lock()
 
+# Module fully qualified names detected by the finder at first-time load.
+_import_loading_modules = set()
+
 # Original __import__ function if import hook is installed or None otherwise.
 _real_import = None
 
@@ -126,7 +129,7 @@ def FindModulePath(source_path):
   return sorted(best_match)
 
 
-def AddImportCallback(source_path, callback):
+def AddImportCallback(abspath, callback):
   """Register import hook.
 
   This function overrides the default import process. Then whenever a module
@@ -134,16 +137,15 @@ def AddImportCallback(source_path, callback):
 
   A module may be imported multiple times. Import event only means that the
   Python code contained an "import" statement. The actual loading and
-  initialization of a new module normally happens only once. After that the
-  module is just fetched from the cache. This function doesn't care whether a
-  module was loaded or fetched from cache. The callback will be triggered
-  all the same.
+  initialization of a new module normally happens only once, at which time
+  the callback will be invoked. This function does not validates the existence
+  of such a module and it's the responsibility of the caller.
+
+  TODO(erezh): handle module reload.
 
   Args:
-    source_path: source file path identifying the monitored module name. If
-        the file is __init__.py, this function will monitor package import.
-        Otherwise it will monitor module import.
-    callback: callable to invoke upon module import.
+    abspath: python module file absolute path.
+    callback: callable to invoke upon module load.
 
   Returns:
     Function object to invoke to remove the installed callback.
@@ -155,19 +157,15 @@ def AddImportCallback(source_path, callback):
     # must be locked also when inserting a new entry below. On the other hand
     # read only access, in the import hook, does not require a lock.
     with _import_callbacks_lock:
-      callbacks = _import_callbacks.get(module_name)
+      callbacks = _import_callbacks.get(path)
       if callbacks:
         callbacks.remove(callback)
         if not callbacks:
-          del _import_callbacks[module_name]
+          del _import_callbacks[path]
 
-  module_name = _GetModuleName(source_path)
-  if not module_name:
-    return None
-
+  path, unused_ext = os.path.splitext(abspath)
   with _import_callbacks_lock:
-    _import_callbacks.setdefault(module_name, set()).add(callback)
-
+    _import_callbacks.setdefault(path, set()).add(callback)
   _InstallImportHook()
 
   return RemoveCallback
@@ -198,6 +196,26 @@ def _GetModuleName(source_path):
   return file_name
 
 
+class MetaFinder(object):
+  """The finder is called with the full module name before it is loaded."""
+
+  def find_module(self, name, path=None):  # pylint: disable=unused-argument,invalid-name
+    # Store the module fullname to be used by the import hook.
+    # At the time of this call the module is not loaded yet, and is only called
+    # the first time the module is loaded. For example, the following statement
+    # 'from a.b import c' will make 3 calls to find_module, assuming that none
+    # were loaded yet, with the names 'a', 'a.b' and 'a.b.c'
+    #
+    # Moreover, name might not be a true module name. Example: module 'b' in
+    # package 'a' calls 'import c', but 'c' is not a submodule of 'a'. The
+    # loader searches for relative submodules first and calls with name='a.c'.
+    # Then, it looks for modules on the search path and calls with name='c'.
+    # This code adds both 'a.c' and 'c' to the set. However, the import hook
+    # handles this case by looking up the module name in sys.modules.
+    _import_loading_modules.add(name)
+    return None
+
+
 def _InstallImportHook():
   """Lazily installs import hook."""
 
@@ -212,6 +230,7 @@ def _InstallImportHook():
   assert _real_import
 
   builtin.__import__ = _ImportHook
+  sys.meta_path.append(MetaFinder())
 
 
 # pylint: disable=redefined-builtin, g-doc-args, g-doc-return-or-yield
@@ -222,61 +241,45 @@ def _ImportHook(name, globals=None, locals=None, fromlist=None, level=-1):
   to __import__ that use keyword syntax will fail: __import('a', fromlist=[]).
   """
 
+  # Really import modules.
   module = _real_import(name, globals, locals, fromlist, level)
 
-  # There are multiple ways to import modules which affects how the import
-  # hook is called. When importing a module, Python implicitly loads all
-  # the unloaded parents modules (e.g., import a.b loads a and b). Here are
-  # few examles of import statements and the __import__ hook calls:
-  #
-  # Example 1: import a
-  #   __import__(name='a', fromlist=None) loads a
-  #
-  # Example 2: import a.b.c
-  #   __import__(name='a.b.c', fromlist=None) loads a, b, c
-  #
-  # Example 3: import a.b.c, a.b.d
-  #   __import__(name='a.b.c', fromlist=None) loads a, b, c
-  #   __import__(name='a.b.d', fromlist=None) loads d (already loaded a, b)
-  #
-  # Example 4: from a import b
-  #   __import__(name='a', fromlist=('b')) loads a, b
-  #
-  # Example 5: from a.b import c, d, e
-  #   __import__(name='a.b', fromlist=('c', 'd', 'e')) loads a, b, c, d, e
-  #  Note that from...import... cannot have dotted module after import.
-  #
-  # Note that we don't really know which modules were actually loaded by
-  #  _real_import. Therefore, we try to invoke callbacks for every module
-  # that might get loaded, even if already loaded before calling _real_import.
-  #
-  # Also note that we only have the name of the modules, rather than their path.
-  # This also causes superfluous callback executions because a callback
-  # might have been registered for not-yet loaded module 'x.y.c', but gets
-  # executed when module 'a.b.c' is loaded.
+  # Optimize common code path when no breakponts are set.
+  if not _import_callbacks:
+    _import_loading_modules.clear()
+    return module
 
-  # Invoke callbacks for the imported module. No need to lock, since all
-  # operations are atomic.
-  for part in name.split('.'):
-    _InvokeImportCallback(part)
+  # Capture and clear the loading module names.
+  imp.acquire_lock()
+  loaded = frozenset(_import_loading_modules)
+  _import_loading_modules.clear()
+  imp.release_lock()
 
-  # TODO(emrekultursay): Consider handling 'from p import *' case.
-  if fromlist:
-    for module_name in fromlist:
-      _InvokeImportCallback(module_name)
+  # Invoke callbacks for the loaded modules.
+  for m in loaded:
+    _InvokeImportCallback(sys.modules.get(m))
 
   return module
 
 
-def _InvokeImportCallback(module_name):
+def _InvokeImportCallback(module):
   """Invokes import callbacks for the specified module."""
-  callbacks = _import_callbacks.get(module_name)
+
+  if not module:
+    return
+
+  path = getattr(module, '__file__', None)
+  if not path:
+    return
+
+  path, unused_ext = os.path.splitext(os.path.abspath(path))
+  callbacks = _import_callbacks.get(path)
   if not callbacks:
     return  # Common code path.
 
   # Clone the callbacks set, since it can change during enumeration.
   for callback in callbacks.copy():
-    callback(module_name)
+    callback()
 
 
 # TODO(emrekultursay): Try reusing the Disambiguate method in module_lookup.py.

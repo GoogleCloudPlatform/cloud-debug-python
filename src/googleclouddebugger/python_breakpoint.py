@@ -359,11 +359,10 @@ class PythonBreakpoint(object):
                   'parameters': params}}})
       return
 
-    # TODO(emrekultursay): Use deferred_paths[0] instead of path.
     assert not self._import_hook_cleanup
     self._import_hook_cleanup = deferred_modules.AddImportCallback(
-        path,
-        lambda unused_module_name: self._TryActivateBreakpoint())
+        deferred_paths[0],
+        self._TryActivateBreakpoint)
 
   def _RemoveImportHook(self):
     """Removes the import hook if one was installed."""
