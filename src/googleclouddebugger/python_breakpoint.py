@@ -22,6 +22,7 @@ from threading import Lock
 import capture_collector
 import cdbg_native as native
 import deferred_modules
+import imphook
 import module_explorer
 import module_lookup
 
@@ -360,7 +361,7 @@ class PythonBreakpoint(object):
       return
 
     assert not self._import_hook_cleanup
-    self._import_hook_cleanup = deferred_modules.AddImportCallback(
+    self._import_hook_cleanup = imphook.AddImportCallback(
         deferred_paths[0],
         self._TryActivateBreakpoint)
 
