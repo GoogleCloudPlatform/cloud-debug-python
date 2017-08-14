@@ -34,6 +34,8 @@ ERROR_LOCATION_FILE_EXTENSION_0 = (
 ERROR_LOCATION_MODULE_NOT_FOUND_0 = (
     'Python module not found. Please ensure this file is present in the '
     'version of the service you are trying to debug.')
+ERROR_LOCATION_MULTIPLE_MODULES_1 = (
+    'Multiple modules matching $0. Please specify the module path.')
 ERROR_LOCATION_MULTIPLE_MODULES_3 = (
     'Multiple modules matching $0 ($1, $2)')
 ERROR_LOCATION_MULTIPLE_MODULES_4 = (
@@ -85,6 +87,10 @@ _BREAKPOINT_EVENT_STATUS = dict(
 datetime.strptime('2017-01-01', '%Y-%m-%d')
 
 
+def _IsRootInitPy(path):
+  return path.lstrip(os.sep) == '__init__.py'
+
+
 class PythonBreakpoint(object):
   """Handles a single Python breakpoint.
 
@@ -130,6 +136,16 @@ class PythonBreakpoint(object):
               'isError': True,
               'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
               'description': {'format': ERROR_LOCATION_FILE_EXTENSION_0}}})
+      return
+
+    if _IsRootInitPy(path):
+      self._CompleteBreakpoint({
+          'status': {
+              'isError': True,
+              'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
+              'description': {
+                  'format': ERROR_LOCATION_MULTIPLE_MODULES_1,
+                  'parameters': [path]}}})
       return
 
     # TODO(emrekultursay): Check both loaded and deferred modules.
