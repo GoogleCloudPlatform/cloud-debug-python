@@ -27,53 +27,55 @@ import module_explorer
 import module_lookup
 
 # TODO(vlif): move to messages.py module.
-BREAKPOINT_ONLY_SUPPORTS_PY_FILES = (
+# Use the following schema to define breakpoint error message constant:
+# ERROR_<Single word from Status.Reference>_<short error name>_<num params>
+ERROR_LOCATION_FILE_EXTENSION_0 = (
     'Only files with .py extension are supported')
-MODULE_NOT_FOUND = (
+ERROR_LOCATION_MODULE_NOT_FOUND_0 = (
     'Python module not found. Please ensure this file is present in the '
     'version of the service you are trying to debug.')
-MULTIPLE_MODULES_FOUND2 = (
+ERROR_LOCATION_MULTIPLE_MODULES_3 = (
     'Multiple modules matching $0 ($1, $2)')
-MULTIPLE_MODULES_FOUND3_OR_MORE = (
+ERROR_LOCATION_MULTIPLE_MODULES_4 = (
     'Multiple modules matching $0 ($1, $2, and $3 more)')
-NO_CODE_FOUND_AT_LINE = 'No code found at line $0 in $1'
-NO_CODE_FOUND_AT_LINE_ALT_LINE = (
+ERROR_LOCATION_NO_CODE_FOUND_AT_LINE_2 = 'No code found at line $0 in $1'
+ERROR_LOCATION_NO_CODE_FOUND_AT_LINE_3 = (
     'No code found at line $0 in $1. Try line $2.')
-NO_CODE_FOUND_AT_LINE_TWO_ALT_LINES = (
+ERROR_LOCATION_NO_CODE_FOUND_AT_LINE_4 = (
     'No code found at line $0 in $1. Try lines $2 or $3.')
-GLOBAL_CONDITION_QUOTA_EXCEEDED = (
+ERROR_CONDITION_GLOBAL_QUOTA_EXCEEDED_0 = (
     'Snapshot cancelled. The condition evaluation cost for all active '
     'snapshots might affect the application performance.')
-BREAKPOINT_CONDITION_QUOTA_EXCEEDED = (
+ERROR_CONDITION_BREAKPOINT_QUOTA_EXCEEDED_0 = (
     'Snapshot cancelled. The condition evaluation at this location might '
     'affect application performance. Please simplify the condition or move '
     'the snapshot to a less frequently called statement.')
-MUTABLE_CONDITION = (
+ERROR_CONDITION_MUTABLE_0 = (
     'Only immutable expressions can be used in snapshot conditions')
-SNAPSHOT_EXPIRED = (
+ERROR_AGE_SNAPSHOT_EXPIRED_0 = (
     'The snapshot has expired')
-LOGPOINT_EXPIRED = (
+ERROR_AGE_LOGPOINT_EXPIRED_0 = (
     'The logpoint has expired')
-INTERNAL_ERROR = (
+ERROR_UNSPECIFIED_INTERNAL_ERROR = (
     'Internal error occurred')
 
 # Status messages for different breakpoint events (except of "hit").
 _BREAKPOINT_EVENT_STATUS = dict(
     [(native.BREAKPOINT_EVENT_ERROR,
       {'isError': True,
-       'description': {'format': INTERNAL_ERROR}}),
+       'description': {'format': ERROR_UNSPECIFIED_INTERNAL_ERROR}}),
      (native.BREAKPOINT_EVENT_GLOBAL_CONDITION_QUOTA_EXCEEDED,
       {'isError': True,
        'refersTo': 'BREAKPOINT_CONDITION',
-       'description': {'format': GLOBAL_CONDITION_QUOTA_EXCEEDED}}),
+       'description': {'format': ERROR_CONDITION_GLOBAL_QUOTA_EXCEEDED_0}}),
      (native.BREAKPOINT_EVENT_BREAKPOINT_CONDITION_QUOTA_EXCEEDED,
       {'isError': True,
        'refersTo': 'BREAKPOINT_CONDITION',
-       'description': {'format': BREAKPOINT_CONDITION_QUOTA_EXCEEDED}}),
+       'description': {'format': ERROR_CONDITION_BREAKPOINT_QUOTA_EXCEEDED_0}}),
      (native.BREAKPOINT_EVENT_CONDITION_EXPRESSION_MUTABLE,
       {'isError': True,
        'refersTo': 'BREAKPOINT_CONDITION',
-       'description': {'format': MUTABLE_CONDITION}})])
+       'description': {'format': ERROR_CONDITION_MUTABLE_0}})])
 
 # The implementation of datetime.strptime imports an undocumented module called
 # _strptime. If it happens at the wrong time, we can get an exception about
@@ -127,7 +129,7 @@ class PythonBreakpoint(object):
           'status': {
               'isError': True,
               'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
-              'description': {'format': BREAKPOINT_ONLY_SUPPORTS_PY_FILES}}})
+              'description': {'format': ERROR_LOCATION_FILE_EXTENSION_0}}})
       return
 
     # TODO(emrekultursay): Check both loaded and deferred modules.
@@ -170,9 +172,9 @@ class PythonBreakpoint(object):
       return
 
     if self.definition.get('action') == 'LOG':
-      message = LOGPOINT_EXPIRED
+      message = ERROR_AGE_LOGPOINT_EXPIRED_0
     else:
-      message = SNAPSHOT_EXPIRED
+      message = ERROR_AGE_SNAPSHOT_EXPIRED_0
     self._CompleteBreakpoint({
         'status': {
             'isError': True,
@@ -272,11 +274,11 @@ class PythonBreakpoint(object):
       params += alt_lines
 
       if len(params) == 4:
-        fmt = NO_CODE_FOUND_AT_LINE_TWO_ALT_LINES
+        fmt = ERROR_LOCATION_NO_CODE_FOUND_AT_LINE_4
       elif len(params) == 3:
-        fmt = NO_CODE_FOUND_AT_LINE_ALT_LINE
+        fmt = ERROR_LOCATION_NO_CODE_FOUND_AT_LINE_3
       else:
-        fmt = NO_CODE_FOUND_AT_LINE
+        fmt = ERROR_LOCATION_NO_CODE_FOUND_AT_LINE_2
 
       self._CompleteBreakpoint({
           'status': {
@@ -330,9 +332,9 @@ class PythonBreakpoint(object):
       assert len(candidates) > 1
       params = [path] + StripCommonPrefixSegments(candidates[:2])
       if len(candidates) == 2:
-        fmt = MULTIPLE_MODULES_FOUND2
+        fmt = ERROR_LOCATION_MULTIPLE_MODULES_3
       else:
-        fmt = MULTIPLE_MODULES_FOUND3_OR_MORE
+        fmt = ERROR_LOCATION_MULTIPLE_MODULES_4
         params.append(str(len(candidates) - 2))
       return fmt, params
 
@@ -346,7 +348,7 @@ class PythonBreakpoint(object):
           'status': {
               'isError': True,
               'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
-              'description': {'format': MODULE_NOT_FOUND}}})
+              'description': {'format': ERROR_LOCATION_MODULE_NOT_FOUND_0}}})
       return
 
     if len(deferred_paths) > 1:
