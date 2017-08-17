@@ -91,6 +91,39 @@ def _IsRootInitPy(path):
   return path.lstrip(os.sep) == '__init__.py'
 
 
+def _StripCommonPathPrefix(paths):
+  """Removes path common prefix from a list of path strings."""
+  # Find the longest common prefix in terms of characters.
+  common_prefix = os.path.commonprefix(paths)
+  # Truncate at last segment boundary. E.g. '/aa/bb1/x.py' and '/a/bb2/x.py'
+  # have '/aa/bb' as the common prefix, but we should strip '/aa/' instead.
+  # If there's no '/' found, returns -1+1=0.
+  common_prefix_len = common_prefix.rfind('/') + 1
+  return [path[common_prefix_len:] for path in paths]
+
+
+def _MultipleModulesFoundError(path, candidates):
+  """Generates an error message to be used when multiple matches are found.
+
+  Args:
+    path: The breakpoint location path that the user provided.
+    candidates: List of paths that match the user provided path. Must
+        contain at least 2 entries (throws AssertionError otherwise).
+
+  Returns:
+    A (format, parameters) tuple that should be used in the description
+    field of the breakpoint error status.
+  """
+  assert len(candidates) > 1
+  params = [path] + _StripCommonPathPrefix(candidates[:2])
+  if len(candidates) == 2:
+    fmt = ERROR_LOCATION_MULTIPLE_MODULES_3
+  else:
+    fmt = ERROR_LOCATION_MULTIPLE_MODULES_4
+    params.append(str(len(candidates) - 2))
+  return fmt, params
+
+
 class PythonBreakpoint(object):
   """Handles a single Python breakpoint.
 
@@ -105,8 +138,7 @@ class PythonBreakpoint(object):
 
     Tries to set the breakpoint. If the source location is invalid, the
     breakpoint is completed with an error message. If the source location is
-    valid, but the module hasn't been loaded yet, the breakpoint is initialized
-    as deferred.
+    valid, but the module hasn't been loaded yet, the breakpoint is deferred.
 
     Args:
       definition: breakpoint definition as it came from the backend.
@@ -150,9 +182,32 @@ class PythonBreakpoint(object):
                   'parameters': [path]}}})
       return
 
+    # Find all module files matching the location path.
+    paths = module_search.FindMatchingFiles(path)
+    if not paths:
+      self._CompleteBreakpoint({
+          'status': {
+              'isError': True,
+              'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
+              'description': {'format': ERROR_LOCATION_MODULE_NOT_FOUND_0}}})
+      return
+
+    if len(paths) > 1:
+      fmt, params = _MultipleModulesFoundError(path, paths)
+      self._CompleteBreakpoint({
+          'status': {
+              'isError': True,
+              'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
+              'description': {
+                  'format': fmt,
+                  'parameters': params}}})
+      return
+
     # TODO(emrekultursay): Check both loaded and deferred modules.
     if not self._TryActivateBreakpoint() and not self._completed:
-      self._DeferBreakpoint()
+      self._import_hook_cleanup = imphook.AddImportCallback(
+          paths[0],
+          self._TryActivateBreakpoint)
 
   def Clear(self):
     """Clears the breakpoint and releases all breakpoint resources.
@@ -308,82 +363,6 @@ class PythonBreakpoint(object):
       return None
 
     return val
-
-  # Enables deferred breakpoints.
-  def _DeferBreakpoint(self):
-    """Defers breakpoint activation until the module has been loaded.
-
-    This function first verifies that a module corresponding to breakpoint
-    location exists. This way if the user sets breakpoint in a file that
-    doesn't even exist, the debugger will not be waiting forever. If there
-    is definitely no module that matches this breakpoint, this function
-    completes the breakpoint with error status.
-
-    Otherwise the debugger assumes that the module corresponding to breakpoint
-    location hasn't been loaded yet. The debugger will then start waiting for
-    the module to get loaded. Once the module is loaded, the debugger
-    will automatically try to activate the breakpoint.
-    """
-
-    def StripCommonPrefixSegments(paths):
-      """Removes common prefix segments from a list of path strings."""
-      # Find the longest common prefix in terms of characters.
-      common_prefix = os.path.commonprefix(paths)
-      # Truncate at last segment boundary. E.g. '/aa/bb1/x.py' and '/a/bb2/x.py'
-      # have '/aa/bb' as the common prefix, but we should strip '/aa/' instead.
-      # If there's no '/' found, returns -1+1=0.
-      common_prefix_len = common_prefix.rfind('/') + 1
-      return [path[common_prefix_len:] for path in paths]
-
-    def MultipleModulesFoundError(path, candidates):
-      """Generates an error message to be used when multiple matches are found.
-
-      Args:
-        path: The breakpoint location path that the user provided.
-        candidates: List of paths that match the user provided path. Must
-            contain at least 2 entries (throws AssertionError otherwise).
-
-      Returns:
-        A (format, parameters) tuple that should be used in the description
-        field of the breakpoint error status.
-      """
-      assert len(candidates) > 1
-      params = [path] + StripCommonPrefixSegments(candidates[:2])
-      if len(candidates) == 2:
-        fmt = ERROR_LOCATION_MULTIPLE_MODULES_3
-      else:
-        fmt = ERROR_LOCATION_MULTIPLE_MODULES_4
-        params.append(str(len(candidates) - 2))
-      return fmt, params
-
-    path = self.definition['location']['path']
-
-    # This is a best-effort lookup to identify any modules that may be loaded in
-    # the future.
-    deferred_paths = module_search.FindMatchingFiles(path)
-    if not deferred_paths:
-      self._CompleteBreakpoint({
-          'status': {
-              'isError': True,
-              'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
-              'description': {'format': ERROR_LOCATION_MODULE_NOT_FOUND_0}}})
-      return
-
-    if len(deferred_paths) > 1:
-      fmt, params = MultipleModulesFoundError(path, deferred_paths)
-      self._CompleteBreakpoint({
-          'status': {
-              'isError': True,
-              'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
-              'description': {
-                  'format': fmt,
-                  'parameters': params}}})
-      return
-
-    assert not self._import_hook_cleanup
-    self._import_hook_cleanup = imphook.AddImportCallback(
-        deferred_paths[0],
-        self._TryActivateBreakpoint)
 
   def _RemoveImportHook(self):
     """Removes the import hook if one was installed."""
