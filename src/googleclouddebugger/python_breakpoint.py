@@ -21,10 +21,10 @@ from threading import Lock
 
 import capture_collector
 import cdbg_native as native
-import deferred_modules
 import imphook
 import module_explorer
 import module_lookup
+import module_search
 
 # TODO(vlif): move to messages.py module.
 # Use the following schema to define breakpoint error message constant:
@@ -129,6 +129,8 @@ class PythonBreakpoint(object):
     if self.definition.get('action') == 'LOG':
       self._collector = capture_collector.LogCollector(self.definition)
 
+    # TODO(erezh): Ensure we handle whitespace in paths correctly.
+    # including, extension, basename, location_path
     path = self.definition['location']['path']
     if os.path.splitext(path)[1] != '.py':
       self._CompleteBreakpoint({
@@ -358,7 +360,7 @@ class PythonBreakpoint(object):
 
     # This is a best-effort lookup to identify any modules that may be loaded in
     # the future.
-    deferred_paths = deferred_modules.FindModulePath(path)
+    deferred_paths = module_search.FindMatchingFiles(path)
     if not deferred_paths:
       self._CompleteBreakpoint({
           'status': {
