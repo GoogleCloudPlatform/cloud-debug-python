@@ -113,6 +113,7 @@ sudo apt-get -y -q --no-install-recommends install \
     python <b>-m googleclouddebugger --</b> myapp.py
     </pre>
 
+
 ### Service Account
 
 Service account authentication lets you run the debugger agent on any Linux
@@ -160,3 +161,28 @@ python \
     --</b> \
     myapp.py
 </pre>
+
+### Django Web Framework
+
+You can use the Cloud Debugger to debug Django web framework applications.
+
+
+The best way to enable the Cloud Debugger with Django is to add the following
+code fragment to your `manage.py` file:
+
+```python
+# Attach the Python Cloud debugger (only the main server process).
+if os.environ.get('RUN_MAIN') or '--noreload' in sys.argv:
+  try:
+    import googleclouddebugger
+    googleclouddebugger.enable()
+  except ImportError:
+    pass
+```
+
+
+Alternatively, you can pass the `--noreload` flag when running the Django
+`manage.py` and use any one of the option A and B listed earlier. Note that
+using the `--noreload` flag disables the autoreload feature in Django, which
+means local changes to files will not be automatically picked up by Django.
+
