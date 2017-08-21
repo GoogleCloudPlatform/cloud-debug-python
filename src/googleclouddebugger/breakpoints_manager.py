@@ -34,10 +34,13 @@ class BreakpointsManager(object):
   Args:
     hub_client: queries active breakpoints from the backend and sends
         breakpoint updates back to the backend.
+    data_visibility_policy: An object used to determine the visibiliy
+        of a captured variable.  May be None if no policy is available.
   """
 
-  def __init__(self, hub_client):
+  def __init__(self, hub_client, data_visibility_policy):
     self._hub_client = hub_client
+    self.data_visibility_policy = data_visibility_policy
 
     # Lock to synchronize access to data across multiple threads.
     self._lock = RLock()
@@ -71,7 +74,8 @@ class BreakpointsManager(object):
       # Create new breakpoints.
       self._active.update([
           (x['id'],
-           python_breakpoint.PythonBreakpoint(x, self._hub_client, self))
+           python_breakpoint.PythonBreakpoint(
+               x, self._hub_client, self, self.data_visibility_policy))
           for x in breakpoints_data
           if x['id'] in ids - self._active.viewkeys() - self._completed])
 

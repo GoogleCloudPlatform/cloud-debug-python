@@ -48,7 +48,11 @@ def _StartDebugger():
   cdbg_native.InitializeModule(_flags)
 
   _hub_client = gcp_hub_client.GcpHubClient()
-  _breakpoints_manager = breakpoints_manager.BreakpointsManager(_hub_client)
+  # TODO(mattwach): Provide a data_visibility_policy object if the user
+  # provided configuration for one.
+  data_visibility_policy = None
+  _breakpoints_manager = breakpoints_manager.BreakpointsManager(
+      _hub_client, data_visibility_policy)
 
   # Set up loggers for logpoints.
   capture_collector.SetLogger(logging.getLogger())

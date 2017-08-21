@@ -186,13 +186,17 @@ class CaptureCollector(object):
   # string.
   pretty_printers = []
 
-  def __init__(self, definition):
+  def __init__(self, definition, data_visibility_policy):
     """Class constructor.
 
     Args:
       definition: breakpoint definition that this class will augment with
           captured data.
+      data_visibility_policy: An object used to determine the visibiliy
+          of a captured variable.  May be None if no policy is available.
     """
+    self.data_visibility_policy = data_visibility_policy
+
     self.breakpoint = copy.deepcopy(definition)
 
     self.breakpoint['stackFrames'] = []
@@ -363,12 +367,41 @@ class CaptureCollector(object):
         name = str(id(name))
       self._total_size += len(name)
 
-      v = self.CaptureVariable(value, depth, limits)
+      v = (self.CheckDataVisiblity(name) or
+           self.CaptureVariable(value, depth, limits))
       v['name'] = name
     except RuntimeError as e:
       raise RuntimeError(
           'INTERNAL ERROR while capturing {0}: {1}'.format(name, e))
     return v
+
+  def CheckDataVisiblity(self, name):
+    """Returns a status object if the given name is not visible.
+
+    Args:
+      name: Dot-separated symbol name
+
+    Returns:
+      None if the name is visible.  A variable structure with an error status
+      if the object is not visible.
+    """
+    if not self.data_visibility_policy:
+      return None
+
+    visible, reason = self.data_visibility_policy.IsDataVisible(name)
+
+    if visible:
+      return None
+
+    return {
+        'status': {
+            'is_error': False,
+            'refers_to': 'VARIABLE_NAME',
+            'description': {
+                'format': reason
+            }
+        }
+    }
 
   def CaptureVariablesList(self, items, depth, empty_message, limits):
     """Captures list of named items.

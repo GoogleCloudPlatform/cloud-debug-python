@@ -133,7 +133,8 @@ class PythonBreakpoint(object):
   to log a statement.
   """
 
-  def __init__(self, definition, hub_client, breakpoints_manager):
+  def __init__(self, definition, hub_client, breakpoints_manager,
+               data_visibility_policy):
     """Class constructor.
 
     Tries to set the breakpoint. If the source location is invalid, the
@@ -144,8 +145,12 @@ class PythonBreakpoint(object):
       definition: breakpoint definition as it came from the backend.
       hub_client: asynchronously sends breakpoint updates to the backend.
       breakpoints_manager: parent object managing active breakpoints.
+      data_visibility_policy: An object used to determine the visibiliy
+          of a captured variable.  May be None if no policy is available.
     """
     self.definition = definition
+
+    self.data_visibility_policy = data_visibility_policy
 
     # Breakpoint expiration time.
     self.expiration_period = timedelta(hours=24)
@@ -419,7 +424,8 @@ class PythonBreakpoint(object):
       self._CompleteBreakpoint({'status': error_status})
       return
 
-    collector = capture_collector.CaptureCollector(self.definition)
+    collector = capture_collector.CaptureCollector(
+        self.definition, self.data_visibility_policy)
     collector.Collect(frame)
 
     self._CompleteBreakpoint(collector.breakpoint, is_incremental=False)
