@@ -87,10 +87,6 @@ _BREAKPOINT_EVENT_STATUS = dict(
 datetime.strptime('2017-01-01', '%Y-%m-%d')
 
 
-def _IsRootInitPy(path):
-  return path.lstrip(os.sep) == '__init__.py'
-
-
 def _StripCommonPathPrefix(paths):
   """Removes path common prefix from a list of path strings."""
   # Find the longest common prefix in terms of characters.
@@ -122,6 +118,11 @@ def _MultipleModulesFoundError(path, candidates):
     fmt = ERROR_LOCATION_MULTIPLE_MODULES_4
     params.append(str(len(candidates) - 2))
   return fmt, params
+
+
+def _SanitizePath(path):
+  """Removes leading/trailing whitespace, and leading path separator."""
+  return path.strip().lstrip(os.sep)
 
 
 class PythonBreakpoint(object):
@@ -166,9 +167,9 @@ class PythonBreakpoint(object):
     if self.definition.get('action') == 'LOG':
       self._collector = capture_collector.LogCollector(self.definition)
 
-    # TODO(erezh): Ensure we handle whitespace in paths correctly.
-    # including, extension, basename, location_path
-    path = self.definition['location']['path']
+    path = _SanitizePath(self.definition['location']['path'])
+
+    # Only accept .py extension.
     if os.path.splitext(path)[1] != '.py':
       self._CompleteBreakpoint({
           'status': {
@@ -177,7 +178,8 @@ class PythonBreakpoint(object):
               'description': {'format': ERROR_LOCATION_FILE_EXTENSION_0}}})
       return
 
-    if _IsRootInitPy(path):
+    # A flat init file is too generic; path must include package name.
+    if path == '__init__.py':
       self._CompleteBreakpoint({
           'status': {
               'isError': True,
@@ -429,3 +431,4 @@ class PythonBreakpoint(object):
     collector.Collect(frame)
 
     self._CompleteBreakpoint(collector.breakpoint, is_incremental=False)
+
