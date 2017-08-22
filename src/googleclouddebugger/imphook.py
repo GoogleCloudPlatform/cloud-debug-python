@@ -155,4 +155,4 @@ def _InvokeImportCallback(module):
 
   # Clone the callbacks set, since it can change during enumeration.
   for callback in callbacks.copy():
-    callback()
+    callback(module)

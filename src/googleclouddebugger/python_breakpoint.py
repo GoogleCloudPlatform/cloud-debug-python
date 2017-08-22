@@ -17,13 +17,13 @@
 from datetime import datetime
 from datetime import timedelta
 import os
+import sys
 from threading import Lock
 
 import capture_collector
 import cdbg_native as native
 import imphook
 import module_explorer
-import module_lookup
 import module_search
 
 # TODO(vlif): move to messages.py module.
@@ -85,6 +85,28 @@ _BREAKPOINT_EVENT_STATUS = dict(
 # to strptime ensures that the module is loaded at startup.
 # See http://bugs.python.org/issue7980 for discussion of the Python bug.
 datetime.strptime('2017-01-01', '%Y-%m-%d')
+
+
+def _GetLoadedModuleByPath(abspath):
+  """Returns the loaded module that matches abspath or None if not found."""
+
+  for module in sys.modules.values():
+    path = getattr(module, '__file__', None)
+    if not path:
+      continue  # This is a built-in module.
+
+    # module.__file__ may be relative to the current directory, so we first
+    # convert it into absolute path.
+    module_abspath = os.path.abspath(path)
+
+    # Ignore file extension while comparing the file paths (e.g., /foo/bar.py vs
+    # /foo/bar.pyc should match).
+    if os.path.splitext(module_abspath)[0] == os.path.splitext(abspath)[0]:
+      return module
+
+
+def _IsRootInitPy(path):
+  return path.lstrip(os.sep) == '__init__.py'
 
 
 def _StripCommonPathPrefix(paths):
@@ -210,11 +232,14 @@ class PythonBreakpoint(object):
                   'parameters': params}}})
       return
 
-    # TODO(emrekultursay): Check both loaded and deferred modules.
-    if not self._TryActivateBreakpoint() and not self._completed:
+    # TODO(erezh): Handle the possible thread race condtion from lookup to hook.
+    module = _GetLoadedModuleByPath(paths[0])
+    if module:
+      self._ActivateBreakpoint(module)
+    else:
       self._import_hook_cleanup = imphook.AddImportCallback(
           paths[0],
-          self._TryActivateBreakpoint)
+          self._ActivateBreakpoint)
 
   def Clear(self):
     """Clears the breakpoint and releases all breakpoint resources.
@@ -261,96 +286,26 @@ class PythonBreakpoint(object):
             'refersTo': 'BREAKPOINT_AGE',
             'description': {'format': message}}})
 
-  def _TryActivateBreakpoint(self):
-    """Sets the breakpoint if the module has already been loaded.
+  def _ActivateBreakpoint(self, module):
+    """Sets the breakpoint in the loaded module, or complete with error."""
 
-    This function will complete the breakpoint with error if breakpoint
-    definition is incorrect. Examples: invalid line or bad condition.
+    # First remove the import hook (if installed).
+    self._RemoveImportHook()
 
-    If the code object corresponding to the source path can't be found,
-    this function returns False. In this case, the breakpoint is not
-    completed, since the breakpoint may be deferred.
-
-    Returns:
-      True if breakpoint was set or false otherwise. False can be returned
-      for potentially deferred breakpoints or in case of a bad breakpoint
-      definition. The self._completed flag distinguishes between the two cases.
-    """
+    line = self.definition['location']['line']
 
     # Find the code object in which the breakpoint is being set.
-    code_object = self._FindCodeObject()
-    if not code_object:
-      return False
-
-    # Compile the breakpoint condition.
-    condition = None
-    if self.definition.get('condition'):
-      try:
-        condition = compile(self.definition.get('condition'),
-                            '<condition_expression>',
-                            'eval')
-      except TypeError as e:  # condition string contains null bytes.
-        self._CompleteBreakpoint({
-            'status': {
-                'isError': True,
-                'refersTo': 'BREAKPOINT_CONDITION',
-                'description': {
-                    'format': 'Invalid expression',
-                    'parameters': [str(e)]}}})
-        return False
-      except SyntaxError as e:
-        self._CompleteBreakpoint({
-            'status': {
-                'isError': True,
-                'refersTo': 'BREAKPOINT_CONDITION',
-                'description': {
-                    'format': 'Expression could not be compiled: $0',
-                    'parameters': [e.msg]}}})
-        return False
-
-    line = self.definition['location']['line']
-
-    native.LogInfo('Creating new Python breakpoint %s in %s, line %d' % (
-        self.GetBreakpointId(), code_object, line))
-
-    self._cookie = native.SetConditionalBreakpoint(
-        code_object,
-        line,
-        condition,
-        self._BreakpointEvent)
-
-    self._RemoveImportHook()
-    return True
-
-  def _FindCodeObject(self):
-    """Finds the target code object for the breakpoint.
-
-    This function completes breakpoint with error if the module was found,
-    but the line number is invalid. When code object is not found for the
-    breakpoint source location, this function just returns None. It does not
-    assume error, because it might be a deferred breakpoint.
-
-    Returns:
-      Python code object object in which the breakpoint will be set or None if
-      module not found or if there is no code at the specified line.
-    """
-    path = self.definition['location']['path']
-    line = self.definition['location']['line']
-
-    modules = module_lookup.FindModules(path)
-    if not modules:
-      return None
-
-    # If there are multiple matches, We pick any one of the matching modules
-    # arbitrarily. TODO(emrekultursay): Return error instead.
-    module = modules[0]
-
-    status, val = module_explorer.GetCodeObjectAtLine(module, line)
+    status, codeobj = module_explorer.GetCodeObjectAtLine(module, line)
     if not status:
-      # module.__file__ must be defined or else it wouldn't have been returned
-      # from FindModule
-      params = [str(line), module.__file__]
-      alt_lines = (str(l) for l in val if l is not None)
+      # First two parameters are common: the line of the breakpoint and the
+      # module we are trying to insert the breakpoint in.
+      # TODO(emrekultursay): Do not display the entire path of the file. Either
+      # strip some prefix, or display the path in the breakpoint.
+      params = [str(line), os.path.splitext(module.__file__)[0] + '.py']
+
+      # The next 0, 1, or 2 parameters are the alternative lines to set the
+      # breakpoint at, displayed for the user's convenience.
+      alt_lines = (str(l) for l in codeobj if l is not None)
       params += alt_lines
 
       if len(params) == 4:
@@ -367,9 +322,43 @@ class PythonBreakpoint(object):
               'description': {
                   'format': fmt,
                   'parameters': params}}})
-      return None
+      return
 
-    return val
+    # Compile the breakpoint condition.
+    condition = None
+    if self.definition.get('condition'):
+      try:
+        condition = compile(self.definition.get('condition'),
+                            '<condition_expression>',
+                            'eval')
+      except TypeError as e:  # condition string contains null bytes.
+        self._CompleteBreakpoint({
+            'status': {
+                'isError': True,
+                'refersTo': 'BREAKPOINT_CONDITION',
+                'description': {
+                    'format': 'Invalid expression',
+                    'parameters': [str(e)]}}})
+        return
+
+      except SyntaxError as e:
+        self._CompleteBreakpoint({
+            'status': {
+                'isError': True,
+                'refersTo': 'BREAKPOINT_CONDITION',
+                'description': {
+                    'format': 'Expression could not be compiled: $0',
+                    'parameters': [e.msg]}}})
+        return
+
+    native.LogInfo('Creating new Python breakpoint %s in %s, line %d' % (
+        self.GetBreakpointId(), codeobj, line))
+
+    self._cookie = native.SetConditionalBreakpoint(
+        codeobj,
+        line,
+        condition,
+        self._BreakpointEvent)
 
   def _RemoveImportHook(self):
     """Removes the import hook if one was installed."""
