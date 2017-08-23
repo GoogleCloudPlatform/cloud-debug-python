@@ -61,29 +61,33 @@ def FindMatchingFiles(location_path):
   (src_ispkg, src_name) = _GetIsPackageAndModuleName(src_path)
   assert src_name
 
-  # The set of module/package path w/ no extension.
   # Using mutable vars to make them available in nested functions.
-  # Init longest_suffix_len to 1 to avoid inserting zero length suffixes.
+
+  # The set of module/package path w/ no extension. Contains absolute paths.
   candidates = set()
+
+  # Init longest_suffix_len to 1 to avoid inserting zero length suffixes.
   longest_suffix_len = [1]
 
   # Search paths for modules and packages, init with system search paths.
-  search_paths = set(sys.path)
+  search_abspaths = set(os.path.abspath(path) for path in sys.path)
 
   # Add search paths from the already loaded packages and add matching modules
   # or packages to the candidates list.
   for module in sys.modules.values():
     # Extend the search paths with packages path and modules file directory.
-    # Note that __path__ only exist for packages and is a list of abs paths.
-    search_paths |= frozenset(getattr(module, '__path__', []))
+    # Note that __path__ only exist for packages, but does not have to be
+    # absolute path as the user can overwrite it.
+    search_abspaths |= frozenset(
+        os.path.abspath(path) for path in getattr(module, '__path__', []))
     mod_path = os.path.splitext(getattr(module, '__file__', ''))[0]
     if not mod_path:
       continue
-    mod_path = os.path.abspath(mod_path)
-    search_paths.add(os.path.dirname(mod_path))
+    mod_abspath = os.path.abspath(mod_path)
+    search_abspaths.add(os.path.dirname(mod_abspath))
     # Add loaded modules to the candidates set.
-    if (src_ispkg, src_name) == _GetIsPackageAndModuleName(mod_path):
-      AddCandidate(mod_path)
+    if (src_ispkg, src_name) == _GetIsPackageAndModuleName(mod_abspath):
+      AddCandidate(mod_abspath)
 
   # Walk the aggregated search path and loook for modules or packages.
   # By searching one path at the time we control the module file name
@@ -91,22 +95,22 @@ def FindMatchingFiles(location_path):
   # TODO(erezh): consider using the alternative impl in cr/165133821 which
   # only uses os file lookup and not using pkgutil. The alternative is faster
   # but is making many more assuptions that this impl does not.
-  while search_paths:
+  while search_abspaths:
     num_dirs_scanned += 1
-    path = search_paths.pop()
-    for unused_importer, mod_name, mod_ispkg in pkgutil.iter_modules([path]):
-      mod_path = os.path.join(path, mod_name)
+    abspath = search_abspaths.pop()
+    for unused_importer, mod_name, mod_ispkg in pkgutil.iter_modules([abspath]):
+      mod_abspath = os.path.join(abspath, mod_name)
       if mod_ispkg:
-        search_paths.add(mod_path)
-        mod_path = os.path.join(mod_path, '__init__')
-      if (src_ispkg, src_name) == (mod_ispkg, mod_name):
-        AddCandidate(mod_path)
+        search_abspaths.add(mod_abspath)
+        mod_abspath = os.path.join(mod_abspath, '__init__')
+      if src_ispkg == mod_ispkg and src_name == mod_name:
+        AddCandidate(mod_abspath)
 
   # Sort the list to return a stable result to the user.
   # TODO(erezh): No need to add the .py extenssion, this is done just for
   # compatabilty with current code. Once refactored not to use file extension
   # this code can be removed to just return the sorted candidates.
-  candidates = sorted([path + '.py' for path in candidates])
+  candidates = sorted(abspath + '.py' for abspath in candidates)
 
   # Log scan stats, without the files list to avoid very long output as well as
   # the potential leak of system files that the user has no access to.
