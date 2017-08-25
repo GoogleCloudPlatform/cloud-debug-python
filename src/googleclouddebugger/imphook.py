@@ -14,7 +14,6 @@
 
 """Support for breakpoints on modules that haven't been loaded yet."""
 
-import imp
 import os
 import sys  # Must be imported, otherwise import hooks don't work.
 import threading
@@ -22,9 +21,6 @@ import threading
 # Callbacks to invoke when a module is imported.
 _import_callbacks = {}
 _import_callbacks_lock = threading.Lock()
-
-# Module fully qualified names detected by the finder at first-time load.
-_import_loading_modules = set()
 
 # Original __import__ function if import hook is installed or None otherwise.
 _real_import = None
@@ -72,26 +68,6 @@ def AddImportCallback(abspath, callback):
   return RemoveCallback
 
 
-class MetaFinder(object):
-  """The finder is called with the full module name before it is loaded."""
-
-  def find_module(self, name, path=None):  # pylint: disable=unused-argument,invalid-name
-    # Store the module fullname to be used by the import hook.
-    # At the time of this call the module is not loaded yet, and is only called
-    # the first time the module is loaded. For example, the following statement
-    # 'from a.b import c' will make 3 calls to find_module, assuming that none
-    # were loaded yet, with the names 'a', 'a.b' and 'a.b.c'
-    #
-    # Moreover, name might not be a true module name. Example: module 'b' in
-    # package 'a' calls 'import c', but 'c' is not a submodule of 'a'. The
-    # loader searches for relative submodules first and calls with name='a.c'.
-    # Then, it looks for modules on the search path and calls with name='c'.
-    # This code adds both 'a.c' and 'c' to the set. However, the import hook
-    # handles this case by looking up the module name in sys.modules.
-    _import_loading_modules.add(name)
-    return None
-
-
 def _InstallImportHook():
   """Lazily installs import hook."""
 
@@ -106,7 +82,6 @@ def _InstallImportHook():
   assert _real_import
 
   builtin.__import__ = _ImportHook
-  sys.meta_path.append(MetaFinder())
 
 
 # pylint: disable=redefined-builtin, g-doc-args, g-doc-return-or-yield
@@ -122,17 +97,87 @@ def _ImportHook(name, globals=None, locals=None, fromlist=None, level=-1):
 
   # Optimize common code path when no breakponts are set.
   if not _import_callbacks:
-    _import_loading_modules.clear()
     return module
 
-  # Capture and clear the loading module names.
-  imp.acquire_lock()
-  loaded = frozenset(_import_loading_modules)
-  _import_loading_modules.clear()
-  imp.release_lock()
+  # When the _real_import statement above is executed, it can also trigger the
+  # loading of outer packages, if they are not loaded yet. Unfortunately,
+  # _real_import does not give us a list of packages/modules were loaded as
+  # a result of executing it. Therefore, we conservatively assume that they
+  # were all just loaded.
+  #
+  # To manually identify all modules that _real_import touches, we apply a
+  # method that combines 'module', 'name', and 'fromlist'. This method is a
+  # heuristic that is based on observation.
+  #
+  # Note that the list we obtain will contain false positives, i.e., modules
+  # that were already loaded. However, since these modules were already loaded,
+  # there can be no pending breakpoint callbacks on them, and therefore, the
+  # wasted computation will be limited to one dictionary lookup per module.
+  #
+  # Example: When module 'a.b.c' is imported, we need to activate deferred
+  # breakpoints in all of ['a', 'a.b', 'a.b.c']. If 'a' was already loaded, then
+  # _import_callbacks.get('a') will return nothing, and we will move on to
+  # 'a.b'.
+  #
+  # To make the code simpler, we keep track of parts of the innermost module
+  # (i.e., 'a', 'b', 'c') and then combine them later.
 
-  # Invoke callbacks for the loaded modules.
-  for m in loaded:
+  parts = module.__name__.split('.')
+  if fromlist:
+    # In case of 'from x import y', all modules in 'fromlist' can be directly
+    # found in the package identified by the returned 'module'.
+    # Note that we discard the 'name' field, because it is a substring of the
+    # name of the returned module.
+
+    # Example 1: Using absolute path.
+    #     from a.b import c
+    #     name = 'a.b', fromlist=['c'], module=<module 'a.b'>
+    #
+    # Example 2: Using relative path from inside package 'a'.
+    #     from b import c
+    #     name = 'b', fromlist=['c'], module=<module 'a.b'>
+    #
+    # Example 3: Using relative path from inside package 'a'.
+    #    from b.c import d
+    #    name = 'b.c', fromlist=['d'], module=<module 'a.b.c'>
+    pass
+  else:
+    # In case of 'import a.b', we append the 'name' field to the name of the
+    # returned module. Note that these two have one component in common, so
+    # we remove that one component from the start of 'name' before appending it.
+
+    # Example 1: Use absolute path.
+    #    import a
+    #    name = 'a', fromlist=None, module=<module 'a'>
+    #
+    # Example 2: Use absolute path.
+    #    import a.b
+    #    name = 'a.b', fromlist=None, module=<module 'a'>
+    #
+    # Example 3: Use absolute path.
+    #    import a.b.c.d
+    #    name = 'a.b.c.d', fromlist=None, module=<module 'a'>
+    #
+    # Example 4: Use relative path from inside package 'a'.
+    #    import b.c
+    #    name = 'b.c', fromlist=None, module='a.b'
+    parts += name.split('.')[1:]
+
+  def GenerateModules():
+    """Generates module names using parts and fromlist."""
+    # If parts contains ['a', 'b', 'c'], then we generate ['a', 'a.b','a.b.c'].
+    current = None
+    for part in parts:
+      current = (current + '.' + part) if current else part
+      yield current
+
+    # We then add entries in fromlist to the final package path (i.e., 'a.b.c')
+    # to obtain the innermost packages (i.e., 'a.b.c.d, a.b.c.e').
+    if fromlist:
+      for f in fromlist:
+        yield current + '.' + f
+
+  for m in GenerateModules():
     _InvokeImportCallback(sys.modules.get(m))
 
   return module
