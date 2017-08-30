@@ -54,7 +54,7 @@ class Config(object):
     self.whitelist_patterns = whitelist_patterns
 
 
-def OpenAndRead(relative_path='debugger-config.yaml'):
+def OpenAndRead(relative_path='debugger-blacklist.yaml'):
   """Attempts to find the yaml configuration file, then read it.
 
   Args:
