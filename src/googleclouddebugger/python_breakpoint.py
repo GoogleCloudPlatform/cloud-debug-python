@@ -25,6 +25,7 @@ import cdbg_native as native
 import imphook
 import module_explorer
 import module_search
+import module_utils
 
 # TODO(vlif): move to messages.py module.
 # Use the following schema to define breakpoint error message constant:
@@ -95,9 +96,8 @@ def _GetLoadedModuleByPath(abspath):
     if not path:
       continue  # This is a built-in module.
 
-    # module.__file__ may be relative to the current directory, so we first
-    # convert it into absolute path.
-    module_abspath = os.path.abspath(path)
+    # module.__file__ may be relative or may contain symlinks inside it.
+    module_abspath = module_utils.GetAbsolutePath(path)
 
     # Ignore file extension while comparing the file paths (e.g., /foo/bar.py vs
     # /foo/bar.pyc should match).

@@ -18,6 +18,8 @@ import os
 import sys  # Must be imported, otherwise import hooks don't work.
 import threading
 
+import module_utils
+
 # Callbacks to invoke when a module is imported.
 _import_callbacks = {}
 _import_callbacks_lock = threading.Lock()
@@ -189,12 +191,13 @@ def _InvokeImportCallback(module):
   if not module:
     return
 
-  path = getattr(module, '__file__', None)
-  if not path:
+  mod_path = getattr(module, '__file__', None)
+  if not mod_path:
     return
 
-  path, unused_ext = os.path.splitext(os.path.abspath(path))
-  callbacks = _import_callbacks.get(path)
+  mod_abspath = module_utils.GetAbsolutePath(mod_path)
+  mod_abspath, unused_ext = os.path.splitext(mod_abspath)
+  callbacks = _import_callbacks.get(mod_abspath)
   if not callbacks:
     return  # Common code path.
 
