@@ -29,8 +29,11 @@ import sys
 import appengine_pretty_printers
 import breakpoints_manager
 import capture_collector
-import cdbg_native
+import error_data_visibility_policy
 import gcp_hub_client
+import glob_data_visibility_policy
+import yaml_data_visibility_config_reader
+import cdbg_native
 import version
 
 __version__ = version.__version__
@@ -48,11 +51,10 @@ def _StartDebugger():
   cdbg_native.InitializeModule(_flags)
 
   _hub_client = gcp_hub_client.GcpHubClient()
-  # TODO(mattwach): Provide a data_visibility_policy object if the user
-  # provided configuration for one.
-  data_visibility_policy = None
+
+  visibility_policy = _GetVisibilityPolicy()
   _breakpoints_manager = breakpoints_manager.BreakpointsManager(
-      _hub_client, data_visibility_policy)
+      _hub_client, visibility_policy)
 
   # Set up loggers for logpoints.
   capture_collector.SetLogger(logging.getLogger())
@@ -85,6 +87,22 @@ def _StartDebugger():
     _hub_client.EnableGceAuth()
   _hub_client.InitializeDebuggeeLabels(_flags)
   _hub_client.Start()
+
+
+def _GetVisibilityPolicy():
+  """If a debugger configuration is found, create a visibility policy."""
+  try:
+    visibility_config = yaml_data_visibility_config_reader.OpenAndRead()
+  except yaml_data_visibility_config_reader.Error as err:
+    return error_data_visibility_policy.ErrorDataVisibilityPolicy(
+        'Could not process debugger config: %s' % err)
+
+  if visibility_config:
+    return glob_data_visibility_policy.GlobDataVisibilityPolicy(
+        visibility_config.blacklist_patterns,
+        visibility_config.whitelist_patterns)
+
+  return None
 
 
 def _DebuggerMain():
@@ -132,7 +150,7 @@ def enable(**kwargs):
   This function should only be called once.
 
   Args:
-    flags: debugger configuration.
+    **kwargs: debugger configuration flags.
 
   Raises:
     RuntimeError: if called more than once.
