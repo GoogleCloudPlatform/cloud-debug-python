@@ -38,6 +38,9 @@ log_error_message = None
 # Externally defined function to collect the request log id.
 request_log_id_collector = None
 
+# Externally defined function to collect the end user id.
+user_id_collector = lambda: (None, None)
+
 _PRIMITIVE_TYPES = (int, long, float, complex, types.StringTypes, bool,
                     types.NoneType, types.SliceType, bytearray)
 _DATE_TYPES = (datetime.date, datetime.time, datetime.timedelta)
@@ -322,6 +325,7 @@ class CaptureCollector(object):
     self.TrimVariableTable(num_vars)
 
     self._CaptureRequestLogId()
+    self._CaptureUserId()
 
   def CaptureFrameLocals(self, frame):
     """Captures local variables and arguments of the specified frame.
@@ -599,6 +603,12 @@ class CaptureCollector(object):
 
         self.breakpoint['labels'][
             labels.Breakpoint.REQUEST_LOG_ID] = request_log_id
+
+  def _CaptureUserId(self):
+    """Captures the user id of the end user, if possible."""
+    user_kind, user_id = user_id_collector()
+    if user_kind and user_id:
+      self.breakpoint['evaluated_user_id'] = {'kind': user_kind, 'id': user_id}
 
 
 class LogCollector(object):
