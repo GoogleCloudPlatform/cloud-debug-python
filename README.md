@@ -1,47 +1,47 @@
-# Python Cloud Debugger
+# Python Cloud Debugger Agent
 
-Google [Cloud Debugger](https://cloud.google.com/tools/cloud-debugger/) for
-Python 2.7.
+Google [Cloud Debugger](https://cloud.google.com/debugger/) for Python 2.7.
 
 ## Overview
 
-The Cloud Debugger lets you inspect the state of an application at any code
-location without stopping or slowing it down. The debugger makes it easier to
-view the application state without adding logging statements.
+Cloud Debugger (also known as Stackdriver Debugger) lets you inspect the state
+of a running cloud application, at any code location, without stopping or
+slowing it down. It is not your traditional process debugger but rather an
+always on, whole app debugger taking snapshots from any instance of the app.
 
-You can use the Cloud Debugger on both production and staging instances of your
-application. The debugger never pauses the application for more than a few
-milliseconds. In most cases, this is not noticeable by users. The Cloud Debugger
-gives a read-only experience. Application variables can't be changed through the
-debugger.
+Cloud Debugger is safe for use with production apps or during development.
+The Python debugger agent only few milliseconds to the request latency when a
+debug snapshot is captured. In most cases, this is not noticeable to users.
+Furthermore, the Python debugger agent does not allow modification of
+application state in any way, and has close to zero impact on the app instances.
 
-The Cloud Debugger attaches to all instances of the application. The call stack
-and the variables come from the first instance to take the snapshot.
+Cloud Debugger attaches to all instances of the app providing the ability to
+take debug snapshots and add logpoints. A snapshot captures the call-stack and
+variables from any one instance that executes the snapshot location. A logpoint
+writes a formatted message to the application log whenever any instance of the
+app executes the logpoint location.
 
-The Python Cloud Debugger is only supported on Linux at the moment. It was tested
-on Debian Linux, but it should work on other distributions as well.
+The Python debugger agent is only supported on Linux at the moment. It was
+tested on Debian Linux, but it should work on other distributions as well.
 
-The Cloud Debugger consists of 3 primary components:
+Cloud Debugger consists of 3 primary components:
 
-1.  The debugger agent. This repo implements one for Python 2.7.
-2.  Cloud Debugger backend that stores the list of snapshots for each debuggee.
-    You can explore the API using the
+1.  The Python debugger agent (this repo implements one for Python 2.7).
+2.  Cloud Debugger service storing and managing snapshots/logpoints.
+    Explore the API's using
     [APIs Explorer](https://developers.google.com/apis-explorer/#p/clouddebugger/v2/).
-3.  User interface for the debugger implemented using the Cloud Debugger API.
-    Currently the only option for Python is the
-    [Google Developers Console](https://console.developers.google.com). The
-    UI requires that the source code is submitted to
-    [Google Cloud Repo](https://cloud.google.com/tools/repo/cloud-repositories/).
-    More options (including browsing local source files) are coming soon.
+3.  User interface, including a command line interface
+    [`gcloud debug`](https://cloud.google.com/sdk/gcloud/reference/debug/) and a
+    Web interface on
+    [Google Cloud Console](https://console.developers.google.com/debug/).
+    See the [online help](https://cloud.google.com/debugger/docs/debugging) on
+    how to use Google Cloud Console Debug page.
 
-This document only focuses on the Python debugger agent. Please see the
-this [page](https://cloud.google.com/tools/cloud-debugger/debugging) for
-explanation how to debug an application with the Cloud Debugger.
-
-## Options for Getting Help
+## Getting Help
 
 1.  StackOverflow: http://stackoverflow.com/questions/tagged/google-cloud-debugger
-2.  Google Group: cdbg-feedback@google.com
+2.  Send email to: [Cloud Debugger Feedback](mailto:cdbg-feedback@google.com)
+3.  Send Feedback from Google Cloud Console
 
 ## Installation
 
@@ -79,20 +79,20 @@ sudo apt-get -y -q --no-install-recommends install \
 
 ## Setup
 
-### Google Compute Engine
+### Google Cloud Platform
 
 1.  First, make sure that you created the VM with this option enabled:
 
     > Allow API access to all Google Cloud services in the same project.
 
-    This option lets the debugger agent authenticate with the machine account
-    of the Virtual Machine.
+    This option lets the Python debugger agent authenticate with the machine
+    account of the Virtual Machine.
 
-    It is possible to use Python Cloud Debugger without it. Please see the
+    It is possible to use the Python debugger agent without it. Please see the
     [next section](#Service_Account) for details.
 
-1.  Install the debugger agent as explained in the [Installation](#Installation)
-    section.
+1.  Install the Python debugger agent as explained in the
+    [Installation](#Installation) section.
 
 2.  Enable the debugger in your application using one of the two options:
 
@@ -116,21 +116,23 @@ sudo apt-get -y -q --no-install-recommends install \
 
 ### Service Account
 
-Service account authentication lets you run the debugger agent on any Linux
-machine, including outside of [Google Cloud Platform](https://cloud.google.com).
-The debugger agent authenticates against the backend with the service account
-created in [Google Developers Console](https://console.developers.google.com).
-If your application runs on Google Compute Engine,
-[metadata service authentication](#Google_Compute_Engine) is an easier option.
+To use the Python debugger agent on machines <i>not</i> hosted by Google Cloud
+Platform, the agent must use a Google Cloud Platform service-account credentials
+to authenticate with the Cloud Debugger Service.
 
-The first step for this setup is to create the service account in .json format.
-Please see this [page](https://cloud.google.com/storage/docs/authentication?hl=en#generating-a-private-key)
-for detailed instructions. If you don't have a Google Cloud Platform project,
-you can create one for free on [Google Developers Console](https://console.developers.google.com).
+Use the Google Cloud Console Service Accounts
+[page](https://console.cloud.google.com/iam-admin/serviceaccounts/project) to
+create a credentials file for an existing or new service-account. The
+service-account must have at least the `Cloud Debugger Agent` role to be
+accepted by the Cloud Debugger Service.
+If you don't have a Google Cloud Platform project, you can create one for free
+on [Google Cloud Console](https://console.cloud.google.com).
+
+Once you have the service-account JSON file, deploy it alongside the Python
+debugger agent.
 
 Once you have the service account, please note the service account e-mail,
-[project ID and project number](https://developers.google.com/console/help/new/#projectnumber).
-Then copy the .json file to all the machines that run your application.
+project ID and project number.
 
 Then, enable the debugger agent using one of these two options:
 
@@ -144,7 +146,7 @@ try:
       enable_service_account_auth=True,
       project_id='my-gcp-project-id',
       project_number='123456789',
-      service_account_json_file='/opt/cdbg/gcp.json')
+      service_account_json_file='/opt/cdbg/gcp-svc.json')
 except ImportError:
   pass
 ```
@@ -157,7 +159,7 @@ python \
     --enable_service_account_auth=1 \
     --project_id=<i>my-gcp-project-id</i> \
     --project_number=<i>123456789</i> \
-    --service_account_json_file=<i>/opt/cdbg/gcp.json</i> \
+    --service_account_json_file=<i>/opt/cdbg/gcp-svc.json</i> \
     --</b> \
     myapp.py
 </pre>
