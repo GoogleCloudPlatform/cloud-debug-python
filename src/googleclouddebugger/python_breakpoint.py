@@ -124,9 +124,9 @@ def _MultipleModulesFoundError(path, candidates):
   return fmt, params
 
 
-def _SanitizePath(path):
-  """Removes leading/trailing whitespace, and leading path separator."""
-  return path.strip().lstrip(os.sep)
+def _NormalizePath(path):
+  """Removes surrounding whitespace, leading separator and normalize."""
+  return os.path.normpath(path.strip().lstrip(os.sep))
 
 
 class PythonBreakpoint(object):
@@ -150,7 +150,7 @@ class PythonBreakpoint(object):
       definition: breakpoint definition as it came from the backend.
       hub_client: asynchronously sends breakpoint updates to the backend.
       breakpoints_manager: parent object managing active breakpoints.
-      data_visibility_policy: An object used to determine the visibiliy
+      data_visibility_policy: An object used to determine the visibility
           of a captured variable.  May be None if no policy is available.
     """
     self.definition = definition
@@ -171,7 +171,7 @@ class PythonBreakpoint(object):
     if self.definition.get('action') == 'LOG':
       self._collector = capture_collector.LogCollector(self.definition)
 
-    path = _SanitizePath(self.definition['location']['path'])
+    path = _NormalizePath(self.definition['location']['path'])
 
     # Only accept .py extension.
     if os.path.splitext(path)[1] != '.py':
