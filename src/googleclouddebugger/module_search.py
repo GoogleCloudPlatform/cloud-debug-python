@@ -23,6 +23,13 @@ import cdbg_native as native
 import module_utils
 
 
+def _CommonPathPrefix(paths):
+  """The equivalent of Python 3 os.path.commonpath()."""
+  prefix = os.path.commonprefix(paths)
+  prefix_len = prefix.rfind(os.sep) + 1
+  return prefix[:prefix_len]
+
+
 def _CommonPathSuffixLen(paths):
   """Returns the longest common path suffix len in a list of paths."""
   return len(os.path.commonprefix([path[::-1].split(os.sep) for path in paths]))
@@ -36,6 +43,20 @@ def _GetIsPackageAndModuleName(path_noext):
     return (False, name)
   # It is a package, return the package name.
   return (True, os.path.basename(directory))
+
+
+def _ResolveMultiPath(path, paths):
+  """Returns a single path if path ambiguity can be resolved."""
+  if len(paths) > 1:
+    candidate = os.path.join(_CommonPathPrefix(paths), path)
+    if candidate in paths:
+      return (candidate,)
+
+    candidate = os.path.join(sys.path[0], path)
+    if candidate in paths:
+      return (candidate,)
+
+  return paths
 
 
 # TODO(erezh): Ensure we handle whitespace in paths correctly including,
@@ -108,6 +129,9 @@ def FindMatchingFiles(location_path):
         mod_path = os.path.join(mod_path, '__init__')
       if src_ispkg == mod_ispkg and src_name == mod_name:
         AddCandidate(mod_path)
+
+  # Apply heuristics to resolve multiple matching paths into one.
+  candidates = _ResolveMultiPath(src_path, candidates)
 
   # Sort the list to return a stable result to the user.
   # TODO(erezh): No need to add the .py extenssion, this is done just for
