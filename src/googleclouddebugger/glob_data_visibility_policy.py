@@ -22,6 +22,7 @@ import fnmatch
 
 # Possible visibility responses
 RESPONSES = {
+    'UNKNOWN_TYPE': 'could not determine type',
     'BLACKLISTED': 'blacklisted by config',
     'NOT_WHITELISTED': 'not whitelisted by config',
     'VISIBLE': 'visible',
@@ -47,6 +48,9 @@ class GlobDataVisibilityPolicy(object):
       should be visible.  Reason is a string reason that can be displayed
       to the user and indicates why data is visible or not visible.
     """
+    if path is None:
+      return (False, RESPONSES['UNKNOWN_TYPE'])
+
     if _Matches(path, self.blacklist_patterns):
       return (False, RESPONSES['BLACKLISTED'])
 

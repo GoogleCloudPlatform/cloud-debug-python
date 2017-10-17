@@ -97,6 +97,33 @@ def NormalizePath(path):
   return path
 
 
+def DetermineType(value):
+  """Determines the type of val, returning a "full path" string.
+
+  For example:
+    DetermineType(5) -> __builtin__.int
+    DetermineType(Foo()) -> com.google.bar.Foo
+
+  Args:
+    value: Any value, the value is irrelevant as only the type metadata
+    is checked
+
+  Returns:
+    Type path string.  None if type cannot be determined.
+  """
+
+  object_type = type(value)
+  if not hasattr(object_type, '__name__'):
+    return None
+
+  type_string = getattr(object_type, '__module__', '')
+  if type_string:
+    type_string += '.'
+
+  type_string += object_type.__name__
+  return type_string
+
+
 class LineNoFilter(logging.Filter):
   """Enables overriding the path and line number in a logging record.
 
@@ -371,7 +398,7 @@ class CaptureCollector(object):
         name = str(id(name))
       self._total_size += len(name)
 
-      v = (self.CheckDataVisiblity(name) or
+      v = (self.CheckDataVisiblity(value) or
            self.CaptureVariable(value, depth, limits))
       v['name'] = name
     except RuntimeError as e:
@@ -379,27 +406,29 @@ class CaptureCollector(object):
           'INTERNAL ERROR while capturing {0}: {1}'.format(name, e))
     return v
 
-  def CheckDataVisiblity(self, name):
+  def CheckDataVisiblity(self, value):
     """Returns a status object if the given name is not visible.
 
     Args:
-      name: Dot-separated symbol name
+      value: The value to check.  The actual value here is not important but the
+      value's metadata (e.g. package and type) will be checked.
 
     Returns:
-      None if the name is visible.  A variable structure with an error status
-      if the object is not visible.
+      None if the value is visible.  A variable structure with an error status
+      if the value should not be visible.
     """
     if not self.data_visibility_policy:
       return None
 
-    visible, reason = self.data_visibility_policy.IsDataVisible(name)
+    visible, reason = self.data_visibility_policy.IsDataVisible(
+        DetermineType(value))
 
     if visible:
       return None
 
     return {
         'status': {
-            'is_error': False,
+            'is_error': True,
             'refers_to': 'VARIABLE_NAME',
             'description': {
                 'format': reason
@@ -533,12 +562,8 @@ class CaptureCollector(object):
                                         OBJECT_HAS_NO_FIELDS, limits)
     v = {'members': members}
 
-    object_type = type(value)
-    if hasattr(object_type, '__name__'):
-      type_string = getattr(object_type, '__module__', '')
-      if type_string:
-        type_string += '.'
-      type_string += object_type.__name__
+    type_string = DetermineType(value)
+    if type_string:
       v['type'] = type_string
 
     return v
