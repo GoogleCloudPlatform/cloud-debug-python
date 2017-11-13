@@ -19,6 +19,8 @@
 
 #include "python_util.h"
 
+#include <time.h>
+
 namespace devtools {
 namespace cdbg {
 
@@ -183,6 +185,15 @@ Nullable<string> ClearPythonException() {
 
 #ifndef NDEBUG
   PyErr_Print();
+#else
+  static constexpr time_t EXCEPTION_THROTTLE_SECONDS = 30;
+  static time_t last_exception_reported = 0;
+
+  time_t current_time = time(nullptr);
+  if (current_time - last_exception_reported >= EXCEPTION_THROTTLE_SECONDS) {
+    last_exception_reported = current_time;
+    PyErr_Print();
+  }
 #endif  // NDEBUG
 
   PyErr_Clear();
