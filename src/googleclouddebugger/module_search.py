@@ -122,6 +122,8 @@ def FindMatchingFiles(location_path):
   while search_paths:
     num_dirs_scanned += 1
     path = search_paths.pop()
+    # Allow other threads to run in case there are many search_paths.
+    time.sleep(0)
     for unused_importer, mod_name, mod_ispkg in pkgutil.iter_modules([path]):
       mod_path = os.path.join(path, mod_name)
       if mod_ispkg:
