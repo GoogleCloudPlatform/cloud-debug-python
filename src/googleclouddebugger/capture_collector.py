@@ -41,6 +41,9 @@ request_log_id_collector = None
 # Externally defined function to collect the end user id.
 user_id_collector = lambda: (None, None)
 
+# Externally defined function to collect the end user id.
+breakpoint_labels_collector = lambda: {}
+
 _PRIMITIVE_TYPES = (int, long, float, complex, types.StringTypes, bool,
                     types.NoneType, types.SliceType, bytearray)
 _DATE_TYPES = (datetime.date, datetime.time, datetime.timedelta)
@@ -351,6 +354,7 @@ class CaptureCollector(object):
     # didn't make it point to var_index of 0 ("buffer full")
     self.TrimVariableTable(num_vars)
 
+    self._CaptureEnvironmentLabels()
     self._CaptureRequestLogId()
     self._CaptureUserId()
 
@@ -613,6 +617,15 @@ class CaptureCollector(object):
       ProcessBufferFull(stack_frame['locals'])
     ProcessBufferFull(self._var_table)
 
+  def _CaptureEnvironmentLabels(self):
+    """Captures information about the environment, if possible."""
+    if 'labels' not in self.breakpoint:
+      self.breakpoint['labels'] = {}
+
+    if callable(breakpoint_labels_collector):
+      for (key, value) in breakpoint_labels_collector().iteritems():
+        self.breakpoint['labels'][key] = value
+
   def _CaptureRequestLogId(self):
     """Captures the request log id if possible.
 
@@ -623,9 +636,6 @@ class CaptureCollector(object):
       request_log_id = request_log_id_collector()
       if request_log_id:
         # We have a request_log_id, save it into the breakpoint labels
-        if 'labels' not in self.breakpoint:
-          self.breakpoint['labels'] = {}
-
         self.breakpoint['labels'][
             labels.Breakpoint.REQUEST_LOG_ID] = request_log_id
 
