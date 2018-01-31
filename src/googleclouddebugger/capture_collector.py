@@ -293,9 +293,6 @@ class CaptureCollector(object):
     frame = top_frame
     top_line = self.breakpoint['location']['line']
     breakpoint_frames = self.breakpoint['stackFrames']
-    # Number of entries in _var_table. Starts at 1 (index 0 is the 'buffer full'
-    # status value).
-    num_vars = 1
     try:
       # Evaluate watched expressions.
       if 'expressions' in self.breakpoint:
@@ -323,32 +320,30 @@ class CaptureCollector(object):
         })
         frame = frame.f_back
 
-      # Explore variables table in BFS fashion. The variables table will grow
-      # inside CaptureVariable as we encounter new references.
-      while (num_vars < len(self._var_table)) and (
-          self._total_size < self.max_size):
-        try:
-          self._var_table[num_vars] = self.CaptureVariable(
-              self._var_table[num_vars], 0, self.default_capture_limits,
-              can_enqueue=False)
-          num_vars += 1
-        except RuntimeError as e:
-          # Capture details on the failure and let the outer handler convert it
-          # to a status.
-          raise RuntimeError(
-              'Failed while capturing an object of type {0}: {1}'.format(
-                  type(self._var_table[num_vars]), e))
-
     except BaseException as e:  # pylint: disable=broad-except
-      # The variable table will get serialized even though there was a
-      # failure. The results can be useful for diagnosing the internal
-      # error so just trim the excess values.
+      # The variable table will get serialized even though there was a failure.
+      # The results can be useful for diagnosing the internal error.
       self.breakpoint['status'] = {
           'isError': True,
           'description': {
-              'format': (
-                  'INTERNAL ERROR: Debugger failed to capture frame $0: $1'),
+              'format': ('INTERNAL ERROR: Failed while capturing locals '
+                         'of frame $0: $1'),
               'parameters': [str(len(breakpoint_frames)), str(e)]}}
+
+    # Number of entries in _var_table. Starts at 1 (index 0 is the 'buffer full'
+    # status value).
+    num_vars = 1
+
+    # Explore variables table in BFS fashion. The variables table will grow
+    # inside CaptureVariable as we encounter new references.
+    while (num_vars < len(self._var_table)) and (
+        self._total_size < self.max_size):
+      self._var_table[num_vars] = self.CaptureVariable(
+          self._var_table[num_vars], 0, self.default_capture_limits,
+          can_enqueue=False)
+
+      # Move on to the next entry in the variable table.
+      num_vars += 1
 
     # Trim variables table and change make all references to variables that
     # didn't make it point to var_index of 0 ("buffer full")
@@ -481,6 +476,35 @@ class CaptureCollector(object):
     return v
 
   def CaptureVariable(self, value, depth, limits, can_enqueue=True):
+    """Try-Except wrapped version of CaptureVariableInternal."""
+    try:
+      return self.CaptureVariableInternal(value, depth, limits, can_enqueue)
+    except RuntimeError as e:
+      # Record as an error in the variable, and continue iterating.
+      return {
+          'status': {
+              'is_error': True,
+              'refers_to': 'VARIABLE_VALUE',
+              'description': {
+                  'format': 'Failed while capturing variable: $0',
+                  'parameters': [str(e)]
+              }
+          }
+      }
+    except BaseException as e:  # pylint: disable=broad-except
+      # Record as an internal error in the variable, and continue iterating.
+      return {
+          'status': {
+              'isError': True,
+              'description': {
+                  'format': ('INTERNAL ERROR: Failed while capturing '
+                             'variable: $0: $1'),
+                  'parameters': [str(e)]
+              }
+          }
+      }
+
+  def CaptureVariableInternal(self, value, depth, limits, can_enqueue=True):
     """Captures a single nameless object into Variable message.
 
     TODO(vlif): safely evaluate iterable types.
@@ -541,7 +565,7 @@ class CaptureCollector(object):
         index = len(self._var_table)
         self._var_table_index[id(value)] = index
         self._var_table.append(value)
-      self._total_size += 4  # number of characters to accomodate a number.
+      self._total_size += 4  # number of characters to accommodate a number.
       return {'varTableIndex': index}
 
     for pretty_printer in CaptureCollector.pretty_printers:
