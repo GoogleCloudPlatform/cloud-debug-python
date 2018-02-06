@@ -12,7 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Support for breakpoints on modules that haven't been loaded yet."""
+"""Support for breakpoints on modules that haven't been loaded yet.
+
+This is the old module import hook which:
+  1. Takes full path of the module with file extension as input.
+  2. At each (top-level-only) import statement:
+    a. Uses path to guess all possible names the module may be loaded as.
+    b. Checks sys.modules if there are any modules loaded with those names,
+       using exact path match between the __file__ attribute of the module
+       from sys.modules and the input path.
+
+For the new module import hook, see imphook2.py file.
+"""
 
 import os
 import sys  # Must be imported, otherwise import hooks don't work.
@@ -35,7 +46,7 @@ def AddImportCallback(abspath, callback):
   """Register import hook.
 
   This function overrides the default import process. Then whenever a module
-  corresponding to source_path is imported, the callback will be invoked.
+  corresponding to abspath is imported, the callback will be invoked.
 
   A module may be imported multiple times. Import event only means that the
   Python code contained an "import" statement. The actual loading and

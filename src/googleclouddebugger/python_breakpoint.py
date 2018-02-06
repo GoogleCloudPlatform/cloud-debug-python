@@ -22,9 +22,12 @@ from threading import Lock
 import capture_collector
 import cdbg_native as native
 import imphook
+import imphook2
 import module_explorer
 import module_search
+import module_search2
 import module_utils
+import module_utils2
 
 # TODO(vlif): move to messages.py module.
 # Use the following schema to define breakpoint error message constant:
@@ -126,6 +129,19 @@ def _MultipleModulesFoundError(path, candidates):
 
 def _NormalizePath(path):
   """Removes surrounding whitespace, leading separator and normalize."""
+  # TODO(emrekultursay): Calling os.path.normpath "may change the meaning of a
+  # path that contains symbolic links" (e.g., "A/foo/../B" != "A/B" if foo is a
+  # symlink). This might cause trouble when matching against loaded module
+  # paths. We should try to avoid using it.
+  # Example:
+  #  > import symlink.a
+  #  > symlink.a.__file__
+  #  symlink/a.py
+  #  > import target.a
+  #  > starget.a.__file__
+  #  target/a.py
+  # Python interpreter treats these as two separate modules. So, we also need to
+  # handle them the same way.
   return os.path.normpath(path.strip().lstrip(os.sep))
 
 
@@ -139,7 +155,7 @@ class PythonBreakpoint(object):
   """
 
   def __init__(self, definition, hub_client, breakpoints_manager,
-               data_visibility_policy):
+               data_visibility_policy, use_new_module_search=False):
     """Class constructor.
 
     Tries to set the breakpoint. If the source location is invalid, the
@@ -152,6 +168,8 @@ class PythonBreakpoint(object):
       breakpoints_manager: parent object managing active breakpoints.
       data_visibility_policy: An object used to determine the visibility
           of a captured variable.  May be None if no policy is available.
+      use_new_module_search: If true, the new module search algorithm will be
+          used.
     """
     self.definition = definition
 
@@ -192,6 +210,21 @@ class PythonBreakpoint(object):
                   'format': ERROR_LOCATION_MULTIPLE_MODULES_1,
                   'parameters': [path]}}})
       return
+
+    # If enabled, then use the new module search algorithm.
+    if use_new_module_search:
+      new_path = module_search2.Search(path)
+      new_module = module_utils2.GetLoadedModuleBySuffix(new_path)
+
+      if new_module:
+        self._ActivateBreakpoint(new_module)
+      else:
+        self._import_hook_cleanup = imphook2.AddImportCallbackBySuffix(
+            new_path,
+            self._ActivateBreakpoint)
+      return
+
+    # Otherwise, use the old module search algorithm.
 
     # Find all module files matching the location path.
     paths = module_search.FindMatchingFiles(path)
