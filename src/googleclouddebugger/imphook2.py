@@ -320,7 +320,12 @@ def _InvokeImportCallbackBySuffix(names):
     nonempty_modules = (m for m in modules if m)
 
     for module in nonempty_modules:
-      mod_root = os.path.splitext(module.__file__)[0]
+      # TODO(emrekultursay): Write unit test to cover None case.
+      mod_file = getattr(module, '__file__', None)
+      if not mod_file:
+        continue
+
+      mod_root = os.path.splitext(mod_file)[0]
 
       # If the module is relative, add the curdir prefix to convert it to
       # absolute path. Note that we don't use os.path.abspath because it
