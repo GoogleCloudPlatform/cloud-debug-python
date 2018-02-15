@@ -52,7 +52,7 @@ def _StartDebugger():
 
   _hub_client = gcp_hub_client.GcpHubClient()
   visibility_policy = _GetVisibilityPolicy()
-  use_new_module_search = _flags.get('use_new_module_search')
+  use_new_module_search = _flags.get('use_new_module_search', True)
 
   _breakpoints_manager = breakpoints_manager.BreakpointsManager(
       _hub_client,
