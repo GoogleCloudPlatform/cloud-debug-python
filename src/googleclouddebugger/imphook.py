@@ -29,7 +29,7 @@ import os
 import sys  # Must be imported, otherwise import hooks don't work.
 import threading
 
-import module_utils
+from . import module_utils
 
 # Callbacks to invoke when a module is imported.
 _import_callbacks = {}

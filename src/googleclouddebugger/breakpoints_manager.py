@@ -17,7 +17,7 @@
 from datetime import datetime
 from threading import RLock
 
-import python_breakpoint
+from . import python_breakpoint
 
 
 class BreakpointsManager(object):

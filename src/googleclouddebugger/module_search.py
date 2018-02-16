@@ -19,8 +19,8 @@ import pkgutil
 import sys
 import time
 
-import cdbg_native as native
-import module_utils
+from . import cdbg_native as native
+from . import module_utils
 
 
 def _CommonPathPrefix(paths):

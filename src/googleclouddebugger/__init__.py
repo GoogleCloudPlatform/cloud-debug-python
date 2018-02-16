@@ -26,15 +26,15 @@ import logging
 import os
 import sys
 
-import appengine_pretty_printers
-import breakpoints_manager
-import capture_collector
-import error_data_visibility_policy
-import gcp_hub_client
-import glob_data_visibility_policy
-import yaml_data_visibility_config_reader
+from . import appengine_pretty_printers
+from . import breakpoints_manager
+from . import capture_collector
+from . import error_data_visibility_policy
+from . import gcp_hub_client
+from . import glob_data_visibility_policy
+from . import yaml_data_visibility_config_reader
 import cdbg_native
-import version
+from . import version
 
 __version__ = version.__version__
 

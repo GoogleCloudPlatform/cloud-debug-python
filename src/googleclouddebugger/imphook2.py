@@ -34,7 +34,7 @@ import os
 import sys  # Must be imported, otherwise import hooks don't work.
 import threading
 
-import module_utils2
+from . import module_utils2
 
 # Callbacks to invoke when a module is imported.
 _import_callbacks = {}

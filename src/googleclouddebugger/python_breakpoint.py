@@ -19,15 +19,15 @@ from datetime import timedelta
 import os
 from threading import Lock
 
-import capture_collector
-import cdbg_native as native
-import imphook
-import imphook2
-import module_explorer
-import module_search
-import module_search2
-import module_utils
-import module_utils2
+from . import capture_collector
+from . import cdbg_native as native
+from . import imphook
+from . import imphook2
+from . import module_explorer
+from . import module_search
+from . import module_search2
+from . import module_utils
+from . import module_utils2
 
 # TODO(vlif): move to messages.py module.
 # Use the following schema to define breakpoint error message constant:

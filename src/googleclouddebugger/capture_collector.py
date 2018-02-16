@@ -26,8 +26,8 @@ import sys
 import time
 import types
 
-import labels
-import cdbg_native as native
+from . import labels
+from . import cdbg_native as native
 
 # Externally defined functions to actually log a message. If these variables
 # are not initialized, the log action for breakpoints is invalid.

@@ -36,10 +36,10 @@ import oauth2client
 from oauth2client import service_account
 from oauth2client.contrib.gce import AppAssertionCredentials
 
-import labels
-import cdbg_native as native
-import uniquifier_computer
-import version
+from . import labels
+from . import cdbg_native as native
+from . import uniquifier_computer
+from . import version
 
 # This module catches all exception. This is safe because it runs in
 # a daemon thread (so we are not blocking Ctrl+C). We need to catch all
