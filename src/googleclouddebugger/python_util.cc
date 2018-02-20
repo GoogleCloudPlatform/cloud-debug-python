@@ -46,9 +46,9 @@ void CodeObjectLinesEnumerator::Initialize(
     PyObject* lnotab) {
   offset_ = 0;
   line_number_ = firstlineno;
-  remaining_entries_ = PyString_Size(lnotab) / 2;
+  remaining_entries_ = PyBytes_Size(lnotab) / 2;
   next_entry_ =
-      reinterpret_cast<uint8*>(PyString_AsString(lnotab));
+      reinterpret_cast<uint8*>(PyBytes_AsString(lnotab));
 
   // If the line table starts with offset 0, the first line is not
   // "code_object->co_firstlineno", but the following line.
@@ -102,8 +102,12 @@ void SetDebugletModule(PyObject* module) {
 
 PyTypeObject DefaultTypeDefinition(const char* type_name) {
   return {
+#if PY_MAJOR_VERSION >= 3
+      PyVarObject_HEAD_INIT(nullptr, /* ob_size */ 0)
+#else
       PyObject_HEAD_INIT(nullptr)
       0,                          /* ob_size */
+#endif
       type_name,                  /* tp_name */
       0,                          /* tp_basicsize */
       0,                          /* tp_itemsize */
@@ -231,8 +235,8 @@ string CodeObjectDebugString(PyCodeObject* code_object) {
   string str;
 
   if ((code_object->co_name != nullptr) &&
-      PyString_CheckExact(code_object->co_name)) {
-    str += PyString_AS_STRING(code_object->co_name);
+      PyBytes_CheckExact(code_object->co_name)) {
+    str += PyBytes_AS_STRING(code_object->co_name);
   } else {
     str += "<noname>";
   }
@@ -241,21 +245,21 @@ string CodeObjectDebugString(PyCodeObject* code_object) {
   str += std::to_string(static_cast<int64>(code_object->co_firstlineno));
 
   if ((code_object->co_filename != nullptr) &&
-      PyString_CheckExact(code_object->co_filename)) {
+      PyBytes_CheckExact(code_object->co_filename)) {
     str += " at ";
-    str += PyString_AS_STRING(code_object->co_filename);
+    str += PyBytes_AS_STRING(code_object->co_filename);
   }
 
   return str;
 }
 
 
-std::vector<uint8> PyStringToByteArray(PyObject* obj) {
-  DCHECK(PyString_CheckExact(obj));
+std::vector<uint8> PyBytesToByteArray(PyObject* obj) {
+  DCHECK(PyBytes_CheckExact(obj));
 
-  const size_t bytecode_size = PyString_GET_SIZE(obj);
+  const size_t bytecode_size = PyBytes_GET_SIZE(obj);
   const uint8* const bytecode_data =
-      reinterpret_cast<uint8*>(PyString_AS_STRING(obj));
+      reinterpret_cast<uint8*>(PyBytes_AS_STRING(obj));
   return std::vector<uint8>(bytecode_data, bytecode_data + bytecode_size);
 }
 

@@ -78,7 +78,8 @@ class ImmutabilityTracer {
   void ProcessCodeLine(PyCodeObject* code_object, int line_number);
 
   // Verifies immutability of block of opcodes.
-  void ProcessCodeRange(const uint8* opcodes, int size);
+  void ProcessCodeRange(const uint8* code_start, const uint8* opcodes,
+                        int size);
 
   // Verifies that the called C function is whitelisted.
   void ProcessCCall(PyObject* function);

@@ -61,4 +61,21 @@ using google::AddLogSink;
 using google::RemoveLogSink;
 
 
+// Python 3 compatibility
+#if PY_MAJOR_VERSION >= 3
+// Python 2 has both an 'int' and a 'long' type, and Python 3 only as an 'int'
+// type which is the equivalent of Python 2's 'long'.
+// PyInt* functions will refer to 'int' in Python 2 and 3.
+  #define PyInt_FromLong PyLong_FromLong
+  #define PyInt_AsLong PyLong_AsLong
+  #define PyInt_CheckExact PyLong_CheckExact
+
+// Python 3's 'bytes' type is the equivalent of Python 2's 'str' type, which are
+// byte arrays. Python 3's 'str' type represents a unicode string.
+// In this codebase:
+//   PyString* functions will refer to 'str' in Python 2 and 3.
+//   PyBytes* functions will refer to 'str' in Python 2 and 'bytes' in Python 3.
+  #define PyString_AsString PyUnicode_AsUTF8
+#endif
+
 #endif  // DEVTOOLS_CDBG_DEBUGLETS_PYTHON_COMMON_H_

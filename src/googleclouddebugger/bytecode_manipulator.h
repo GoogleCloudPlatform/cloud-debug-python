@@ -50,7 +50,7 @@ namespace cdbg {
 // For example consider this Python code:
 //     def test():
 //       yield 'hello'
-// It's bytecode without any breakpoints is:
+// Its bytecode without any breakpoints is:
 //      0 LOAD_CONST               1 ('hello')
 //      3 YIELD_VALUE
 //      4 POP_TOP
@@ -61,8 +61,8 @@ namespace cdbg {
 //      3 YIELD_VALUE
 //      4 POP_TOP
 //      5 LOAD_CONST               0 (None)
-//      9 LOAD_CONST               2 (cdbg_native._Callback)
 //      8 RETURN_VALUE
+//      9 LOAD_CONST               2 (cdbg_native._Callback)
 //     12 CALL_FUNCTION            0
 //     15 POP_TOP
 //     16 LOAD_CONST               1 ('hello')

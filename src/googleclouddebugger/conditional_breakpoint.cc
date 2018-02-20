@@ -69,7 +69,11 @@ bool ConditionalBreakpoint::EvaluateCondition(PyFrameObject* frame) {
   {
     ScopedImmutabilityTracer immutability_tracer;
     result.reset(PyEval_EvalCode(
+#if PY_MAJOR_VERSION >= 3
+        reinterpret_cast<PyObject*>(condition_.get()),
+#else
         condition_.get(),
+#endif
         frame->f_globals,
         frame->f_locals));
     is_mutable_code_detected = immutability_tracer.IsMutableCodeDetected();

@@ -307,7 +307,7 @@ string CodeObjectDebugString(PyCodeObject* code_object);
 
 // Reads Python string as a byte array. The function does not verify that
 // "obj" is of a string type.
-std::vector<uint8> PyStringToByteArray(PyObject* obj);
+std::vector<uint8> PyBytesToByteArray(PyObject* obj);
 
 // Creates a new tuple by appending "items" to elements in "tuple".
 ScopedPyObject AppendTuple(

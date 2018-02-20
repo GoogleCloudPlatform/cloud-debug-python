@@ -187,7 +187,7 @@ BytecodeBreakpoint::PreparePatchCodeObject(
   data->original_code =
       ScopedPyObject::NewReference(code_object.get()->co_code);
   if ((data->original_code == nullptr) ||
-      !PyString_CheckExact(data->original_code.get())) {
+      !PyBytes_CheckExact(data->original_code.get())) {
     LOG(ERROR) << "Code object has no code";
     return nullptr;  // Probably a built-in method or uninitialized code object.
   }
@@ -226,14 +226,14 @@ void BytecodeBreakpoint::PatchCodeObject(CodeObjectBreakpoints* code) {
     return;
   }
 
-  std::vector<uint8> bytecode = PyStringToByteArray(code->original_code.get());
+  std::vector<uint8> bytecode = PyBytesToByteArray(code->original_code.get());
 
   bool has_lnotab = false;
   std::vector<uint8> lnotab;
   if (!code->original_lnotab.is_null() &&
-      PyString_CheckExact(code->original_lnotab.get())) {
+      PyBytes_CheckExact(code->original_lnotab.get())) {
     has_lnotab = true;
-    lnotab = PyStringToByteArray(code->original_lnotab.get());
+    lnotab = PyBytesToByteArray(code->original_lnotab.get());
   }
 
   BytecodeManipulator bytecode_manipulator(
@@ -272,7 +272,7 @@ void BytecodeBreakpoint::PatchCodeObject(CodeObjectBreakpoints* code) {
   code_object->co_stacksize = code->original_stacksize + 1;
 
   code->zombie_refs.push_back(ScopedPyObject(code_object->co_code));
-  ScopedPyObject bytecode_string(PyString_FromStringAndSize(
+  ScopedPyObject bytecode_string(PyBytes_FromStringAndSize(
       reinterpret_cast<const char*>(bytecode_manipulator.bytecode().data()),
       bytecode_manipulator.bytecode().size()));
   DCHECK(!bytecode_string.is_null());
@@ -283,7 +283,7 @@ void BytecodeBreakpoint::PatchCodeObject(CodeObjectBreakpoints* code) {
 
   if (has_lnotab) {
     code->zombie_refs.push_back(ScopedPyObject(code_object->co_lnotab));
-    ScopedPyObject lnotab_string(PyString_FromStringAndSize(
+    ScopedPyObject lnotab_string(PyBytes_FromStringAndSize(
         reinterpret_cast<const char*>(bytecode_manipulator.lnotab().data()),
         bytecode_manipulator.lnotab().size()));
     DCHECK(!lnotab_string.is_null());

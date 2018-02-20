@@ -316,12 +316,16 @@ static PyObject* CallImmutable(PyObject* self, PyObject* py_args) {
   }
 
   PyFrameObject* frame = reinterpret_cast<PyFrameObject*>(obj_frame);
-  PyCodeObject* code = reinterpret_cast<PyCodeObject*>(obj_code);
 
   PyFrame_FastToLocals(frame);
 
   ScopedImmutabilityTracer immutability_tracer;
-  return PyEval_EvalCode(code, frame->f_globals, frame->f_locals);
+#if PY_MAJOR_VERSION >= 3
+  return PyEval_EvalCode(obj_code, frame->f_globals, frame->f_locals);
+#else
+  return PyEval_EvalCode(reinterpret_cast<PyCodeObject*>(obj_code),
+                         frame->f_globals, frame->f_locals);
+#endif
 }
 
 // Applies the dynamic logs quota, which is limited by both total messages and
@@ -403,17 +407,34 @@ static PyMethodDef g_module_functions[] = {
 };
 
 
-void InitDebuggerNativeModule() {
+#if PY_MAJOR_VERSION >= 3
+static struct PyModuleDef moduledef = {
+  PyModuleDef_HEAD_INIT, /** m_base */
+  CDBG_MODULE_NAME, /** m_name */
+  "Native module for Python Cloud Debugger", /** m_doc */
+  -1, /** m_size */
+  g_module_functions, /** m_methods */
+  NULL, /** m_slots */
+  NULL, /** m_traverse */
+  NULL, /** m_clear */
+  NULL /** m_free */
+};
+
+PyObject* InitDebuggerNativeModuleInternal() {
+  PyObject* module = PyModule_Create(&moduledef);
+#else
+PyObject* InitDebuggerNativeModuleInternal() {
   PyObject* module = Py_InitModule3(
       CDBG_MODULE_NAME,
       g_module_functions,
       "Native module for Python Cloud Debugger");
+#endif
 
   SetDebugletModule(module);
 
   if (!RegisterPythonType<PythonCallback>() ||
       !RegisterPythonType<ImmutabilityTracer>()) {
-    return;
+    return nullptr;
   }
 
   // Add constants we want to share with the Python code.
@@ -424,17 +445,28 @@ void InitDebuggerNativeModule() {
           PyInt_FromLong(kIntegerConstants[i].value))) {
       LOG(ERROR) << "Failed to constant " << kIntegerConstants[i].name
                  << " to native module";
-      return;
+      return nullptr;
     }
   }
+
+  return module;
+}
+
+void InitDebuggerNativeModule() {
+  InitDebuggerNativeModuleInternal();
 }
 
 }  // namespace cdbg
 }  // namespace devtools
 
 
-
 // This function is called to initialize the module.
+#if PY_MAJOR_VERSION >= 3
+PyMODINIT_FUNC PyInit_cdbg_native() {
+  return devtools::cdbg::InitDebuggerNativeModuleInternal();
+}
+#else
 PyMODINIT_FUNC initcdbg_native() {
   devtools::cdbg::InitDebuggerNativeModule();
 }
+#endif
