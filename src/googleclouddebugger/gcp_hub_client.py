@@ -35,6 +35,7 @@ import httplib2
 import oauth2client
 from oauth2client import service_account
 from oauth2client.contrib.gce import AppAssertionCredentials
+import six
 
 from . import labels
 from . import cdbg_native as native
@@ -102,7 +103,7 @@ class GcpHubClient(object):
     self._transmission_thread = None
     self._transmission_thread_startup_lock = threading.Lock()
     self._transmission_queue = deque(maxlen=100)
-    self._new_updates = threading.Event(False)
+    self._new_updates = threading.Event()
 
     # Disable logging in the discovery API to avoid excessive logging.
     class _ChildLogFilter(logging.Filter):
@@ -156,7 +157,7 @@ class GcpHubClient(object):
     """
     self._debuggee_labels = {}
 
-    for (label, var_names) in _DEBUGGEE_LABELS.iteritems():
+    for (label, var_names) in six.iteritems(_DEBUGGEE_LABELS):
       # var_names is a list of possible environment variables that may contain
       # the label value. Find the first one that is set.
       for name in var_names:
@@ -171,7 +172,7 @@ class GcpHubClient(object):
 
     if flags:
       self._debuggee_labels.update(
-          {name: value for (name, value) in flags.iteritems()
+          {name: value for (name, value) in six.iteritems(flags)
            if name in _DEBUGGEE_LABELS})
 
     self._debuggee_labels['projectid'] = self._project_id()

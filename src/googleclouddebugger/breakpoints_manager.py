@@ -17,6 +17,8 @@
 from datetime import datetime
 from threading import RLock
 
+import six
+
 from . import python_breakpoint
 
 
@@ -74,7 +76,7 @@ class BreakpointsManager(object):
       ids = set([x['id'] for x in breakpoints_data])
 
       # Clear breakpoints that no longer show up in active breakpoints list.
-      for breakpoint_id in self._active.viewkeys() - ids:
+      for breakpoint_id in six.viewkeys(self._active) - ids:
         self._active.pop(breakpoint_id).Clear()
 
       # Create new breakpoints.
@@ -87,7 +89,7 @@ class BreakpointsManager(object):
                self.data_visibility_policy,
                self.use_new_module_search))
           for x in breakpoints_data
-          if x['id'] in ids - self._active.viewkeys() - self._completed])
+          if x['id'] in ids - six.viewkeys(self._active) - self._completed])
 
       # Remove entries from completed_breakpoints_ that weren't listed in
       # breakpoints_data vector. These are confirmed to have been removed by the
@@ -122,7 +124,7 @@ class BreakpointsManager(object):
 
       expired_breakpoints = []
       self._next_expiration = datetime.max
-      for breakpoint in self._active.itervalues():
+      for breakpoint in six.itervalues(self._active):
         expiration_time = breakpoint.GetExpirationTime()
         if expiration_time <= current_time:
           expired_breakpoints.append(breakpoint)

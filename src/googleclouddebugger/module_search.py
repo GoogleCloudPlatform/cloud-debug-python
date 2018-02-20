@@ -25,7 +25,7 @@ from . import module_utils
 
 def _CommonPathPrefix(paths):
   """The equivalent of Python 3 os.path.commonpath()."""
-  prefix = os.path.commonprefix(paths)
+  prefix = os.path.commonprefix(list(paths))
   prefix_len = prefix.rfind(os.sep) + 1
   return prefix[:prefix_len]
 

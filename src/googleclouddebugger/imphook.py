@@ -26,8 +26,11 @@ For the new module import hook, see imphook2.py file.
 """
 
 import os
-import sys  # Must be imported, otherwise import hooks don't work.
+# Must be imported, otherwise import hooks don't work.
+import sys  # pylint: disable=unused-import
 import threading
+
+from six.moves import builtins  # pylint: disable=redefined-builtin
 
 from . import module_utils
 
@@ -92,12 +95,10 @@ def _InstallImportHook():
   if _real_import:
     return  # Import hook already installed
 
-  builtin = sys.modules['__builtin__']
-
-  _real_import = getattr(builtin, '__import__')
+  _real_import = getattr(builtins, '__import__')
   assert _real_import
 
-  builtin.__import__ = _ImportHook
+  builtins.__import__ = _ImportHook
 
 
 # pylint: disable=redefined-builtin, g-doc-args, g-doc-return-or-yield
@@ -134,7 +135,10 @@ def _ImportHook(name, globals=None, locals=None, fromlist=None, level=-1):
 
 def _InvokeImportCallback():
   """Invokes import callbacks for loaded modules."""
-  for path, callbacks in _import_callbacks.items():
+  # _import_callbacks might change during iteration because RemoveCallback()
+  # might delete items. Iterate over a copy to avoid a
+  # 'dictionary changed size during iteration' error.
+  for path, callbacks in list(_import_callbacks.items()):
     module = module_utils.GetLoadedModuleByPath(path)
     if module:
       for callback in callbacks.copy():

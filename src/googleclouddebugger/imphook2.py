@@ -34,6 +34,8 @@ import os
 import sys  # Must be imported, otherwise import hooks don't work.
 import threading
 
+from six.moves import builtins  # pylint: disable=redefined-builtin
+
 from . import module_utils2
 
 # Callbacks to invoke when a module is imported.
@@ -100,12 +102,10 @@ def _InstallImportHookBySuffix():
   if _real_import:
     return  # Import hook already installed
 
-  builtin = sys.modules['__builtin__']
-
-  _real_import = getattr(builtin, '__import__')
+  _real_import = getattr(builtins, '__import__')
   assert _real_import
 
-  builtin.__import__ = _ImportHookBySuffix
+  builtins.__import__ = _ImportHookBySuffix
 
 
 # pylint: disable=redefined-builtin, g-doc-args, g-doc-return-or-yield
@@ -312,7 +312,10 @@ def _InvokeImportCallbackBySuffix(names):
     # Check if the module was loaded.
     return sys.modules.get(name)
 
-  for path, callbacks in _import_callbacks.items():
+  # _import_callbacks might change during iteration because RemoveCallback()
+  # might delete items. Iterate over a copy to avoid a
+  # 'dictionary changed size during iteration' error.
+  for path, callbacks in list(_import_callbacks.items()):
     root = os.path.splitext(path)[0]
 
     nonempty_names = (n for n in names if n)
@@ -337,4 +340,3 @@ def _InvokeImportCallbackBySuffix(names):
         for callback in callbacks.copy():
           callback(module)
         break
-

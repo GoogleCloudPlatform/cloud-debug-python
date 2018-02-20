@@ -17,6 +17,8 @@
 import os
 import sys
 
+from six.moves import xrange  # pylint: disable=redefined-builtin
+
 
 def GetAbsolutePath(mod_path):
   """Flattens symlinks and indirections in the module path.

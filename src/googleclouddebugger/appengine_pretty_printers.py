@@ -14,6 +14,8 @@
 
 """Formatters for well known objects that don't show up nicely by default."""
 
+import six
+
 try:
   from google.appengine.ext import ndb  # pylint: disable=g-import-not-at-top
 except ImportError:
@@ -24,6 +26,6 @@ def PrettyPrinter(obj):
   """Pretty printers for AppEngine objects."""
 
   if ndb and isinstance(obj, ndb.Model):
-    return obj.to_dict().iteritems(), 'ndb.Model(%s)' % type(obj).__name__
+    return six.iteritems(obj.to_dict()), 'ndb.Model(%s)' % type(obj).__name__
 
   return None

@@ -101,7 +101,7 @@ setup(
     url='https://github.com/GoogleCloudPlatform/cloud-debug-python',
     author='Google Inc.',
     version=version,
-    install_requires=['google-api-python-client', 'pyyaml'],
+    install_requires=['google-api-python-client', 'pyyaml', 'six>=1.10.0'],
     packages=['googleclouddebugger'],
     ext_modules=[cdbg_native_module],
     license='Apache License, Version 2.0',

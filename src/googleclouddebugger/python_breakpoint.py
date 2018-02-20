@@ -346,7 +346,8 @@ class PythonBreakpoint(object):
         condition = compile(self.definition.get('condition'),
                             '<condition_expression>',
                             'eval')
-      except TypeError as e:  # condition string contains null bytes.
+      except (TypeError, ValueError) as e:
+        # condition string contains null bytes.
         self._CompleteBreakpoint({
             'status': {
                 'isError': True,

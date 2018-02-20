@@ -27,6 +27,7 @@ Example Usage:
 
 import os
 import sys
+import six
 import yaml
 
 
@@ -104,26 +105,31 @@ def Read(f):
   """
   try:
     yaml_data = yaml.load(f)
-  except yaml.YAMLError, e:
+  except yaml.YAMLError as e:
     raise ParseError('%s' % e)
-  except IOError, e:
+  except IOError as e:
     raise YAMLLoadError('%s' % e)
 
   _CheckData(yaml_data)
-  return Config(
-      yaml_data.get('blacklist', ()),
-      yaml_data.get('whitelist', ('*')))
+
+  try:
+    to_str = lambda v: v.decode() if six.PY3 and isinstance(v, bytes) else v
+    return Config(
+        [to_str(val) for val in yaml_data.get(b'blacklist', ())],
+        [to_str(val) for val in yaml_data.get(b'whitelist', ('*'))])
+  except UnicodeDecodeError as e:
+    raise YAMLLoadError('%s' % e)
 
 
 def _CheckData(yaml_data):
   """Checks data for illegal keys and formatting."""
-  legal_keys = set(('blacklist', 'whitelist'))
+  legal_keys = set((b'blacklist', b'whitelist'))
   unknown_keys = set(yaml_data) - legal_keys
   if unknown_keys:
     raise UnknownConfigKeyError(
         'Unknown keys in configuration: %s' % unknown_keys)
 
-  for key, data in yaml_data.iteritems():
+  for key, data in six.iteritems(yaml_data):
     _AssertDataIsList(key, data)
 
 
@@ -137,6 +143,6 @@ def _AssertDataIsList(key, lst):
 
   # each list entry must be a string
   for element in lst:
-    if not isinstance(element, str):
+    if not isinstance(element, (bytes, str)):
       raise ElementNotAStringError('Unsupported list element %s found in %s',
                                    (element, lst))

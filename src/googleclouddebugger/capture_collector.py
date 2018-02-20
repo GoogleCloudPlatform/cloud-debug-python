@@ -26,6 +26,8 @@ import sys
 import time
 import types
 
+import six
+
 from . import labels
 from . import cdbg_native as native
 
@@ -44,10 +46,11 @@ user_id_collector = lambda: (None, None)
 # Externally defined function to collect the end user id.
 breakpoint_labels_collector = lambda: {}
 
-_PRIMITIVE_TYPES = (int, long, float, complex, types.StringTypes, bool,
-                    types.NoneType, types.SliceType, bytearray)
+_PRIMITIVE_TYPES = (type(None), float, complex, bool, slice, bytearray,
+                    six.text_type,
+                    six.binary_type) + six.integer_types + six.string_types
 _DATE_TYPES = (datetime.date, datetime.time, datetime.timedelta)
-_VECTOR_TYPES = (types.TupleType, types.ListType, set)
+_VECTOR_TYPES = (tuple, list, set)
 
 # TODO(vlif): move to messages.py module.
 EMPTY_DICTIONARY = 'Empty dictionary'
@@ -63,7 +66,7 @@ DYNAMIC_LOG_OUT_OF_QUOTA = (
 def _ListTypeFormatString(value):
   """Returns the appropriate format string for formatting a list object."""
 
-  if isinstance(value, types.TupleType):
+  if isinstance(value, tuple):
     return '({0})'
   if isinstance(value, set):
     return '{{{0}}}'
@@ -365,7 +368,7 @@ class CaptureCollector(object):
     # Capture all local variables (including method arguments).
     variables = {n: self.CaptureNamedVariable(n, v, 1,
                                               self.default_capture_limits)
-                 for n, v in frame.f_locals.viewitems()}
+                 for n, v in six.viewitems(frame.f_locals)}
 
     # Split between locals and arguments (keeping arguments in the right order).
     nargs = frame.f_code.co_argcount
@@ -376,7 +379,7 @@ class CaptureCollector(object):
     for argname in frame.f_code.co_varnames[:nargs]:
       if argname in variables: frame_arguments.append(variables.pop(argname))
 
-    return (frame_arguments, list(variables.viewvalues()))
+    return (frame_arguments, list(six.viewvalues(variables)))
 
   def CaptureNamedVariable(self, name, value, depth, limits):
     """Appends name to the product of CaptureVariable.
@@ -555,9 +558,9 @@ class CaptureCollector(object):
       return {'members': fields, 'type': type(value).__name__}
 
     if isinstance(value, types.FunctionType):
-      self._total_size += len(value.func_name)
+      self._total_size += len(value.__name__)
       # TODO(vlif): set value to func_name and type to 'function'
-      return {'value': 'function ' + value.func_name}
+      return {'value': 'function ' + value.__name__}
 
     if can_enqueue:
       index = self._var_table_index.get(id(value))
@@ -647,7 +650,7 @@ class CaptureCollector(object):
       self.breakpoint['labels'] = {}
 
     if callable(breakpoint_labels_collector):
-      for (key, value) in breakpoint_labels_collector().iteritems():
+      for (key, value) in six.iteritems(breakpoint_labels_collector()):
         self.breakpoint['labels'][key] = value
 
   def _CaptureRequestLogId(self):
@@ -843,14 +846,14 @@ class LogCollector(object):
       return str(type(value))
 
     if isinstance(value, dict):
-      return '{' + FormatList(value.iteritems(), FormatDictItem) + '}'
+      return '{' + FormatList(six.iteritems(value), FormatDictItem) + '}'
 
     if isinstance(value, _VECTOR_TYPES):
       return _ListTypeFormatString(value).format(FormatList(
           value, lambda item: self._FormatValue(item, level + 1), level=level))
 
     if isinstance(value, types.FunctionType):
-      return 'function ' + value.func_name
+      return 'function ' + value.__name__
 
     if hasattr(value, '__dict__') and value.__dict__:
       return self._FormatValue(value.__dict__, level)
@@ -870,7 +873,8 @@ def _EvaluateExpression(frame, expression):
   """
   try:
     code = compile(expression, '<watched_expression>', 'eval')
-  except TypeError as e:  # condition string contains null bytes.
+  except (TypeError, ValueError) as e:
+    # expression string contains null bytes.
     return (False, {
         'isError': True,
         'refersTo': 'VARIABLE_NAME',
@@ -893,7 +897,7 @@ def _EvaluateExpression(frame, expression):
         'refersTo': 'VARIABLE_VALUE',
         'description': {
             'format': 'Exception occurred: $0',
-            'parameters': [e.message]}})
+            'parameters': [str(e)]}})
 
 
 def _GetFrameCodeObjectName(frame):
