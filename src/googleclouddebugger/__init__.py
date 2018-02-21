@@ -33,7 +33,7 @@ from . import error_data_visibility_policy
 from . import gcp_hub_client
 from . import glob_data_visibility_policy
 from . import yaml_data_visibility_config_reader
-import cdbg_native
+from . import cdbg_native
 from . import version
 
 __version__ = version.__version__
@@ -143,7 +143,7 @@ def _DebuggerMain():
 
   sys.modules['__main__'] = __main__
 
-  exec 'execfile(%r)' % app_path in globals, locals  # pylint: disable=exec-used
+  exec('execfile(%r)' % app_path, globals, locals)  # pylint: disable=exec-used
 
 
 # pylint: disable=invalid-name

@@ -157,6 +157,7 @@ static int GetBranchTarget(int offset, PythonInstruction instruction) {
 }
 
 
+#if PY_MAJOR_VERSION < 3
 // Reads 16 bit value according to Python bytecode encoding.
 static uint16 ReadPythonBytecodeUInt16(std::vector<uint8>::const_iterator it) {
   return it[0] | (static_cast<uint16>(it[1]) << 8);
@@ -170,6 +171,7 @@ static void WritePythonBytecodeUInt16(
   it[0] = static_cast<uint8>(data);
   it[1] = data >> 8;
 }
+#endif
 
 
 // Read instruction at the specified offset. Returns kInvalidInstruction

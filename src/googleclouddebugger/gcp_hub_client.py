@@ -30,7 +30,6 @@ import traceback
 
 import apiclient
 from apiclient import discovery  # pylint: disable=unused-import
-from backoff import Backoff
 import httplib2
 import oauth2client
 from oauth2client import service_account
@@ -38,6 +37,7 @@ from oauth2client.contrib.gce import AppAssertionCredentials
 import six
 
 from . import labels
+from . import backoff
 from . import cdbg_native as native
 from . import uniquifier_computer
 from . import version
@@ -132,9 +132,9 @@ class GcpHubClient(object):
     #
 
     # Delay before retrying failed request.
-    self.register_backoff = Backoff()  # Register debuggee.
-    self.list_backoff = Backoff()  # Query active breakpoints.
-    self.update_backoff = Backoff()  # Update breakpoint.
+    self.register_backoff = backoff.Backoff()  # Register debuggee.
+    self.list_backoff = backoff.Backoff()  # Query active breakpoints.
+    self.update_backoff = backoff.Backoff()  # Update breakpoint.
 
     # Maximum number of times that the message is re-transmitted before it
     # is assumed to be poisonous and discarded
@@ -365,7 +365,7 @@ class GcpHubClient(object):
       if not response.get('waitExpired'):
         self._wait_token = response.get('nextWaitToken')
         breakpoints = response.get('breakpoints') or []
-        if cmp(self._breakpoints, breakpoints) != 0:
+        if self._breakpoints != breakpoints:
           self._breakpoints = breakpoints
           native.LogInfo(
               'Breakpoints list changed, %d active, wait token: %s' % (

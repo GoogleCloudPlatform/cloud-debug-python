@@ -106,12 +106,12 @@ def ComputeApplicationUniquifier(hash_obj):
 
   def ProcessApplicationFile(path, relative_path):
     """Updates the hash with the specified application file."""
-    hash_obj.update(relative_path)
-    hash_obj.update(':')
+    hash_obj.update(relative_path.encode())
+    hash_obj.update(':'.encode())
     try:
-      hash_obj.update(str(os.stat(path).st_size))
+      hash_obj.update(str(os.stat(path).st_size).encode())
     except BaseException:
       pass
-    hash_obj.update('\n')
+    hash_obj.update('\n'.encode())
 
   ProcessDirectory(sys.path[0], '')

@@ -14,7 +14,12 @@
 
 """Python Cloud Debugger build and packaging script."""
 
-import ConfigParser
+# pylint: disable=g-statement-before-imports,g-import-not-at-top
+try:
+  from ConfigParser import ConfigParser  # Python 2
+except ImportError:
+  from configparser import ConfigParser  # Python 3
+# pylint: enable=g-statement-before-imports,g-import-not-at-top
 from glob import glob
 import os
 import re
@@ -34,7 +39,7 @@ def RemovePrefixes(optlist, bad_prefixes):
 
 def ReadConfig(section, value, default):
   try:
-    config = ConfigParser.ConfigParser()
+    config = ConfigParser()
     config.read('setup.cfg')
     return config.get(section, value)
   except:  # pylint: disable=bare-except
