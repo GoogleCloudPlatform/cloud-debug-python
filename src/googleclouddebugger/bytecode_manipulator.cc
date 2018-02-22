@@ -179,7 +179,7 @@ static void WritePythonBytecodeUInt16(
 static PythonInstruction ReadInstruction(
     const std::vector<uint8>& bytecode,
     std::vector<uint8>::const_iterator it) {
-  PythonInstruction instruction{0, 0, 0};
+  PythonInstruction instruction { 0, 0, 0 };
 
 #if PY_MAJOR_VERSION >= 3
   if (bytecode.end() - it < 2) {
@@ -360,6 +360,238 @@ bool BytecodeManipulator::InjectMethodCall(
 }
 
 
+// Inserts an entry into the line number table for an insertion in the bytecode.
+static void InsertAndUpdateLnotab(int offset, int size,
+                                  std::vector<uint8> *lnotab) {
+  int current_offset = 0;
+  for (auto it = lnotab->begin(); it != lnotab->end(); it += 2) {
+    current_offset += it[0];
+
+    if (current_offset >= offset) {
+      int remaining_size = size;
+      while (remaining_size > 0) {
+        const int current_size = std::min(remaining_size, 0xFF);
+        it = lnotab->insert(it, static_cast<uint8>(current_size)) + 1;
+        it = lnotab->insert(it, 0) + 1;
+        remaining_size -= current_size;
+      }
+      return;
+    }
+  }
+}
+
+
+// Use different algorithms to insert method calls for Python 2 and 3.
+// Technically the algorithm for Python 3 will work with Python 2, but because
+// it is more complicated and the issue of needing to upgrade branch
+// instructions to use EXTENDED_ARG is less common, we stick with the existing
+// algorithm for better safety.
+
+
+#if PY_MAJOR_VERSION >= 3
+
+
+// Represents a branch instruction in the original bytecode that may need to
+// have its offsets fixed and/or upgraded to use EXTENDED_ARG.
+struct UpdatedInstruction {
+  PythonInstruction instruction;
+  size_t original_size;
+  int current_offset;
+};
+
+
+// Represents space that needs to be reserved for an insertion operation.
+struct Insertion {
+  int size;
+  int current_offset;
+};
+
+// Max number of outer loop iterations to do before failing in
+// InsertAndUpdateBranchInstructions.
+static const int kMaxInsertionIterations = 10;
+
+// Reserves space for instructions to be inserted into the bytecode, and
+// calculates the new offsets and arguments of branch instructions.
+// Returns true if the calculation was successful, and false if too many
+// iterations were needed.
+//
+// When inserting some space for the method call bytecode, branch instructions
+// may need to have their offsets updated. Some cases might require branch
+// instructions to be 'upgraded' to use EXTENDED_ARG if the new argument crosses
+// the argument value limit for its current size.. This in turn will require
+// another insertion and possibly further updates.
+//
+// It won't be manageable to update the bytecode in place in such cases, as when
+// performing an insertion we might need to perform more insertions and quickly
+// lose our place.
+//
+// Instead, we perform process insertion operations one at a time, starting from
+// the original argument. While processing an operation, if an instruction needs
+// to be upgraded to use EXTENDED_ARG, then another insertion operation is
+// pushed on the stack to be processed later.
+//
+// Example:
+// Suppose we need to reserve space for 6 bytes at offset 40. We have a
+// JUMP_ABSOLUTE 250 instruction at offset 0, and a JUMP_FORWARD 2 instruction
+// at offset 40.
+// insertions: [{6, 40}]
+// instructions: [{JUMP_ABSOLUTE 250, 0}, {JUMP_FORWARD 2, 40}]
+//
+// The JUMP_ABSOLUTE argument needs to be moved forward to 256, since the
+// insertion occurs before the target. This requires an EXTENDED_ARG, so another
+// insertion operation with size=2 at offset=0 is pushed.
+// The JUMP_FORWARD instruction will be after the space reserved, so we need to
+// update its current offset to now be 46. The argument does not need to be
+// changed, as the insertion is not between its offset and target.
+// insertions: [{2, 0}]
+// instructions: [{JUMP_ABSOLUTE 256, 0}, {JUMP_FORWARD 2, 46}]
+//
+// For the next insertion, The JUMP_ABSOLUTE instruction's offset does not
+// change, since it has the same offset as the insertion, signaling that the
+// insertion is for the instruction itself. The argument gets updated to 258 to
+// account for the additional space. The JUMP_FORWARD instruction's offset needs
+// to be updated, but not its argument, for the same reason as before.
+// insertions: []
+// instructions: [{JUMP_ABSOLUTE 258, 0}, {JUMP_FORWARD 2, 48}]
+//
+// There are no more insertions so we are done.
+static bool InsertAndUpdateBranchInstructions(
+    Insertion insertion, std::vector<UpdatedInstruction>& instructions) {
+  std::vector<Insertion> insertions { insertion };
+
+  int iterations = 0;
+  while (insertions.size() && iterations < kMaxInsertionIterations) {
+    insertion = insertions.back();
+    insertions.pop_back();
+
+    // Update the offsets of all insertions after.
+    for (auto it = insertions.begin(); it < insertions.end(); it++) {
+      if (it->current_offset >= insertion.current_offset) {
+        it->current_offset += insertion.size;
+      }
+    }
+
+    // Update the offsets and arguments of the branches.
+    for (auto it = instructions.begin();
+         it < instructions.end(); it++) {
+      PythonInstruction instruction = it->instruction;
+      uint32 arg = instruction.argument;
+      bool need_to_update = false;
+      PythonOpcodeType opcode_type = GetOpcodeType(instruction.opcode);
+      if (opcode_type == BRANCH_DELTA_OPCODE) {
+        // For relative branches, the argument needs to be updated if the
+        // insertion is between the instruction and the target.
+        int32 target = it->current_offset + instruction.size + arg;
+        need_to_update = it->current_offset < insertion.current_offset &&
+                         insertion.current_offset < target;
+      } else if (opcode_type == BRANCH_ABSOLUTE_OPCODE) {
+        // For absolute branches, the argument needs to be updated if the
+        // insertion before the target.
+        need_to_update = insertion.current_offset < arg;
+      }
+
+      // If we are inserting the original method call instructions, we want to
+      // update the current_offset of any instructions at or after. If we are
+      // doing an EXTENDED_ARG insertion, we don't want to update the offset of
+      // instructions right at the offset, because that is the original
+      // instruction that the EXTENDED_ARG is for.
+      int offset_diff = it->current_offset - insertion.current_offset;
+      if ((iterations == 0 && offset_diff >= 0) || (offset_diff > 0)) {
+        it->current_offset += insertion.size;
+      }
+
+      if (need_to_update) {
+        PythonInstruction new_instruction =
+            PythonInstructionArg(instruction.opcode, arg + insertion.size);
+        int size_diff = new_instruction.size - instruction.size;
+        if (size_diff > 0) {
+          insertions.push_back(Insertion { size_diff, it->current_offset });
+        }
+        it->instruction = new_instruction;
+      }
+    }
+    iterations++;
+  }
+
+  return insertions.size() == 0;
+}
+
+
+bool BytecodeManipulator::InsertMethodCall(
+    BytecodeManipulator::Data* data,
+    int offset,
+    int const_index) const {
+  std::vector<UpdatedInstruction> updated_instructions;
+  bool offset_valid = false;
+
+  // Gather all branch instructions.
+  for (auto it = data->bytecode.begin(); it < data->bytecode.end();) {
+    int current_offset = it - data->bytecode.begin();
+    if (current_offset == offset) {
+      DCHECK(!offset_valid) << "Each offset should be visited only once";
+      offset_valid = true;
+    }
+
+    PythonInstruction instruction = ReadInstruction(data->bytecode, it);
+    if (instruction.opcode == kInvalidInstruction.opcode) {
+      return false;
+    }
+
+    PythonOpcodeType opcode_type = GetOpcodeType(instruction.opcode);
+    if (opcode_type == BRANCH_DELTA_OPCODE ||
+        opcode_type == BRANCH_ABSOLUTE_OPCODE) {
+      updated_instructions.push_back(
+          UpdatedInstruction { instruction, instruction.size, current_offset });
+    }
+
+    it += instruction.size;
+  }
+
+  if (!offset_valid) {
+    LOG(ERROR) << "Offset " << offset << " is mid instruction or out of range";
+    return false;
+  }
+
+  // Calculate new branch instructions.
+  const std::vector<PythonInstruction> method_call_instructions =
+      BuildMethodCall(const_index);
+  int method_call_size = GetInstructionsSize(method_call_instructions);
+  if (!InsertAndUpdateBranchInstructions({ method_call_size, offset },
+                                         updated_instructions)) {
+    LOG(ERROR) << "Too many instruction argument upgrades required";
+    return false;
+  }
+
+  // Insert the method call.
+  data->bytecode.insert(data->bytecode.begin() + offset, method_call_size, NOP);
+  WriteInstructions(data->bytecode.begin() + offset, method_call_instructions);
+  if (has_lnotab_) {
+    InsertAndUpdateLnotab(offset, method_call_size, &data->lnotab);
+  }
+
+  // Write new branch instructions.
+  // We can use current_offset directly since all insertions before would have
+  // been done by the time we reach the current instruction.
+  for (auto it = updated_instructions.begin();
+       it < updated_instructions.end(); it++) {
+    int size_diff = it->instruction.size - it->original_size;
+    uint32 offset = it->current_offset;
+    if (size_diff > 0) {
+      data->bytecode.insert(data->bytecode.begin() + offset, size_diff, NOP);
+      if (has_lnotab_) {
+        InsertAndUpdateLnotab(it->current_offset, size_diff, &data->lnotab);
+      }
+    }
+    WriteInstruction(data->bytecode.begin() + offset, it->instruction);
+  }
+
+  return true;
+}
+
+
+#else
+
+
 bool BytecodeManipulator::InsertMethodCall(
     BytecodeManipulator::Data* data,
     int offset,
@@ -441,26 +673,12 @@ bool BytecodeManipulator::InsertMethodCall(
 
   // Insert a new entry into line table to account for the new bytecode.
   if (has_lnotab_) {
-    int current_offset = 0;
-    for (auto it = data->lnotab.begin(); it != data->lnotab.end(); it += 2) {
-      current_offset += it[0];
-
-      if (current_offset >= offset) {
-        int remaining_size = size;
-        while (remaining_size > 0) {
-          const int current_size = std::min(remaining_size, 0xFF);
-          it = data->lnotab.insert(it, static_cast<uint8>(current_size)) + 1;
-          it = data->lnotab.insert(it, 0) + 1;
-          remaining_size -= current_size;
-        }
-
-        break;
-      }
-    }
+    InsertAndUpdateLnotab(offset, size, &data->lnotab);
   }
 
   return true;
 }
+#endif
 
 
 // This method does not change line numbers table. The line numbers table
