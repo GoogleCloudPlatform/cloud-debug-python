@@ -395,7 +395,7 @@ static void InsertAndUpdateLnotab(int offset, int size,
 // have its offsets fixed and/or upgraded to use EXTENDED_ARG.
 struct UpdatedInstruction {
   PythonInstruction instruction;
-  size_t original_size;
+  int original_size;
   int current_offset;
 };
 
@@ -475,7 +475,7 @@ static bool InsertAndUpdateBranchInstructions(
     for (auto it = instructions.begin();
          it < instructions.end(); it++) {
       PythonInstruction instruction = it->instruction;
-      uint32 arg = instruction.argument;
+      int32 arg = static_cast<int32>(instruction.argument);
       bool need_to_update = false;
       PythonOpcodeType opcode_type = GetOpcodeType(instruction.opcode);
       if (opcode_type == BRANCH_DELTA_OPCODE) {
