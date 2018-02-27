@@ -117,6 +117,9 @@ static int GetInstructionsSize(
 static PythonOpcodeType GetOpcodeType(uint8 opcode) {
   switch (opcode) {
     case YIELD_VALUE:
+#if PY_MAJOR_VERSION >= 3
+    case YIELD_FROM:
+#endif
       return YIELD_OPCODE;
 
     case FOR_ITER:
@@ -324,7 +327,7 @@ BytecodeManipulator::BytecodeManipulator(
       break;
     }
 
-    if (instruction.opcode == YIELD_VALUE) {
+    if (GetOpcodeType(instruction.opcode) == YIELD_OPCODE) {
       strategy_ = STRATEGY_APPEND;
       break;
     }
