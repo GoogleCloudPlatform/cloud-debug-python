@@ -461,6 +461,8 @@ class GcpHubClient(object):
           'HTTP error %s %s when querying local metadata service at %s' %
           (response['status'], content, url))
 
+    if not isinstance(content, str):
+      content = content.decode()
     return content
 
   def _GetDebuggee(self):

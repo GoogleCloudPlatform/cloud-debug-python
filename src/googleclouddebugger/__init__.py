@@ -143,7 +143,9 @@ def _DebuggerMain():
 
   sys.modules['__main__'] = __main__
 
-  exec('execfile(%r)' % app_path, globals, locals)  # pylint: disable=exec-used
+  with open(app_path) as f:
+    code = compile(f.read(), app_path, 'exec')
+    exec(code, globals, locals)  # pylint: disable=exec-used
 
 
 # pylint: disable=invalid-name
