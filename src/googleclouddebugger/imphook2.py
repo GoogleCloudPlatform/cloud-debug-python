@@ -249,10 +249,13 @@ def _GenerateNames(name, fromlist, globals):
   # names of real modules.
   for from_entry in fromlist or []:
     # Name relative to sys.path.
-    names.add(name + '.' + from_entry)
+    # For relative imports such as 'from . import x', name will be the empty
+    # string. Thus we should not prepend a '.' to the entry.
+    entry = (name + '.' + from_entry) if name else from_entry
+    names.add(entry)
     # Name relative to the currently executing module's package.
     if curpkg:
-      names.add(curpkg + '.' + name + '.' + from_entry)
+      names.add(curpkg + '.' + entry)
 
   # Generate all names from name. For instance, if name='a.b.c', then
   # we need to add ['a.b.c', 'a.b', 'a'].
