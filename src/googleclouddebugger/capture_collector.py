@@ -426,8 +426,8 @@ class CaptureCollector(object):
 
     return {
         'status': {
-            'is_error': True,
-            'refers_to': 'VARIABLE_NAME',
+            'isError': True,
+            'refersTo': 'VARIABLE_NAME',
             'description': {
                 'format': reason
             }
@@ -452,7 +452,7 @@ class CaptureCollector(object):
           len(v) >= limits.max_list_items):
         v.append({
             'status': {
-                'refers_to': 'VARIABLE_VALUE',
+                'refersTo': 'VARIABLE_VALUE',
                 'description': {
                     'format':
                         ('Only first $0 items were captured. Use in an '
@@ -463,8 +463,7 @@ class CaptureCollector(object):
 
     if not v:
       return [{'status': {
-          'is_error': False,
-          'refers_to': 'VARIABLE_NAME',
+          'refersTo': 'VARIABLE_NAME',
           'description': {'format': empty_message}}}]
 
     return v
@@ -648,7 +647,7 @@ class CaptureCollector(object):
     """Captures the user id of the end user, if possible."""
     user_kind, user_id = user_id_collector()
     if user_kind and user_id:
-      self.breakpoint['evaluated_user_id'] = {'kind': user_kind, 'id': user_id}
+      self.breakpoint['evaluatedUserId'] = {'kind': user_kind, 'id': user_id}
 
 
 class LogCollector(object):
