@@ -393,19 +393,15 @@ class CaptureCollector(object):
     Returns:
       Formatted captured data as per Variable proto with name.
     """
-    try:
-      if not hasattr(name, '__dict__'):
-        name = str(name)
-      else:  # TODO(vlif): call str(name) with immutability verifier here.
-        name = str(id(name))
-      self._total_size += len(name)
+    if not hasattr(name, '__dict__'):
+      name = str(name)
+    else:  # TODO(vlif): call str(name) with immutability verifier here.
+      name = str(id(name))
+    self._total_size += len(name)
 
-      v = (self.CheckDataVisiblity(value) or
-           self.CaptureVariable(value, depth, limits))
-      v['name'] = name
-    except RuntimeError as e:
-      raise RuntimeError(
-          'INTERNAL ERROR while capturing {0}: {1}'.format(name, e))
+    v = (self.CheckDataVisiblity(value) or
+         self.CaptureVariable(value, depth, limits))
+    v['name'] = name
     return v
 
   def CheckDataVisiblity(self, value):
@@ -451,57 +447,39 @@ class CaptureCollector(object):
       List of formatted variable objects.
     """
     v = []
-    try:
-      for name, value in items:
-        if (self._total_size >= self.max_size) or (
-            len(v) >= limits.max_list_items):
-          v.append({
-              'status': {
-                  'refers_to': 'VARIABLE_VALUE',
-                  'description': {
-                      'format':
-                          ('Only first $0 items were captured. Use in an '
-                           'expression to see all items.'),
-                      'parameters': [str(len(v))]}}})
-          break
-        v.append(self.CaptureNamedVariable(name, value, depth, limits))
+    for name, value in items:
+      if (self._total_size >= self.max_size) or (
+          len(v) >= limits.max_list_items):
+        v.append({
+            'status': {
+                'refers_to': 'VARIABLE_VALUE',
+                'description': {
+                    'format':
+                        ('Only first $0 items were captured. Use in an '
+                         'expression to see all items.'),
+                    'parameters': [str(len(v))]}}})
+        break
+      v.append(self.CaptureNamedVariable(name, value, depth, limits))
 
-      if not v:
-        return [{'status': {
-            'is_error': False,
-            'refers_to': 'VARIABLE_NAME',
-            'description': {'format': empty_message}}}]
-    except RuntimeError as e:
-      raise RuntimeError(
-          'Failed while capturing variables: {0}\n'
-          'The following elements were successfully captured: {1}'.format(
-              e, ', '.join([c['name'] for c in v if 'name' in c])))
+    if not v:
+      return [{'status': {
+          'is_error': False,
+          'refers_to': 'VARIABLE_NAME',
+          'description': {'format': empty_message}}}]
+
     return v
 
   def CaptureVariable(self, value, depth, limits, can_enqueue=True):
     """Try-Except wrapped version of CaptureVariableInternal."""
     try:
       return self.CaptureVariableInternal(value, depth, limits, can_enqueue)
-    except RuntimeError as e:
-      # Record as an error in the variable, and continue iterating.
-      return {
-          'status': {
-              'is_error': True,
-              'refers_to': 'VARIABLE_VALUE',
-              'description': {
-                  'format': 'Failed while capturing variable: $0',
-                  'parameters': [str(e)]
-              }
-          }
-      }
     except BaseException as e:  # pylint: disable=broad-except
-      # Record as an internal error in the variable, and continue iterating.
       return {
           'status': {
               'isError': True,
+              'refersTo': 'VARIABLE_VALUE',
               'description': {
-                  'format': ('INTERNAL ERROR: Failed while capturing '
-                             'variable: $0: $1'),
+                  'format': ('Failed to capture variable: $0'),
                   'parameters': [str(e)]
               }
           }
