@@ -61,6 +61,9 @@ class BytecodeBreakpoint {
     // Method in which the breakpoint is set.
     ScopedPyCodeObject code_object;
 
+    // Line number on which the breakpoint is set.
+    int line;
+
     // Offset to the instruction on which the breakpoint is set.
     int offset;
 

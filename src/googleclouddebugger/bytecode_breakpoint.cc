@@ -95,6 +95,7 @@ int BytecodeBreakpoint::SetBreakpoint(
 
   std::unique_ptr<Breakpoint> breakpoint(new Breakpoint);
   breakpoint->code_object = ScopedPyCodeObject::NewReference(code_object);
+  breakpoint->line = line;
   breakpoint->offset = lines_enumerator.offset();
   breakpoint->hit_callable = PythonCallback::Wrap(hit_callback);
   breakpoint->error_callback = error_callback;
@@ -251,15 +252,38 @@ void BytecodeBreakpoint::PatchCodeObject(CodeObjectBreakpoints* code) {
   for (auto it_entry = code->breakpoints.begin();
        it_entry != code->breakpoints.end();
        ++it_entry, ++const_index) {
-    const int offset = it_entry->first;
+    int offset = it_entry->first;
+    bool offset_found = true;
     const Breakpoint& breakpoint = *it_entry->second;
     DCHECK_EQ(offset, breakpoint.offset);
 
     callbacks.push_back(breakpoint.hit_callable.get());
 
-    if (!bytecode_manipulator.InjectMethodCall(offset, const_index)) {
+#if PY_MAJOR_VERSION >= 3
+    // In Python 3, since we allow upgrading of instructions to use
+    // EXTENDED_ARG, the offsets for lines originally calculated might not be
+    // accurate, so we need to recalculate them each insertion.
+    offset_found = false;
+    if (bytecode_manipulator.has_lnotab()) {
+      ScopedPyObject lnotab(PyBytes_FromStringAndSize(
+          reinterpret_cast<const char*>(bytecode_manipulator.lnotab().data()),
+          bytecode_manipulator.lnotab().size()));
+      CodeObjectLinesEnumerator lines_enumerator(code_object->co_firstlineno,
+                                                 lnotab.release());
+      while (lines_enumerator.line_number() != breakpoint.line) {
+        if (!lines_enumerator.Next()) {
+          break;
+        }
+        offset = lines_enumerator.offset();
+      }
+      offset_found = lines_enumerator.line_number() == breakpoint.line;
+    }
+#endif
+
+    if (!offset_found ||
+        !bytecode_manipulator.InjectMethodCall(offset, const_index)) {
       LOG(WARNING) << "Failed to insert bytecode for breakpoint "
-                   << breakpoint.cookie;
+                   << breakpoint.cookie << " at line " << breakpoint.line;
       errors.push_back(breakpoint.error_callback);
     }
   }
@@ -299,5 +323,3 @@ void BytecodeBreakpoint::PatchCodeObject(CodeObjectBreakpoints* code) {
 
 }  // namespace cdbg
 }  // namespace devtools
-
-
