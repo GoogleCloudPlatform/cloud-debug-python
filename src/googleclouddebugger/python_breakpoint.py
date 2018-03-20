@@ -82,6 +82,7 @@ _BREAKPOINT_EVENT_STATUS = dict(
        'refersTo': 'BREAKPOINT_CONDITION',
        'description': {'format': ERROR_CONDITION_MUTABLE_0}})])
 
+
 # The implementation of datetime.strptime imports an undocumented module called
 # _strptime. If it happens at the wrong time, we can get an exception about
 # trying to import while another thread holds the import lock. This dummy call
@@ -177,6 +178,7 @@ class PythonBreakpoint(object):
 
     # Breakpoint expiration time.
     self.expiration_period = timedelta(hours=24)
+
 
     self._hub_client = hub_client
     self._breakpoints_manager = breakpoints_manager
@@ -300,6 +302,7 @@ class PythonBreakpoint(object):
             'isError': True,
             'refersTo': 'BREAKPOINT_AGE',
             'description': {'format': message}}})
+
 
   def _ActivateBreakpoint(self, module):
     """Sets the breakpoint in the loaded module, or complete with error."""
@@ -455,4 +458,3 @@ class PythonBreakpoint(object):
       return
 
     self._CompleteBreakpoint(collector.breakpoint, is_incremental=False)
-

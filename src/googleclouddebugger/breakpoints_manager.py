@@ -118,7 +118,7 @@ class BreakpointsManager(object):
   def CheckBreakpointsExpiration(self):
     """Completes all breakpoints that have been active for too long."""
     with self._lock:
-      current_time = BreakpointsManager._GetCurrentTime()
+      current_time = BreakpointsManager.GetCurrentTime()
       if self._next_expiration > current_time:
         return
 
@@ -134,8 +134,9 @@ class BreakpointsManager(object):
     for breakpoint in expired_breakpoints:
       breakpoint.ExpireBreakpoint()
 
+
   @staticmethod
-  def _GetCurrentTime():
+  def GetCurrentTime():
     """Wrapper around datetime.now() function.
 
     The datetime class is a built-in one and therefore not patchable by unit
