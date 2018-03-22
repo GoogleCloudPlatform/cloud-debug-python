@@ -69,7 +69,13 @@ class ScopedPyObjectT {
   }
 
   ~ScopedPyObjectT() {
-    reset(nullptr);
+    // Only do anything if Python is running. If not, we get might get a
+    // segfault when we try to decrement the reference count of the underlying
+    // object when this destructor is run after Python itself has cleaned up.
+    // https://bugs.python.org/issue17703
+    if (Py_IsInitialized()) {
+      reset(nullptr);
+    }
   }
 
   static ScopedPyObjectT NewReference(TPointer* obj) {
