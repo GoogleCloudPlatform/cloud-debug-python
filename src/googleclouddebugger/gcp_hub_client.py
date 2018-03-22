@@ -278,7 +278,8 @@ class GcpHubClient(object):
     http = httplib2.Http(timeout=_HTTP_TIMEOUT_SECONDS)
     http = self._credentials.authorize(http)
 
-    api = apiclient.discovery.build('clouddebugger', 'v2', http=http)
+    api = apiclient.discovery.build(
+        'clouddebugger', 'v2', http=http, cache_discovery=False)
     return api.controller()
 
   def _MainThreadProc(self):
