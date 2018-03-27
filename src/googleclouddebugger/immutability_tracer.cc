@@ -380,6 +380,11 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8 opcode) {
     case BUILD_CONST_KEY_MAP:
     case BUILD_STRING:
     case BUILD_TUPLE_UNPACK_WITH_CALL:
+#if PY_VERSION_HEX >= 0x03070000
+    // Added in Python 3.7.
+    case LOAD_METHOD:
+    case CALL_METHOD:
+#endif
 #else
     case ROT_FOUR:
     case DUP_TOPX:
@@ -436,7 +441,10 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8 opcode) {
     case WITH_CLEANUP_FINISH:
     case SETUP_ANNOTATIONS:
     case POP_EXCEPT:
+#if PY_VERSION_HEX < 0x03070000
+    // Removed in Python 3.7.
     case STORE_ANNOTATION:
+#endif
     case DELETE_DEREF:
     case SETUP_ASYNC_WITH:
 #else

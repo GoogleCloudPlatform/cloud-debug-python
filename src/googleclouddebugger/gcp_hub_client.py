@@ -21,6 +21,7 @@ import inspect
 import json
 import logging
 import os
+import platform
 import sys
 import threading
 import time
@@ -469,13 +470,15 @@ class GcpHubClient(object):
   def _GetDebuggee(self):
     """Builds the debuggee structure."""
     major_version = 'v' + version.__version__.split('.')[0]
-    python_version = 'python36-gcp' if six.PY3 else 'python27-gcp'
+    python_version = ''.join(platform.python_version().split('.')[:2])
+    agent_version = ('google.com/python%s-gcp/%s' % (python_version,
+                                                     major_version))
 
     debuggee = {
         'project': self._project_number(),
         'description': self._GetDebuggeeDescription(),
         'labels': self._debuggee_labels,
-        'agentVersion': 'google.com/%s/%s' % (python_version, major_version)
+        'agentVersion': agent_version,
     }
 
     source_context = self._ReadAppJsonFile('source-context.json')
