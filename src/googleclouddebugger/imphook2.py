@@ -30,10 +30,13 @@ This is the new module import hook which:
 For the old module import hook, see imphook.py file.
 """
 
+import importlib
+import itertools
 import os
 import sys  # Must be imported, otherwise import hooks don't work.
 import threading
 
+import six
 from six.moves import builtins  # pylint: disable=redefined-builtin
 
 from . import module_utils2
@@ -47,6 +50,10 @@ _import_local = threading.local()
 
 # Original __import__ function if import hook is installed or None otherwise.
 _real_import = None
+
+# Original importlib.import_module function if import hook is installed or None
+# otherwise.
+_real_import_module = None
 
 
 def AddImportCallbackBySuffix(path, callback):
@@ -96,7 +103,6 @@ def AddImportCallbackBySuffix(path, callback):
 
 def _InstallImportHookBySuffix():
   """Lazily installs import hook."""
-
   global _real_import
 
   if _real_import:
@@ -104,18 +110,20 @@ def _InstallImportHookBySuffix():
 
   _real_import = getattr(builtins, '__import__')
   assert _real_import
-
   builtins.__import__ = _ImportHookBySuffix
 
+  if six.PY3:
+    # In Python 2, importlib.import_module calls __import__ internally so
+    # overriding __import__ is enough. In Python 3, they are separate so it also
+    # needs to be overwritten.
+    global _real_import_module
+    _real_import_module = importlib.import_module
+    assert _real_import_module
+    importlib.import_module = _ImportModuleHookBySuffix
 
-# pylint: disable=redefined-builtin, g-doc-args, g-doc-return-or-yield
-def _ImportHookBySuffix(
-    name, globals=None, locals=None, fromlist=None, level=-1):
-  """Callback when an import statement is executed by the Python interpreter.
 
-  Argument names have to exactly match those of __import__. Otherwise calls
-  to __import__ that use keyword syntax will fail: __import('a', fromlist=[]).
-  """
+def _IncrementNestLevel():
+  """Increments the per thread nest level of imports."""
   # This is the top call to import (no nesting), init the per-thread nest level
   # and names set.
   if getattr(_import_local, 'nest_level', None) is None:
@@ -127,6 +135,47 @@ def _ImportHookBySuffix(
     _import_local.names = set()
 
   _import_local.nest_level += 1
+
+
+# pylint: disable=redefined-builtin
+def _ProcessImportBySuffix(name, fromlist, globals):
+  """Processes an import.
+
+  Calculates the possible names generated from an import and invokes
+  registered callbacks if needed.
+
+  Args:
+    name: Argument as passed to the importer.
+    fromlist: Argument as passed to the importer.
+    globals: Argument as passed to the importer.
+  """
+  _import_local.nest_level -= 1
+
+  # To improve common code path performance, compute the loaded modules only
+  # if there are any import callbacks.
+  if _import_callbacks:
+    # Collect the names of all modules that might be newly loaded as a result
+    # of this import. Add them in a thread-local list.
+    _import_local.names |= _GenerateNames(name, fromlist, globals)
+
+    # Invoke the callbacks only on the top-level import call.
+    if _import_local.nest_level == 0:
+      _InvokeImportCallbackBySuffix(_import_local.names)
+
+  # To be safe, we clear the names set every time we exit a top level import.
+  if _import_local.nest_level == 0:
+    _import_local.names.clear()
+
+
+# pylint: disable=redefined-builtin, g-doc-args, g-doc-return-or-yield
+def _ImportHookBySuffix(
+    name, globals=None, locals=None, fromlist=None, level=-1):
+  """Callback when an import statement is executed by the Python interpreter.
+
+  Argument names have to exactly match those of __import__. Otherwise calls
+  to __import__ that use keyword syntax will fail: __import('a', fromlist=[]).
+  """
+  _IncrementNestLevel()
 
   try:
     # Really import modules.
@@ -145,22 +194,56 @@ def _ImportHookBySuffix(
     #
     # Important Note: Do not use 'return' inside the finally block. It will
     # cause any pending exception to be discarded.
-    _import_local.nest_level -= 1
+    _ProcessImportBySuffix(name, fromlist, globals)
 
-    # To improve common code path performance, compute the loaded modules only
-    # if there are any import callbacks.
-    if _import_callbacks:
-      # Collect the names of all modules that might be newly loaded as a result
-      # of this import. Add them in a thread-local list.
-      _import_local.names |= _GenerateNames(name, fromlist, globals)
+  return module
 
-      # Invoke the callbacks only on the top-level import call.
-      if _import_local.nest_level == 0:
-        _InvokeImportCallbackBySuffix(_import_local.names)
 
-    # To be safe, we clear the names set every time we exit a top level import.
-    if _import_local.nest_level == 0:
-      _import_local.names.clear()
+def _ResolveRelativeImport(name, package):
+  """Resolves a relative import into an absolute path.
+
+  This is mostly an adapted version of the logic found in the backported
+  version of import_module in Python 2.7.
+  https://github.com/python/cpython/blob/2.7/Lib/importlib/__init__.py
+
+  Args:
+    name: relative name imported, such as '.a' or '..b.c'
+    package: absolute package path, such as 'a.b.c.d.e'
+
+  Returns:
+    The absolute path of the name to be imported, or None if it is invalid.
+    Examples:
+      _ResolveRelativeImport('.c', 'a.b') -> 'a.b.c'
+      _ResolveRelativeImport('..c', 'a.b') -> 'a.c'
+      _ResolveRelativeImport('...c', 'a.c') -> None
+  """
+  level = sum(1 for c in itertools.takewhile(lambda c: c == '.', name))
+  if level == 1:
+    return package + name
+  else:
+    parts = package.split('.')[:-(level - 1)]
+    if not parts:
+      return None
+    parts.append(name[level:])
+    return '.'.join(parts)
+
+
+def _ImportModuleHookBySuffix(name, package=None):
+  """Callback when a module is imported through importlib.import_module."""
+  _IncrementNestLevel()
+
+  try:
+    # Really import modules.
+    module = _real_import_module(name, package)
+  finally:
+    if name.startswith('.'):
+      if package:
+        name = _ResolveRelativeImport(name, package)
+      else:
+        # Should not happen. Relative imports require the package argument.
+        name = None
+    if name:
+      _ProcessImportBySuffix(name, None, None)
 
   return module
 
