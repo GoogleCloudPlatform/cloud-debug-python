@@ -57,7 +57,7 @@ def GetLoadedModuleBySuffix(path):
   """
   root = os.path.splitext(path)[0]
   for module in sys.modules.values():
-    mod_root = os.path.splitext(getattr(module, '__file__', ''))[0]
+    mod_root = os.path.splitext(getattr(module, '__file__', None) or '')[0]
 
     if not mod_root:
       continue
