@@ -19,6 +19,7 @@
 import copy
 import datetime
 import inspect
+import itertools
 import logging
 import os
 import re
@@ -566,7 +567,14 @@ class CaptureCollector(object):
       return {'value': r}
 
     # Add an additional depth for the object itself
-    members = self.CaptureVariablesList(value.__dict__.items(), depth + 2,
+    items = value.__dict__.items()
+    if six.PY3:
+      # Make a list of the iterator in Python 3, to avoid 'dict changed size
+      # during iteration' errors from GC happening in the middle.
+      # Only limits.max_list_items + 1 items are copied, anything past that will
+      # get ignored by CaptureVariablesList().
+      items = list(itertools.islice(items, limits.max_list_items + 1))
+    members = self.CaptureVariablesList(items, depth + 2,
                                         OBJECT_HAS_NO_FIELDS, limits)
     v = {'members': members}
 
