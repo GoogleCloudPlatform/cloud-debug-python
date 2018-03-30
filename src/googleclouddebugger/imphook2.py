@@ -169,13 +169,22 @@ def _ProcessImportBySuffix(name, fromlist, globals):
 
 # pylint: disable=redefined-builtin, g-doc-args, g-doc-return-or-yield
 def _ImportHookBySuffix(
-    name, globals=None, locals=None, fromlist=None, level=-1):
+    name, globals=None, locals=None, fromlist=None, level=None):
   """Callback when an import statement is executed by the Python interpreter.
 
   Argument names have to exactly match those of __import__. Otherwise calls
   to __import__ that use keyword syntax will fail: __import('a', fromlist=[]).
   """
   _IncrementNestLevel()
+
+  if level is None:
+    # A level of 0 means absolute import, positive values means relative
+    # imports, and -1 means to try both an absolute and relative import.
+    # Since imports were disambiguated in Python 3, -1 is not a valid value.
+    # The default values are 0 and -1 for Python 3 and 3 respectively.
+    # https://docs.python.org/2/library/functions.html#__import__
+    # https://docs.python.org/3/library/functions.html#__import__
+    level = 0 if six.PY3 else -1
 
   try:
     # Really import modules.
