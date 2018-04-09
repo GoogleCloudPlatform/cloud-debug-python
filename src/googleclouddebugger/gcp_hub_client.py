@@ -30,19 +30,19 @@ import traceback
 
 
 import apiclient
-from apiclient import discovery  # pylint: disable=unused-import
+import apiclient.discovery
+import google_auth_httplib2
 import httplib2
-import oauth2client
-from oauth2client import service_account
-from oauth2client.contrib.gce import AppAssertionCredentials
 import six
+
+import google.auth
+from google.oauth2 import service_account
 
 from . import labels
 from . import backoff
 from . import cdbg_native as native
 from . import uniquifier_computer
 from . import version
-
 # This module catches all exception. This is safe because it runs in
 # a daemon thread (so we are not blocking Ctrl+C). We need to catch all
 # the exception because HTTP client is unpredictable as far as every
@@ -50,11 +50,7 @@ from . import version
 # pylint: disable=broad-except
 
 # API scope we are requesting when service account authentication is enabled.
-_CLOUD_PLATFORM_SCOPE = 'https://www.googleapis.com/auth/cloud-platform'
-
-# Base URL for metadata service. Specific attributes are appended to this URL.
-_LOCAL_METADATA_SERVICE_PROJECT_URL = ('http://metadata.google.internal/'
-                                       'computeMetadata/v1/project/')
+_CLOUD_PLATFORM_SCOPE = ['https://www.googleapis.com/auth/cloud-platform']
 
 # Set of all known debuggee labels (passed down as flags). The value of
 # a map is optional environment variable that can be used to set the flag
@@ -77,15 +73,19 @@ _DESCRIPTION_LABELS = [
 _HTTP_TIMEOUT_SECONDS = 100
 
 
+class NoProjectIdError(Exception):
+  """Used to indicate the project id cannot be determined."""
+
+
 class GcpHubClient(object):
   """Controller API client.
 
   Registers the debuggee, queries the active breakpoints and sends breakpoint
   updates to the backend.
 
-  This class supports two types of authentication: metadata service and service
-  account. The mode is selected by calling EnableServiceAccountAuth or
-  EnableGceAuth method.
+  This class supports two types of authentication: application default
+  credentials or a manually provided JSON credentials file for a service
+  account.
 
   GcpHubClient creates a worker thread that communicates with the backend. The
   thread can be stopped with a Stop function, but it is optional since the
@@ -126,7 +126,7 @@ class GcpHubClient(object):
             return False
         return True
     self._log_filter = _ChildLogFilter({logging.INFO})
-    discovery.logger.addFilter(self._log_filter)
+    apiclient.discovery.logger.addFilter(self._log_filter)
 
     #
     # Configuration options (constants only modified by unit test)
@@ -149,9 +149,6 @@ class GcpHubClient(object):
     over environment variables.
 
     Debuggee description is formatted from available flags.
-
-    Project ID is not set here. It is obtained from metadata service or
-    specified as a parameter to EnableServiceAccountAuth.
 
     Args:
       flags: dictionary of debuglet command line flags.
@@ -176,61 +173,47 @@ class GcpHubClient(object):
           {name: value for (name, value) in six.iteritems(flags)
            if name in _DEBUGGEE_LABELS})
 
-    self._debuggee_labels['projectid'] = self._project_id()
+    self._debuggee_labels['projectid'] = self._project_id
 
-  def EnableServiceAccountAuthP12(self, project_id, project_number,
-                                  email, p12_file):
-    """Selects service account authentication with a p12 file.
+  def SetupAuth(self,
+                project_id=None,
+                project_number=None,
+                service_account_json_file=None):
+    """Sets up authentication with Google APIs.
 
-      Using this function is not recommended. Use EnableServiceAccountAuthJson
-      for authentication, instead. The p12 file format is no longer recommended.
+    This will use the credentials from service_account_json_file if provided,
+    falling back to application default credentials.
+    See https://cloud.google.com/docs/authentication/production.
+
     Args:
-      project_id: GCP project ID (e.g. myproject).
-      project_number: numberic GCP project ID (e.g. 72386324623).
-      email: service account identifier for use with p12_file
-        (...@developer.gserviceaccount.com).
-      p12_file: (deprecated) path to an old-style p12 file with the
-        private key.
+      project_id: GCP project ID (e.g. myproject). If not provided, will attempt
+          to retrieve it from the credentials.
+      project_number: GCP project number (e.g. 72386324623). If not provided,
+          project_id will be used in its place.
+      service_account_json_file: JSON file to use for credentials. If not
+          provided, will default to application default credentials.
     Raises:
-      NotImplementedError indicates that the installed version of oauth2client
-      does not support using a p12 file.
+      NoProjectIdError: If the project id cannot be determined.
     """
-    try:
-      with open(p12_file, 'rb') as f:
-        self._credentials = oauth2client.client.SignedJwtAssertionCredentials(
-            email, f.read(), scope=_CLOUD_PLATFORM_SCOPE)
-    except AttributeError:
-      raise NotImplementedError(
-          'P12 key files are no longer supported. Please use a JSON '
-          'credentials file instead.')
-    self._project_id = lambda: project_id
-    self._project_number = lambda: project_number
+    if service_account_json_file:
+      self._credentials = (
+          service_account.Credentials.from_service_account_file(
+              service_account_json_file, scopes=_CLOUD_PLATFORM_SCOPE))
+      if not project_id:
+        with open(service_account_json_file) as f:
+          project_id = json.load(f).get('project_id')
+    else:
+      self._credentials, credentials_project_id = google.auth.default(
+          scopes=_CLOUD_PLATFORM_SCOPE)
+      project_id = project_id or credentials_project_id
 
-  def EnableServiceAccountAuthJson(self, project_id, project_number,
-                                   auth_json_file):
-    """Selects service account authentication using Json credentials.
+    if not project_id:
+      raise NoProjectIdError(
+          'Unable to determine the project id from the API credentials. '
+          'Please specify the project id using the --project_id flag.')
 
-    Args:
-      project_id: GCP project ID (e.g. myproject).
-      project_number: numberic GCP project ID (e.g. 72386324623).
-      auth_json_file: the JSON keyfile
-    """
-    self._credentials = (
-        service_account.ServiceAccountCredentials
-        .from_json_keyfile_name(auth_json_file, scopes=_CLOUD_PLATFORM_SCOPE))
-    self._project_id = lambda: project_id
-    self._project_number = lambda: project_number
-
-  def EnableGceAuth(self):
-    """Selects to use local metadata service for authentication.
-
-    The project ID and project number are also retrieved from the metadata
-    service. It is done lazily from the worker thread. The motivation is to
-    speed up initialization and be able to recover from failures.
-    """
-    self._credentials = AppAssertionCredentials()
-    self._project_id = lambda: self._QueryGcpProject('project-id')
-    self._project_number = lambda: self._QueryGcpProject('numeric-project-id')
+    self._project_id = project_id
+    self._project_number = project_number or project_id
 
   def Start(self):
     """Starts the worker thread."""
@@ -277,7 +260,7 @@ class GcpHubClient(object):
 
   def _BuildService(self):
     http = httplib2.Http(timeout=_HTTP_TIMEOUT_SECONDS)
-    http = self._credentials.authorize(http)
+    http = google_auth_httplib2.AuthorizedHttp(self._credentials, http)
 
     api = apiclient.discovery.build(
         'clouddebugger', 'v2', http=http, cache_discovery=False)
@@ -332,6 +315,13 @@ class GcpHubClient(object):
 
       try:
         response = service.debuggees().register(body=request).execute()
+
+        # self._project_number will refer to the project id on initialization if
+        # the project number is not available. The project field in the debuggee
+        # will always refer to the project number. Update so the server will not
+        # have to do id->number translations in the future.
+        project_number = response['debuggee'].get('project')
+        self._project_number = project_number or self._project_number
 
         self._debuggee_id = response['debuggee']['id']
         native.LogInfo('Debuggee registered successfully, ID: %s' % (
@@ -452,21 +442,6 @@ class GcpHubClient(object):
     else:
       return (reconnect, self.update_backoff.Failed())
 
-  def _QueryGcpProject(self, resource):
-    """Queries project resource on a local metadata service."""
-    url = _LOCAL_METADATA_SERVICE_PROJECT_URL + resource
-    http = httplib2.Http()
-    response, content = http.request(
-        url, headers={'Metadata-Flavor': 'Google'})
-    if response['status'] != '200':
-      raise RuntimeError(
-          'HTTP error %s %s when querying local metadata service at %s' %
-          (response['status'], content, url))
-
-    if not isinstance(content, str):
-      content = content.decode()
-    return content
-
   def _GetDebuggee(self):
     """Builds the debuggee structure."""
     major_version = 'v' + version.__version__.split('.')[0]
@@ -475,7 +450,7 @@ class GcpHubClient(object):
                                                      major_version))
 
     debuggee = {
-        'project': self._project_number(),
+        'project': self._project_number,
         'description': self._GetDebuggeeDescription(),
         'labels': self._debuggee_labels,
         'agentVersion': agent_version,

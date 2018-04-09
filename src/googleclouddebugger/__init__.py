@@ -68,26 +68,10 @@ def _StartDebugger():
   _hub_client.on_active_breakpoints_changed = (
       _breakpoints_manager.SetActiveBreakpoints)
   _hub_client.on_idle = _breakpoints_manager.CheckBreakpointsExpiration
-  if _flags.get('enable_service_account_auth') in ('1', 'true', True):
-    if _flags.get('service_account_p12_file'):
-      try:
-        _hub_client.EnableServiceAccountAuthP12(
-            _flags['project_id'],
-            _flags['project_number'],
-            _flags['service_account_email'],
-            _flags['service_account_p12_file'])
-      except NotImplementedError as e:
-        raise NotImplementedError(
-            '{0}\nYou must specify project_id, project_number, and '
-            'service_account_json_file in order to use service account '
-            'authentication.'.format(e))
-    else:
-      _hub_client.EnableServiceAccountAuthJson(
-          _flags['project_id'],
-          _flags['project_number'],
-          _flags['service_account_json_file'])
-  else:
-    _hub_client.EnableGceAuth()
+  _hub_client.SetupAuth(
+      _flags.get('project_id'),
+      _flags.get('project_number'),
+      _flags.get('service_account_json_file'))
   _hub_client.InitializeDebuggeeLabels(_flags)
   _hub_client.Start()
 

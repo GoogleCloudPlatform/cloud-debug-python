@@ -99,10 +99,10 @@ run the build script as `PYTHON=python3.6 ./build.sh`.
     account of the Virtual Machine.
 
     It is possible to use the Python debugger agent without it. Please see the
-    [next section](#Service_Account) for details.
+    [next section](#outside-google-cloud-platform) for details.
 
 1.  Install the Python debugger agent as explained in the
-    [Installation](#Installation) section.
+    [Installation](#installation) section.
 
 2.  Enable the debugger in your application using one of the two options:
 
@@ -124,54 +124,69 @@ run the build script as `PYTHON=python3.6 ./build.sh`.
     </pre>
 
 
-### Service Account
+### Outside Google Cloud Platform
 
 To use the Python debugger agent on machines <i>not</i> hosted by Google Cloud
-Platform, the agent must use a Google Cloud Platform service-account credentials
-to authenticate with the Cloud Debugger Service.
+Platform, you must set up credentials to authenticate with Google Cloud APIs. By
+default, the debugger agent tries to find the [Application Default
+Credentials](https://cloud.google.com/docs/authentication/production) on the
+system. This can either be from your personal account or a dedicated service
+account.
 
-Use the Google Cloud Console Service Accounts
-[page](https://console.cloud.google.com/iam-admin/serviceaccounts/project) to
-create a credentials file for an existing or new service-account. The
-service-account must have at least the `Stackdriver Debugger Agent` role.
-If you don't have a Google Cloud Platform project, you can create one for free
-on [Google Cloud Console](https://console.cloud.google.com).
+#### Personal Account
 
-Once you have the service-account JSON file, deploy it alongside the Python
-debugger agent.
+1.  Set up Application Default Credentials through
+    [gcloud](https://cloud.google.com/sdk/gcloud/reference/auth/application-default/login).
 
-Once you have the service account, please note the service account e-mail,
-project ID and project number.
+    ```shell
+    gcloud auth application-default login
+    ```
 
-Then, enable the debugger agent using one of these two options:
+2.  Follow the rest of the steps in the [GCP](#google-cloud-platform) section.
 
-_Option A_: add this code to the beginning of your `main()` function:
+#### Service Account
 
-```python
-# Attach Python Cloud Debugger
-try:
-  import googleclouddebugger
-  googleclouddebugger.enable(
-      enable_service_account_auth=True,
-      project_id='my-gcp-project-id',
-      project_number='123456789',
-      service_account_json_file='/opt/cdbg/gcp-svc.json')
-except ImportError:
-  pass
-```
+1.  Use the Google Cloud Console Service Accounts
+    [page](https://console.cloud.google.com/iam-admin/serviceaccounts/project)
+    to create a credentials file for an existing or new service account. The
+    service account must have at least the `Stackdriver Debugger Agent` role.
 
-_Option B_: run the debugger agent as a module:
+2.  Once you have the service account credentials JSON file, deploy it alongside
+    the Python debugger agent.
 
-<pre>
-python \
-    <b>-m googleclouddebugger \
-    --enable_service_account_auth=1 \
-    --project_id=<i>my-gcp-project-id</i> \
-    --project_number=<i>123456789</i> \
-    --service_account_json_file=<i>/opt/cdbg/gcp-svc.json</i> \
-    --</b> \
-    myapp.py
-</pre>
+3.  Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable.
+
+    ```shell
+    export GOOGLE_APPLICATION_CREDENTIALS=/path/to/credentials.json
+    ```
+
+    Alternatively, you can provide the path to the credentials file directly to
+    the debugger agent.
+
+    _Option A_:
+
+    ```python
+    # Attach Python Cloud Debugger
+    try:
+      import googleclouddebugger
+      googleclouddebugger.enable(
+          service_account_json_file='/path/to/credentials.json')
+    except ImportError:
+      pass
+    ```
+
+    _Option B_:
+
+    <pre>
+    python \
+        <b>-m googleclouddebugger \
+        --service_account_json_file=<i>/path/to/credentials.json</i> \
+        --</b> \
+        myapp.py
+    </pre>
+
+4.  Follow the rest of the steps in the [GCP](#google-cloud-platform) section.
+
 
 ### Django Web Framework
 
@@ -196,4 +211,3 @@ Alternatively, you can pass the `--noreload` flag when running the Django
 `manage.py` and use any one of the option A and B listed earlier. Note that
 using the `--noreload` flag disables the autoreload feature in Django, which
 means local changes to files will not be automatically picked up by Django.
-
