@@ -87,6 +87,12 @@ To build, the `python3.6` and `python3.6-dev` packages are additionally needed.
 If Python 3.6 is not the default version of the 'python' command on your system,
 run the build script as `PYTHON=python3.6 ./build.sh`.
 
+### Alpine Linux
+
+The Python agent is not regularly tested on Alpine Linux, and support will be on
+a best effort basis. The [Dockerfile](alpine/Dockerfile) shows how to build a
+minimal image with the agent installed.
+
 ## Setup
 
 ### Google Cloud Platform
