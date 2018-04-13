@@ -101,10 +101,10 @@ run the build script as `PYTHON=python3.6 ./build.sh`.
     It is possible to use the Python debugger agent without it. Please see the
     [next section](#outside-google-cloud-platform) for details.
 
-1.  Install the Python debugger agent as explained in the
+2.  Install the Python debugger agent as explained in the
     [Installation](#installation) section.
 
-2.  Enable the debugger in your application using one of the two options:
+3.  Enable the debugger in your application using one of the two options:
 
     _Option A_: add this code to the beginning of your `main()` function:
 
@@ -123,6 +123,10 @@ run the build script as `PYTHON=python3.6 ./build.sh`.
     python <b>-m googleclouddebugger --</b> myapp.py
     </pre>
 
+    **Note:** This option does not work well with tools such as
+    `multiprocessing` or `gunicorn`. These tools spawn workers in separate
+    processes, but the debugger does not get enabled on these worker processes.
+    Please use _Option A_ instead.
 
 ### Outside Google Cloud Platform
 
