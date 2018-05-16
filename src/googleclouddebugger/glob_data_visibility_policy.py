@@ -84,8 +84,6 @@ def _Matches(path, pattern_list):
   Returns:
     True if path matches any wildcard found in pattern_list.
   """
-  # TODO(mattwach): This code does not scale to large pattern_list
-  # sizes.  For now, keep things logically simple but consider a
-  # more optimized solution in the future.
+  # Note: This code does not scale to large pattern_list sizes.
   return any(fnmatch.fnmatchcase(path, pattern) for pattern in pattern_list)
 
