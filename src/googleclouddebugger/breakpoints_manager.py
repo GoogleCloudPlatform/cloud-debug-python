@@ -38,17 +38,13 @@ class BreakpointsManager(object):
         breakpoint updates back to the backend.
     data_visibility_policy: An object used to determine the visibiliy
         of a captured variable.  May be None if no policy is available.
-    use_new_module_search: If true, the new module search algorithm will be
-        used.
   """
 
   def __init__(self,
                hub_client,
-               data_visibility_policy,
-               use_new_module_search=False):
+               data_visibility_policy):
     self._hub_client = hub_client
     self.data_visibility_policy = data_visibility_policy
-    self.use_new_module_search = use_new_module_search
 
     # Lock to synchronize access to data across multiple threads.
     self._lock = RLock()
@@ -86,8 +82,7 @@ class BreakpointsManager(object):
                x,
                self._hub_client,
                self,
-               self.data_visibility_policy,
-               self.use_new_module_search))
+               self.data_visibility_policy))
           for x in breakpoints_data
           if x['id'] in ids - six.viewkeys(self._active) - self._completed])
 

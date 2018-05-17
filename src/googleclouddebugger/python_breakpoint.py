@@ -21,12 +21,9 @@ from threading import Lock
 
 from . import capture_collector
 from . import cdbg_native as native
-from . import imphook
 from . import imphook2
 from . import module_explorer
-from . import module_search
 from . import module_search2
-from . import module_utils
 from . import module_utils2
 
 # TODO(vlif): move to messages.py module.
@@ -156,7 +153,7 @@ class PythonBreakpoint(object):
   """
 
   def __init__(self, definition, hub_client, breakpoints_manager,
-               data_visibility_policy, use_new_module_search=False):
+               data_visibility_policy):
     """Class constructor.
 
     Tries to set the breakpoint. If the source location is invalid, the
@@ -169,8 +166,6 @@ class PythonBreakpoint(object):
       breakpoints_manager: parent object managing active breakpoints.
       data_visibility_policy: An object used to determine the visibility
           of a captured variable.  May be None if no policy is available.
-      use_new_module_search: If true, the new module search algorithm will be
-          used.
     """
     self.definition = definition
 
@@ -213,49 +208,14 @@ class PythonBreakpoint(object):
                   'parameters': [path]}}})
       return
 
-    # If enabled, then use the new module search algorithm.
-    if use_new_module_search:
-      new_path = module_search2.Search(path)
-      new_module = module_utils2.GetLoadedModuleBySuffix(new_path)
+    new_path = module_search2.Search(path)
+    new_module = module_utils2.GetLoadedModuleBySuffix(new_path)
 
-      if new_module:
-        self._ActivateBreakpoint(new_module)
-      else:
-        self._import_hook_cleanup = imphook2.AddImportCallbackBySuffix(
-            new_path,
-            self._ActivateBreakpoint)
-      return
-
-    # Otherwise, use the old module search algorithm.
-
-    # Find all module files matching the location path.
-    paths = module_search.FindMatchingFiles(path)
-    if not paths:
-      self._CompleteBreakpoint({
-          'status': {
-              'isError': True,
-              'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
-              'description': {'format': ERROR_LOCATION_MODULE_NOT_FOUND_0}}})
-      return
-
-    if len(paths) > 1:
-      fmt, params = _MultipleModulesFoundError(path, paths)
-      self._CompleteBreakpoint({
-          'status': {
-              'isError': True,
-              'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
-              'description': {
-                  'format': fmt,
-                  'parameters': params}}})
-      return
-
-    # TODO(erezh): Handle the possible thread race condtion from lookup to hook.
-    module = module_utils.GetLoadedModuleByPath(paths[0])
-    if module:
-      self._ActivateBreakpoint(module)
+    if new_module:
+      self._ActivateBreakpoint(new_module)
     else:
-      self._import_hook_cleanup = imphook.AddImportCallback(
-          paths[0],
+      self._import_hook_cleanup = imphook2.AddImportCallbackBySuffix(
+          new_path,
           self._ActivateBreakpoint)
 
   def Clear(self):
