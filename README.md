@@ -9,9 +9,9 @@ of a running cloud application, at any code location, without stopping or
 slowing it down. It is not your traditional process debugger but rather an
 always on, whole app debugger taking snapshots from any instance of the app.
 
-Cloud Debugger is safe for use with production apps or during development.
-The Python debugger agent only few milliseconds to the request latency when a
-debug snapshot is captured. In most cases, this is not noticeable to users.
+Cloud Debugger is safe for use with production apps or during development. The
+Python debugger agent only few milliseconds to the request latency when a debug
+snapshot is captured. In most cases, this is not noticeable to users.
 Furthermore, the Python debugger agent does not allow modification of
 application state in any way, and has close to zero impact on the app instances.
 
@@ -28,19 +28,20 @@ Cloud Debugger consists of 3 primary components:
 
 1.  The Python debugger agent (this repo implements one for CPython 2.7, and an
     experimental one for CPython 3.6).
-2.  Cloud Debugger service storing and managing snapshots/logpoints.
-    Explore the API's using
-    [APIs Explorer](https://developers.google.com/apis-explorer/#p/clouddebugger/v2/).
-3.  User interface, including a command line interface
-    [`gcloud debug`](https://cloud.google.com/sdk/gcloud/reference/debug/) and a
-    Web interface on
-    [Google Cloud Console](https://console.developers.google.com/debug/).
-    See the [online help](https://cloud.google.com/debugger/docs/debugging) on
-    how to use Google Cloud Console Debug page.
+2.  Cloud Debugger service storing and managing snapshots/logpoints. Explore the
+    APIs using [APIs
+    Explorer](https://developers.google.com/apis-explorer/#p/clouddebugger/v2/).
+3.  User interface, including a command line interface [`gcloud
+    debug`](https://cloud.google.com/sdk/gcloud/reference/debug/) and a Web
+    interface on [Google Cloud
+    Console](https://console.developers.google.com/debug/). See the [online
+    help](https://cloud.google.com/debugger/docs/debugging) on how to use Google
+    Cloud Console Debug page.
 
 ## Getting Help
 
-1.  StackOverflow: http://stackoverflow.com/questions/tagged/google-cloud-debugger
+1.  StackOverflow:
+    http://stackoverflow.com/questions/tagged/google-cloud-debugger
 2.  Send email to: [Cloud Debugger Feedback](mailto:cdbg-feedback@google.com)
 3.  Send Feedback from Google Cloud Console
 
@@ -118,7 +119,7 @@ minimal image with the agent installed.
     # Attach Python Cloud Debugger
     try:
       import googleclouddebugger
-      googleclouddebugger.enable()
+      googleclouddebugger.enable(module='[MODULE]', version='[VERSION]')
     except ImportError:
       pass
     ```
@@ -126,13 +127,25 @@ minimal image with the agent installed.
     _Option B_: run the debugger agent as a module:
 
     <pre>
-    python <b>-m googleclouddebugger --</b> myapp.py
+    python \
+        <b>-m googleclouddebugger --module=[MODULE] --version=[VERSION] --</b> \
+        myapp.py
     </pre>
 
     **Note:** This option does not work well with tools such as
     `multiprocessing` or `gunicorn`. These tools spawn workers in separate
     processes, but the debugger does not get enabled on these worker processes.
     Please use _Option A_ instead.
+
+    Where, in both cases:
+
+    *   `[MODULE]` is the name of your app. This, along with the version, is
+        used to identify the debug target in the UI.<br>
+        Example values: `MyApp`, `Backend`, or `Frontend`.
+
+    *   `[VERSION]` is the app version (for example, the build ID). The UI
+        displays the running version as `[MODULE] - [VERSION]`.<br>
+        Example values: `v1.0`, `build_147`, or `v20170714`.
 
 ### Outside Google Cloud Platform
 
@@ -180,6 +193,8 @@ account.
     try:
       import googleclouddebugger
       googleclouddebugger.enable(
+          module='[MODULE]',
+          version='[VERSION]',
           service_account_json_file='/path/to/credentials.json')
     except ImportError:
       pass
@@ -190,6 +205,8 @@ account.
     <pre>
     python \
         <b>-m googleclouddebugger \
+        --module=[MODULE] \
+        --version=[VERSION] \
         --service_account_json_file=<i>/path/to/credentials.json</i> \
         --</b> \
         myapp.py
@@ -197,11 +214,9 @@ account.
 
 4.  Follow the rest of the steps in the [GCP](#google-cloud-platform) section.
 
-
 ### Django Web Framework
 
 You can use the Cloud Debugger to debug Django web framework applications.
-
 
 The best way to enable the Cloud Debugger with Django is to add the following
 code fragment to your `manage.py` file:
@@ -211,13 +226,46 @@ code fragment to your `manage.py` file:
 if os.environ.get('RUN_MAIN') or '--noreload' in sys.argv:
   try:
     import googleclouddebugger
-    googleclouddebugger.enable()
+    googleclouddebugger.enable(module='[MODULE]', version='[VERSION]')
   except ImportError:
     pass
 ```
-
 
 Alternatively, you can pass the `--noreload` flag when running the Django
 `manage.py` and use any one of the option A and B listed earlier. Note that
 using the `--noreload` flag disables the autoreload feature in Django, which
 means local changes to files will not be automatically picked up by Django.
+
+## Flag Reference
+
+The agent offers various flags to configure its behavior. Flags can be specified
+as keyword arguments:
+
+```python
+googleclouddebugger.enable(flag_name='flag_value')
+```
+
+or as command line arguments when running the agent as a module:
+
+```shell
+python -m googleclouddebugger --flag_name=flag_value -- myapp.py
+```
+
+The following flags are available:
+
+`module`: A name for your app. This, along with the version, is used to identify
+the debug target in the UI. <br>
+Example values: `MyApp`, `Backend`, or `Frontend`.
+
+`version`: A version for your app. The UI displays the running version as
+`[MODULE] - [VERSION]`.<br>
+If not provided, the UI will display the generated debuggee ID instead.<br>
+Example values: `v1.0`, `build_147`, or `v20170714`.
+
+`service_account_json_file`: Path to JSON credentials of a [service
+account](https://cloud.google.com/iam/docs/service-accounts) to use for
+authentication. If not provided, the agent will fall back to [Application
+Default Credentials](https://cloud.google.com/docs/authentication/production)
+which are automatically available on machines hosted on GCP, or can be set via
+`gcloud auth application-default login` or the `GOOGLE_APPLICATION_CREDENTIALS`
+environment variable.
