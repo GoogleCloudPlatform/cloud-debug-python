@@ -540,6 +540,12 @@ class CaptureCollector(object):
       # TODO(vlif): set value to func_name and type to 'function'
       return {'value': 'function ' + value.__name__}
 
+    if isinstance(value, Exception):
+      fields = self.CaptureVariablesList(
+          (('[%d]' % i, x) for i, x in enumerate(value.args)),
+          depth + 1, EMPTY_COLLECTION, limits)
+      return {'members': fields, 'type': type(value).__name__}
+
     if can_enqueue:
       index = self._var_table_index.get(id(value))
       if index is None:
