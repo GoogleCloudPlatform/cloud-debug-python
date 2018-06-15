@@ -173,6 +173,10 @@ class PythonBreakpoint(object):
 
     # Breakpoint expiration time.
     self.expiration_period = timedelta(hours=24)
+    if self.definition.get('expires_in'):
+      self.expiration_period = min(
+          timedelta(definition.get('expires_in').get('seconds', 0)),
+          self.expiration_period)
 
 
     self._hub_client = hub_client
