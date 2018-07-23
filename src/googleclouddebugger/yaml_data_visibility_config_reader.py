@@ -113,17 +113,16 @@ def Read(f):
   _CheckData(yaml_data)
 
   try:
-    to_str = lambda v: v.decode() if six.PY3 and isinstance(v, bytes) else v
     return Config(
-        [to_str(val) for val in yaml_data.get(b'blacklist', ())],
-        [to_str(val) for val in yaml_data.get(b'whitelist', ('*'))])
+        yaml_data.get('blacklist', ()),
+        yaml_data.get('whitelist', ('*')))
   except UnicodeDecodeError as e:
     raise YAMLLoadError('%s' % e)
 
 
 def _CheckData(yaml_data):
   """Checks data for illegal keys and formatting."""
-  legal_keys = set((b'blacklist', b'whitelist'))
+  legal_keys = set(('blacklist', 'whitelist'))
   unknown_keys = set(yaml_data) - legal_keys
   if unknown_keys:
     raise UnknownConfigKeyError(
@@ -143,6 +142,6 @@ def _AssertDataIsList(key, lst):
 
   # each list entry must be a string
   for element in lst:
-    if not isinstance(element, (bytes, str)):
+    if not isinstance(element, str):
       raise ElementNotAStringError('Unsupported list element %s found in %s',
                                    (element, lst))
