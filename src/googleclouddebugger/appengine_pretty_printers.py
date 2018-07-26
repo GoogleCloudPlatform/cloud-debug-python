@@ -17,6 +17,11 @@
 import six
 
 try:
+  from protorpc import messages  # pylint: disable=g-import-not-at-top
+except ImportError:
+  messages = None
+
+try:
   from google.appengine.ext import ndb  # pylint: disable=g-import-not-at-top
 except ImportError:
   ndb = None
@@ -27,5 +32,8 @@ def PrettyPrinter(obj):
 
   if ndb and isinstance(obj, ndb.Model):
     return six.iteritems(obj.to_dict()), 'ndb.Model(%s)' % type(obj).__name__
+
+  if messages and isinstance(obj, messages.Enum):
+    return [('name', obj.name), ('number', obj.number)], type(obj).__name__
 
   return None
