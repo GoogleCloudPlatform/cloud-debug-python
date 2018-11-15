@@ -1,6 +1,7 @@
 # Python Cloud Debugger Agent
 
-Google [Cloud Debugger](https://cloud.google.com/debugger/) for Python 2.7.
+Google [Cloud Debugger](https://cloud.google.com/debugger/) for Python 2.7 and
+3.7 (experimental support)
 
 ## Overview
 
@@ -27,16 +28,16 @@ tested on Debian Linux, but it should work on other distributions as well.
 Cloud Debugger consists of 3 primary components:
 
 1.  The Python debugger agent (this repo implements one for CPython 2.7, and an
-    experimental one for CPython 3.6).
+    experimental one for CPython 3.7).
 2.  Cloud Debugger service storing and managing snapshots/logpoints. Explore the
-    APIs using [APIs
-    Explorer](https://developers.google.com/apis-explorer/#p/clouddebugger/v2/).
-3.  User interface, including a command line interface [`gcloud
-    debug`](https://cloud.google.com/sdk/gcloud/reference/debug/) and a Web
-    interface on [Google Cloud
-    Console](https://console.developers.google.com/debug/). See the [online
-    help](https://cloud.google.com/debugger/docs/debugging) on how to use Google
-    Cloud Console Debug page.
+    APIs using
+    [APIs Explorer](https://developers.google.com/apis-explorer/#p/clouddebugger/v2/).
+3.  User interface, including a command line interface
+    [`gcloud debug`](https://cloud.google.com/sdk/gcloud/reference/debug/) and a
+    Web interface on
+    [Google Cloud Console](https://console.developers.google.com/debug/). See
+    the [online help](https://cloud.google.com/debugger/docs/debugging) on how
+    to use Google Cloud Console Debug page.
 
 ## Getting Help
 
@@ -81,12 +82,12 @@ sudo apt-get -y -q --no-install-recommends install \
 
 ### Python 3
 
-There is experimental support for Python 3.6. Python 3.0 to 3.5 are not
-supported, and newer versions have not been tested.
+There is experimental support for Python 3.6 and Python 3.7. Python 3.0 to 3.5
+are not supported, and newer versions have not been tested.
 
-To build, the `python3.6` and `python3.6-dev` packages are additionally needed.
-If Python 3.6 is not the default version of the 'python' command on your system,
-run the build script as `PYTHON=python3.6 ./build.sh`.
+To build, the `python3.7` and `python3.7-dev` packages are additionally needed.
+If Python 3.7 is not the default version of the 'python' command on your system,
+run the build script as `PYTHON=python3.7 ./build.sh`.
 
 ### Alpine Linux
 
