@@ -79,6 +79,13 @@ _BREAKPOINT_EVENT_STATUS = dict(
        'refersTo': 'BREAKPOINT_CONDITION',
        'description': {'format': ERROR_CONDITION_MUTABLE_0}})])
 
+# MOE:begin_strip
+# Time to wait after setting a canary breakpoint to approve it.
+# Since on_idle is typically called every 40 seconds because of the hanging get
+# on ListActiveBreakpoints, this is value is effectively rounded up to the
+# nearest multiple of 40 seconds.
+_CANARY_APPROVAL_TIME_DELTA = timedelta(seconds=35)
+# MOE:end_strip
 
 # The implementation of datetime.strptime imports an undocumented module called
 # _strptime. If it happens at the wrong time, we can get an exception about
@@ -178,6 +185,11 @@ class PythonBreakpoint(object):
           timedelta(definition.get('expires_in').get('seconds', 0)),
           self.expiration_period)
 
+    # MOE:begin_strip
+    self.is_canary = self.definition.get('isCanary', False)
+    self._canary_approval_time = (
+        breakpoints_manager.GetCurrentTime() + _CANARY_APPROVAL_TIME_DELTA)
+    # MOE:end_strip
 
     self._hub_client = hub_client
     self._breakpoints_manager = breakpoints_manager
@@ -267,6 +279,20 @@ class PythonBreakpoint(object):
             'refersTo': 'BREAKPOINT_AGE',
             'description': {'format': message}}})
 
+  # MOE:begin_strip
+  def ApproveCanaryIfNeeded(self):
+    """Approves this canary breakpoint if the needed amount of time has passed.
+
+    Each breakpoint will only be approved at most one time.
+    """
+    # This doesn't get MOEified out on App Engine, so make sure this is done
+    # only for StubbyHubClient.
+    if (self.is_canary and
+        self._canary_approval_time < self._breakpoints_manager.GetCurrentTime()
+        and getattr(self._hub_client, 'EnqueueBreakpointCanaryApproval', None)):
+      self.is_canary = False
+      self._hub_client.EnqueueBreakpointCanaryApproval(self.definition)
+  # MOE:end_strip
 
   def _ActivateBreakpoint(self, module):
     """Sets the breakpoint in the loaded module, or complete with error."""
@@ -342,6 +368,13 @@ class PythonBreakpoint(object):
         line,
         condition,
         self._BreakpointEvent)
+    # MOE:begin_strip
+    # This doesn't get MOEified out on App Engine, so make sure this is done
+    # only for StubbyHubClient.
+    if (self.is_canary and
+        getattr(self._hub_client, 'EnqueueBreakpointCanaryRegistration', None)):
+      self._hub_client.EnqueueBreakpointCanaryRegistration(self.definition)
+    # MOE:end_strip
 
   def _RemoveImportHook(self):
     """Removes the import hook if one was installed."""

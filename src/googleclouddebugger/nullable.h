@@ -17,7 +17,6 @@
 #ifndef DEVTOOLS_CDBG_DEBUGLETS_PYTHON_NULLABLE_H_
 #define DEVTOOLS_CDBG_DEBUGLETS_PYTHON_NULLABLE_H_
 
-
 #include "common.h"
 
 namespace devtools {

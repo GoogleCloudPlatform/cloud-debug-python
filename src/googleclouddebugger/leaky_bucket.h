@@ -63,7 +63,6 @@ class LeakyBucket {
   // indicates the current time in nanoseconds.
   int64 RefillBucket(int64 available_tokens, int64 current_time_ns);
 
-
   // Atomically increment "tokens_".
   inline int64 AtomicIncrementTokens(int64 increment) {
     return tokens_ += increment;

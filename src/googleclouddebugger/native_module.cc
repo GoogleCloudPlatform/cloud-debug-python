@@ -16,7 +16,6 @@
 
 // Ensure that Python.h is included before any other header.
 #include "common.h"
-
 #include "bytecode_breakpoint.h"
 #include "common.h"
 #include "conditional_breakpoint.h"
@@ -130,7 +129,6 @@ static PyObject* InitializeModule(PyObject* self, PyObject* py_args) {
 
   Py_RETURN_NONE;
 }
-
 
 // Common code for LogXXX functions.
 //
@@ -356,10 +354,10 @@ static PyObject* ApplyDynamicLogsQuota(PyObject* self, PyObject* py_args) {
 
 static PyMethodDef g_module_functions[] = {
   {
-    "InitializeModule",
-    InitializeModule,
-    METH_VARARGS,
-    "Initialize C++ flags and logging."
+     "InitializeModule",
+     InitializeModule,
+     METH_VARARGS,
+     "Initialize C++ flags and logging."
   },
   {
     "LogInfo",

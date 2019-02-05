@@ -33,7 +33,7 @@ from . import error_data_visibility_policy
 from . import gcp_hub_client
 from . import glob_data_visibility_policy
 from . import yaml_data_visibility_config_reader
-from . import cdbg_native
+# MOE:insert from . import cdbg_native
 from . import version
 
 __version__ = version.__version__
@@ -48,7 +48,7 @@ def _StartDebugger():
   global _hub_client
   global _breakpoints_manager
 
-  cdbg_native.InitializeModule(_flags)
+  # MOE:insert cdbg_native.InitializeModule(_flags)
 
   _hub_client = gcp_hub_client.GcpHubClient()
   visibility_policy = _GetVisibilityPolicy()

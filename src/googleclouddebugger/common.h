@@ -17,7 +17,6 @@
 #ifndef DEVTOOLS_CDBG_DEBUGLETS_PYTHON_COMMON_H_
 #define DEVTOOLS_CDBG_DEBUGLETS_PYTHON_COMMON_H_
 
-
 //
 // Open source includes and definition of common constants.
 //
@@ -59,7 +58,6 @@ using google::LogSink;
 using google::LogSeverity;
 using google::AddLogSink;
 using google::RemoveLogSink;
-
 
 // Python 3 compatibility
 #if PY_MAJOR_VERSION >= 3

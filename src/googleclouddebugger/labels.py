@@ -14,7 +14,7 @@
 
 """Defines the keys of the well known labels used by the cloud debugger.
 
-DO NOT EDIT - This file is auto-generated
+DO NOT EDIT
 """
 
 
@@ -23,7 +23,8 @@ class Breakpoint(object):
 
   SET_ALL = frozenset([
       'requestlogid',
-      ])
+  ])
+
 
 class Debuggee(object):
   DOMAIN = 'domain'
@@ -38,5 +39,4 @@ class Debuggee(object):
       'module',
       'version',
       'minorversion',
-      ])
-
+  ])

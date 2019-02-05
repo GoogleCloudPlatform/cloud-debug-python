@@ -29,8 +29,8 @@ import types
 
 import six
 
-from . import labels
 from . import cdbg_native as native
+from . import labels
 
 # Externally defined functions to actually log a message. If these variables
 # are not initialized, the log action for breakpoints is invalid.

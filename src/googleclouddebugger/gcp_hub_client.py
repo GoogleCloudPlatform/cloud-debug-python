@@ -38,9 +38,9 @@ import six
 import google.auth
 from google.oauth2 import service_account
 
-from . import labels
 from . import backoff
 from . import cdbg_native as native
+from . import labels
 from . import uniquifier_computer
 from . import version
 # This module catches all exception. This is safe because it runs in
