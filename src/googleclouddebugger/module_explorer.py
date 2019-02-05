@@ -180,14 +180,6 @@ def _FindCodeObjectsReferents(module, start_objects, visit_recorder):
     if code_object_file == module_file:
       return False
 
-    # MOE:begin_strip
-    # "code_object.co_filename" has a google3 relative path in .par files,
-    # while "module.__file__" has a full path.
-    if (code_object_file.startswith('google3/') and
-        module_file.endswith(code_object_file)):
-      return False
-    # MOE:end_strip
-
     return True
 
   def CheckIgnoreClass(cls):

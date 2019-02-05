@@ -14,11 +14,6 @@
 
 """Entry point for Python Cloud Debugger."""  # pylint: disable=invalid-name
 
-# MOE:begin_strip
-# This is executed when the debugger is started as a module. This is not
-# how things are done in google3, so lint is unhappy about it.
-# MOE:end_strip
-
 if __name__ == '__main__':
   import googleclouddebugger
   googleclouddebugger._DebuggerMain()

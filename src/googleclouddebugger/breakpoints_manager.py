@@ -129,15 +129,6 @@ class BreakpointsManager(object):
     for breakpoint in expired_breakpoints:
       breakpoint.ExpireBreakpoint()
 
-  # MOE:begin_strip
-  def CheckCanariesApproval(self):
-    """Approves breakpoint canaries that have been healthy for long enough."""
-    if getattr(self._hub_client, 'is_canary_task', False):
-      with self._lock:
-        for breakpoint in six.itervalues(self._active):
-          breakpoint.ApproveCanaryIfNeeded()
-  # MOE:end_strip
-
   @staticmethod
   def GetCurrentTime():
     """Wrapper around datetime.now() function.
