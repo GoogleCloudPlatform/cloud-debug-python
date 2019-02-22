@@ -56,8 +56,10 @@ _CLOUD_PLATFORM_SCOPE = ['https://www.googleapis.com/auth/cloud-platform']
 # a map is optional environment variable that can be used to set the flag
 # (flags still take precedence).
 _DEBUGGEE_LABELS = {
-    labels.Debuggee.MODULE: ['GAE_SERVICE', 'GAE_MODULE_NAME'],
-    labels.Debuggee.VERSION: ['GAE_VERSION', 'GAE_MODULE_VERSION'],
+    labels.Debuggee.MODULE: ['GAE_SERVICE', 'GAE_MODULE_NAME', 'K_SERVICE'],
+    labels.Debuggee.VERSION: [
+        'GAE_VERSION', 'GAE_MODULE_VERSION', 'K_REVISION'
+    ],
     labels.Debuggee.MINOR_VERSION: ['GAE_DEPLOYMENT_ID', 'GAE_MINOR_VERSION']
 }
 
