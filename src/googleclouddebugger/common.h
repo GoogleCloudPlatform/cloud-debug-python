@@ -17,7 +17,6 @@
 #ifndef DEVTOOLS_CDBG_DEBUGLETS_PYTHON_COMMON_H_
 #define DEVTOOLS_CDBG_DEBUGLETS_PYTHON_COMMON_H_
 
-//
 // Open source includes and definition of common constants.
 //
 
