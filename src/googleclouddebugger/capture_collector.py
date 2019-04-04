@@ -642,7 +642,7 @@ class CaptureCollector(object):
 
     if callable(breakpoint_labels_collector):
       for (key, value) in six.iteritems(breakpoint_labels_collector()):
-        self.breakpoint['labels'][key] = value
+        self._StoreLabel(key, value)
 
   def _CaptureRequestLogId(self):
     """Captures the request log id if possible.
@@ -654,14 +654,27 @@ class CaptureCollector(object):
       request_log_id = request_log_id_collector()
       if request_log_id:
         # We have a request_log_id, save it into the breakpoint labels
-        self.breakpoint['labels'][
-            labels.Breakpoint.REQUEST_LOG_ID] = request_log_id
+        self._StoreLabel(labels.Breakpoint.REQUEST_LOG_ID, request_log_id)
 
   def _CaptureUserId(self):
     """Captures the user id of the end user, if possible."""
     user_kind, user_id = user_id_collector()
     if user_kind and user_id:
       self.breakpoint['evaluatedUserId'] = {'kind': user_kind, 'id': user_id}
+
+  def _StoreLabel(self, name, value):
+    """Stores the specified label in the breakpoint's labels.
+
+    In the event of a duplicate label, favour the pre-existing labels. This
+    generally should not be an issue as the pre-existing client label names are
+    chosen with care and there should be no conflicts.
+
+    Args:
+      name: The name of the label to be stored.
+      value: The value of the label to be stored.
+    """
+    if name not in self.breakpoint['labels']:
+      self.breakpoint['labels'][name] = value
 
 
 class LogCollector(object):
