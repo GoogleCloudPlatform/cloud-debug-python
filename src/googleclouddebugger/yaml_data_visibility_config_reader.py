@@ -104,7 +104,7 @@ def Read(f):
     Error (some subclass): If there is a problem loading or parsing the file.
   """
   try:
-    yaml_data = yaml.load(f)
+    yaml_data = yaml.safe_load(f)
   except yaml.YAMLError as e:
     raise ParseError('%s' % e)
   except IOError as e:
