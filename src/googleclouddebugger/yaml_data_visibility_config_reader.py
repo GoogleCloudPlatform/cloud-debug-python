@@ -17,7 +17,7 @@
 Example Usage:
   try:
     config = yaml_data_visibility_config_reader.OpenAndRead(filename)
-  except yaml_data_visibility_config_reader.Error, e:
+  except yaml_data_visibility_config_reader.Error as e:
     ...
 
   visibility_policy = GlobDataVisibilityPolicy(
