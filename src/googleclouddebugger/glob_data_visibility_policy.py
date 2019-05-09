@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Determines the visibilty of python data and symbols.
+"""Determines the visibility of python data and symbols.
 
 Example Usage:
 

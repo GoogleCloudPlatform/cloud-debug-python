@@ -400,12 +400,12 @@ class CaptureCollector(object):
       name = str(id(name))
     self._total_size += len(name)
 
-    v = (self.CheckDataVisiblity(value) or
+    v = (self.CheckDataVisibility(value) or
          self.CaptureVariable(value, depth, limits))
     v['name'] = name
     return v
 
-  def CheckDataVisiblity(self, value):
+  def CheckDataVisibility(self, value):
     """Returns a status object if the given name is not visible.
 
     Args:

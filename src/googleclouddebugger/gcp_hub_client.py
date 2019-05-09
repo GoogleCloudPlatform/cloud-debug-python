@@ -146,7 +146,7 @@ class GcpHubClient(object):
   def InitializeDebuggeeLabels(self, flags):
     """Initialize debuggee labels from environment variables and flags.
 
-    The caller passes all the flags that the the debuglet got. This function
+    The caller passes all the flags that the debuglet got. This function
     will only use the flags used to label the debuggee. Flags take precedence
     over environment variables.
 
