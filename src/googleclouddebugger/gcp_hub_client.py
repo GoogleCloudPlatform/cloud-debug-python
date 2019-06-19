@@ -22,6 +22,7 @@ import json
 import logging
 import os
 import platform
+import socket
 import sys
 import threading
 import time
@@ -418,17 +419,29 @@ class GcpHubClient(object):
         # not be retried. All other errors are assumed to be transient.
         status = err.resp.status
         is_transient = ((status >= 500) or (status == 408))
-        if is_transient and retry_count < self.max_transmit_attempts - 1:
-          native.LogInfo('Failed to send breakpoint %s update: %s' % (
-              breakpoint['id'], traceback.format_exc()))
-          retry_list.append((breakpoint, retry_count + 1))
-        elif is_transient:
-          native.LogWarning(
-              'Breakpoint %s retry count exceeded maximum' % breakpoint['id'])
+        if is_transient:
+          if retry_count < self.max_transmit_attempts - 1:
+            native.LogInfo('Failed to send breakpoint %s update: %s' %
+                           (breakpoint['id'], traceback.format_exc()))
+            retry_list.append((breakpoint, retry_count + 1))
+          else:
+            native.LogWarning('Breakpoint %s retry count exceeded maximum' %
+                              breakpoint['id'])
         else:
           # This is very common if multiple instances are sending final update
           # simultaneously.
           native.LogInfo('%s, breakpoint: %s' % (err, breakpoint['id']))
+      except socket.error as err:
+        if retry_count < self.max_transmit_attempts - 1:
+          native.LogInfo(
+              'Socket error %d while sending breakpoint %s update: %s' %
+              (err.errno, breakpoint['id'], traceback.format_exc()))
+          retry_list.append((breakpoint, retry_count + 1))
+        else:
+          native.LogWarning('Breakpoint %s retry count exceeded maximum' %
+                            breakpoint['id'])
+          # Socket errors shouldn't persist like this; reconnect.
+          reconnect = True
       except BaseException:
         native.LogWarning(
             'Fatal error sending breakpoint %s update: %s' % (
