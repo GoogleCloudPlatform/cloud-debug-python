@@ -68,7 +68,7 @@ def AddImportCallbackBySuffix(path, callback):
   the callback will be invoked. This function does not validates the existence
   of such a module and it's the responsibility of the caller.
 
-  TODO(erezh): handle module reload.
+  TODO: handle module reload.
 
   Args:
     path: python module file path. It may be missing the directories for the
@@ -418,7 +418,7 @@ def _InvokeImportCallbackBySuffix(names):
     nonempty_modules = (m for m in modules if m)
 
     for module in nonempty_modules:
-      # TODO(emrekultursay): Write unit test to cover None case.
+      # TODO: Write unit test to cover None case.
       mod_file = getattr(module, '__file__', None)
       if not mod_file:
         continue

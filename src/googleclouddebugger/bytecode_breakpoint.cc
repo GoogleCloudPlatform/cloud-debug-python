@@ -48,7 +48,7 @@ void BytecodeBreakpoint::Detach() {
     it->second->breakpoints.clear();
     PatchCodeObject(it->second);
 
-    // TODO(vlif): assert zombie_refs.empty() after garbage collection
+    // TODO: assert zombie_refs.empty() after garbage collection
     // for zombie refs is implemented.
 
     delete it->second;

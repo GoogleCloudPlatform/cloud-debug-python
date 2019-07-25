@@ -14,7 +14,7 @@
 
 """Captures application state on a breakpoint hit."""
 
-# TODO(vlif): rename this file to collector.py.
+# TODO: rename this file to collector.py.
 
 import copy
 import datetime
@@ -53,7 +53,7 @@ _PRIMITIVE_TYPES = (type(None), float, complex, bool, slice, bytearray,
 _DATE_TYPES = (datetime.date, datetime.time, datetime.timedelta)
 _VECTOR_TYPES = (tuple, list, set)
 
-# TODO(vlif): move to messages.py module.
+# TODO: move to messages.py module.
 EMPTY_DICTIONARY = 'Empty dictionary'
 EMPTY_COLLECTION = 'Empty collection'
 OBJECT_HAS_NO_FIELDS = 'Object has no fields'
@@ -396,7 +396,7 @@ class CaptureCollector(object):
     """
     if not hasattr(name, '__dict__'):
       name = str(name)
-    else:  # TODO(vlif): call str(name) with immutability verifier here.
+    else:  # TODO: call str(name) with immutability verifier here.
       name = str(id(name))
     self._total_size += len(name)
 
@@ -488,8 +488,8 @@ class CaptureCollector(object):
   def CaptureVariableInternal(self, value, depth, limits, can_enqueue=True):
     """Captures a single nameless object into Variable message.
 
-    TODO(vlif): safely evaluate iterable types.
-    TODO(vlif): safely call str(value)
+    TODO: safely evaluate iterable types.
+    TODO: safely call str(value)
 
     Args:
       value: data to capture
@@ -537,7 +537,7 @@ class CaptureCollector(object):
 
     if isinstance(value, types.FunctionType):
       self._total_size += len(value.__name__)
-      # TODO(vlif): set value to func_name and type to 'function'
+      # TODO: set value to func_name and type to 'function'
       return {'value': 'function ' + value.__name__}
 
     if isinstance(value, Exception):
@@ -567,7 +567,7 @@ class CaptureCollector(object):
               'type': object_type}
 
     if not hasattr(value, '__dict__'):
-      # TODO(vlif): keep "value" empty and populate the "type" field instead.
+      # TODO: keep "value" empty and populate the "type" field instead.
       r = str(type(value))
       self._total_size += len(r)
       return {'value': r}

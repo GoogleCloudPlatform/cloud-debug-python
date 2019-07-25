@@ -29,7 +29,7 @@ namespace cdbg {
 // Sets breakpoints in Python code with zero runtime overhead.
 // BytecodeBreakpoint rewrites Python bytecode to insert a breakpoint. The
 // implementation is specific to CPython 2.7.
-// TODO(vlif): rename to BreakpointsEmulator when the original implementation
+// TODO: rename to BreakpointsEmulator when the original implementation
 // of BreakpointsEmulator goes away.
 class BytecodeBreakpoint {
  public:
@@ -94,7 +94,7 @@ class BytecodeBreakpoint {
     // constants. Instead we store these references in a special zombie pool.
     // Then once we know that no Python thread is executing the code object,
     // we can release all of them.
-    // TODO(vlif): implement garbage collection for zombie refs.
+    // TODO: implement garbage collection for zombie refs.
     std::vector<ScopedPyObject> zombie_refs;
 
     // Original value of PyCodeObject::co_stacksize before patching.

@@ -80,7 +80,7 @@ bool ConditionalBreakpoint::EvaluateCondition(PyFrameObject* frame) {
     line_count = immutability_tracer.GetLineCount();
   }
 
-  // TODO(vlif): clear breakpoint if condition evaluation failed due to
+  // TODO: clear breakpoint if condition evaluation failed due to
   // mutable code or timeout.
 
   auto eval_exception = ClearPythonException();

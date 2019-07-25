@@ -414,7 +414,7 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8 opcode) {
     case IMPORT_FROM:
     case SETUP_EXCEPT:
     case SETUP_FINALLY:
-    // TODO(xinghuadou): allow changing fields of locally created objects/lists.
+    // TODO: allow changing fields of locally created objects/lists.
     case STORE_SUBSCR:
     case DELETE_SUBSCR:
     case STORE_NAME:
@@ -425,11 +425,11 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8 opcode) {
     case SET_ADD:
     case MAP_ADD:
     case STORE_DEREF:
-    // TODO(xinghuadou): allow exception handling
+    // TODO: allow exception handling
     case RAISE_VARARGS:
     case END_FINALLY:
     case SETUP_WITH:
-    // TODO(xinghuadou): allow closures
+    // TODO: allow closures
     case LOAD_CLOSURE:
 #if PY_MAJOR_VERSION >= 3
     case GET_AITER:
@@ -523,7 +523,7 @@ void ImmutabilityTracer::ProcessCodeRange(const uint8* code_start,
 
 void ImmutabilityTracer::ProcessCCall(PyObject* function) {
   if (PyCFunction_Check(function)) {
-    // TODO(vlif): the application code can define its own "str" function
+    // TODO: the application code can define its own "str" function
     // that will do some evil things. Application can also override builtin
     // "str" method. If we want to protect against it, we should load pointers
     // to native functions when debugger initializes (which happens before
@@ -553,7 +553,7 @@ void ImmutabilityTracer::ProcessCCall(PyObject* function) {
 
 
 void ImmutabilityTracer::SetMutableCodeException() {
-  // TODO(vlif): use custom type for this exception. This way we can provide
+  // TODO: use custom type for this exception. This way we can provide
   // a more detailed error message.
   PyErr_SetString(
       PyExc_SystemError,

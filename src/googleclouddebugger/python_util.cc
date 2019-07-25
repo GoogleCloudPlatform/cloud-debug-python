@@ -181,7 +181,7 @@ Nullable<string> ClearPythonException() {
     return Nullable<string>();  // return nullptr.
   }
 
-  // TODO(vlif): call str(exception_obj) with a verification of immutability
+  // TODO: call str(exception_obj) with a verification of immutability
   // that the object state is not being altered.
 
   auto exception_type = reinterpret_cast<PyTypeObject*>(exception_obj->ob_type);

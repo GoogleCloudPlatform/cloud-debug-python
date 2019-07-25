@@ -756,7 +756,7 @@ bool BytecodeManipulator::AppendMethodCall(
     // block. Unfortunately not all instructions can be moved:
     // 1. Instructions with relative offset can't be moved forward, because
     //    the offset can't be negative.
-    //    TODO(vlif): FORWARD_JUMP can be replaced with ABSOLUTE_JUMP.
+    //    TODO: FORWARD_JUMP can be replaced with ABSOLUTE_JUMP.
     // 2. YIELD_VALUE can't be moved because generator object keeps the frame
     //    object in between "yield" calls. If the breakpoint is added or
     //    removed, subsequent calls into the generator will jump into invalid

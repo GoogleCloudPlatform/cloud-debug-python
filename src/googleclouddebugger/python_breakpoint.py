@@ -26,7 +26,7 @@ from . import module_explorer
 from . import module_search2
 from . import module_utils2
 
-# TODO(vlif): move to messages.py module.
+# TODO: move to messages.py module.
 # Use the following schema to define breakpoint error message constant:
 # ERROR_<Single word from Status.Reference>_<short error name>_<num params>
 ERROR_LOCATION_FILE_EXTENSION_0 = (
@@ -126,7 +126,7 @@ def _MultipleModulesFoundError(path, candidates):
 
 def _NormalizePath(path):
   """Removes surrounding whitespace, leading separator and normalize."""
-  # TODO(emrekultursay): Calling os.path.normpath "may change the meaning of a
+  # TODO: Calling os.path.normpath "may change the meaning of a
   # path that contains symbolic links" (e.g., "A/foo/../B" != "A/B" if foo is a
   # symlink). This might cause trouble when matching against loaded module
   # paths. We should try to avoid using it.
@@ -239,7 +239,7 @@ class PythonBreakpoint(object):
 
   def GetExpirationTime(self):
     """Computes the timestamp at which this breakpoint will expire."""
-    # TODO(emrekultursay): Move this to a common method.
+    # TODO: Move this to a common method.
     if '.' not in self.definition['createTime']:
       fmt = '%Y-%m-%dT%H:%M:%S%Z'
     else:
@@ -278,7 +278,7 @@ class PythonBreakpoint(object):
     if not status:
       # First two parameters are common: the line of the breakpoint and the
       # module we are trying to insert the breakpoint in.
-      # TODO(emrekultursay): Do not display the entire path of the file. Either
+      # TODO: Do not display the entire path of the file. Either
       # strip some prefix, or display the path in the breakpoint.
       params = [str(line), os.path.splitext(module.__file__)[0] + '.py']
 
@@ -398,7 +398,7 @@ class PythonBreakpoint(object):
     collector = capture_collector.CaptureCollector(
         self.definition, self.data_visibility_policy)
 
-    # TODO(b/69119299): This is a temporary try/except. All exceptions should be
+    # TODO: This is a temporary try/except. All exceptions should be
     # caught inside Collect and converted into breakpoint error messages.
     try:
       collector.Collect(frame)
