@@ -49,6 +49,8 @@ def _StartDebugger():
   global _breakpoints_manager
 
   cdbg_native.InitializeModule(_flags)
+  cdbg_native.LogInfo('Initializing Cloud Debugger Python agent version: %s' %
+                      __version__)
 
   _hub_client = gcp_hub_client.GcpHubClient()
   visibility_policy = _GetVisibilityPolicy()
