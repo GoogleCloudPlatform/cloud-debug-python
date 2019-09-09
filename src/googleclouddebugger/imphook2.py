@@ -422,6 +422,8 @@ def _InvokeImportCallbackBySuffix(names):
       mod_file = getattr(module, '__file__', None)
       if not mod_file:
         continue
+      if not isinstance(mod_file, str):
+        continue
 
       mod_root = os.path.splitext(mod_file)[0]
 
