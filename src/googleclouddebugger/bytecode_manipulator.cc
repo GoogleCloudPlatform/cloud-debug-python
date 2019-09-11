@@ -18,6 +18,7 @@
 #include "common.h"
 
 #include "bytecode_manipulator.h"
+
 #include <algorithm>
 
 namespace devtools {

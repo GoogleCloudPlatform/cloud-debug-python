@@ -18,6 +18,7 @@
 #define DEVTOOLS_CDBG_DEBUGLETS_PYTHON_BYTECODE_MANIPULATOR_H_
 
 #include <vector>
+
 #include "common.h"
 
 namespace devtools {
