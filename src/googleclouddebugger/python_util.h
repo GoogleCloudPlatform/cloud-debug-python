@@ -303,14 +303,14 @@ ScopedPyObject NewNativePythonObject() {
 
 // Checks whether the previous call generated an exception. If not, returns
 // nullptr. Otherwise formats the exception to string.
-Nullable<string> ClearPythonException();
+Nullable<std::string> ClearPythonException();
 
 // Gets Python object from dictionary of a native module. Returns nullptr if not
 // found. In case of success returns borrowed reference.
 PyObject* GetDebugletModuleObject(const char* key);
 
 // Formats the name and the origin of the code object for logging.
-string CodeObjectDebugString(PyCodeObject* code_object);
+std::string CodeObjectDebugString(PyCodeObject* code_object);
 
 // Reads Python string as a byte array. The function does not verify that
 // "obj" is of a string type.

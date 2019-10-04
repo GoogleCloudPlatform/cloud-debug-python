@@ -174,18 +174,17 @@ bool RegisterPythonType(PyTypeObject* type) {
   return true;
 }
 
-
-Nullable<string> ClearPythonException() {
+Nullable<std::string> ClearPythonException() {
   PyObject* exception_obj = PyErr_Occurred();
   if (exception_obj == nullptr) {
-    return Nullable<string>();  // return nullptr.
+    return Nullable<std::string>();  // return nullptr.
   }
 
   // TODO: call str(exception_obj) with a verification of immutability
   // that the object state is not being altered.
 
   auto exception_type = reinterpret_cast<PyTypeObject*>(exception_obj->ob_type);
-  string msg = exception_type->tp_name;
+  std::string msg = exception_type->tp_name;
 
 #ifndef NDEBUG
   PyErr_Print();
@@ -202,9 +201,8 @@ Nullable<string> ClearPythonException() {
 
   PyErr_Clear();
 
-  return Nullable<string>(msg);
+  return Nullable<std::string>(msg);
 }
-
 
 PyObject* GetDebugletModuleObject(const char* key) {
   PyObject* module_dict = PyModule_GetDict(GetDebugletModule());
@@ -222,8 +220,7 @@ PyObject* GetDebugletModuleObject(const char* key) {
   return object;
 }
 
-
-string CodeObjectDebugString(PyCodeObject* code_object) {
+std::string CodeObjectDebugString(PyCodeObject* code_object) {
   if (code_object == nullptr) {
     return "<null>";
   }
@@ -232,7 +229,7 @@ string CodeObjectDebugString(PyCodeObject* code_object) {
     return "<not a code object>";
   }
 
-  string str;
+  std::string str;
 
   if ((code_object->co_name != nullptr) &&
       PyBytes_CheckExact(code_object->co_name)) {
@@ -252,7 +249,6 @@ string CodeObjectDebugString(PyCodeObject* code_object) {
 
   return str;
 }
-
 
 std::vector<uint8> PyBytesToByteArray(PyObject* obj) {
   DCHECK(PyBytes_CheckExact(obj));
