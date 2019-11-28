@@ -331,7 +331,6 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8 opcode) {
     case INPLACE_AND:
     case INPLACE_XOR:
     case INPLACE_OR:
-    case BREAK_LOOP:
     case RETURN_VALUE:
     case YIELD_VALUE:
     case POP_BLOCK:
@@ -351,8 +350,6 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8 opcode) {
     case POP_JUMP_IF_TRUE:
     case POP_JUMP_IF_FALSE:
     case LOAD_GLOBAL:
-    case CONTINUE_LOOP:
-    case SETUP_LOOP:
     case LOAD_FAST:
     case STORE_FAST:
     case DELETE_FAST:
@@ -362,6 +359,12 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8 opcode) {
     case LOAD_DEREF:
     case CALL_FUNCTION_KW:
     case EXTENDED_ARG:
+#if PY_VERSION_HEX < 0x03080000
+    // These were all removed in Python 3.8.
+    case BREAK_LOOP:
+    case CONTINUE_LOOP:
+    case SETUP_LOOP:
+#endif
 #if PY_MAJOR_VERSION >= 3
     case DUP_TOP_TWO:
     case BINARY_MATRIX_MULTIPLY:
@@ -384,6 +387,10 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8 opcode) {
     // Added in Python 3.7.
     case LOAD_METHOD:
     case CALL_METHOD:
+#endif
+#if PY_VERSION_HEX >= 0x03080000
+    // Added back in Python 3.8 (was in 2.7 as well)
+    case ROT_FOUR:
 #endif
 #else
     case ROT_FOUR:
@@ -412,7 +419,6 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8 opcode) {
     case IMPORT_STAR:
     case IMPORT_NAME:
     case IMPORT_FROM:
-    case SETUP_EXCEPT:
     case SETUP_FINALLY:
     // TODO: allow changing fields of locally created objects/lists.
     case STORE_SUBSCR:
@@ -431,6 +437,10 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8 opcode) {
     case SETUP_WITH:
     // TODO: allow closures
     case LOAD_CLOSURE:
+#if PY_VERSION_HEX < 0x03080000
+    // Removed in Python 3.8.
+    case SETUP_EXCEPT:
+#endif
 #if PY_MAJOR_VERSION >= 3
     case GET_AITER:
     case GET_ANEXT:
@@ -447,6 +457,13 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8 opcode) {
 #endif
     case DELETE_DEREF:
     case SETUP_ASYNC_WITH:
+#if PY_VERSION_HEX >= 0x03080000
+    // Added in Python 3.8.
+    case BEGIN_FINALLY:
+    case END_ASYNC_FOR:
+    case CALL_FINALLY:
+    case POP_FINALLY:
+#endif
 #else
     case STORE_SLICE+0:
     case STORE_SLICE+1:

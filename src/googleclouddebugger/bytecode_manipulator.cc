@@ -126,10 +126,16 @@ static PythonOpcodeType GetOpcodeType(uint8 opcode) {
 
     case FOR_ITER:
     case JUMP_FORWARD:
+#if PY_VERSION_HEX < 0x03080000
+    // Removed in Python 3.8.
     case SETUP_LOOP:
     case SETUP_EXCEPT:
+#endif
     case SETUP_FINALLY:
     case SETUP_WITH:
+#if PY_VERSION_HEX >= 0x03080000
+    case CALL_FINALLY:
+#endif
       return BRANCH_DELTA_OPCODE;
 
     case JUMP_IF_FALSE_OR_POP:
@@ -137,7 +143,10 @@ static PythonOpcodeType GetOpcodeType(uint8 opcode) {
     case JUMP_ABSOLUTE:
     case POP_JUMP_IF_FALSE:
     case POP_JUMP_IF_TRUE:
+#if PY_VERSION_HEX < 0x03080000
+    // Removed in Python 3.8.
     case CONTINUE_LOOP:
+#endif
       return BRANCH_ABSOLUTE_OPCODE;
 
     default:
