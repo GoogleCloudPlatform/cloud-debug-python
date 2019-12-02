@@ -1,7 +1,7 @@
 # Python Cloud Debugger Agent
 
-Google [Cloud Debugger](https://cloud.google.com/debugger/) for Python 2.7 and
-3.7 (experimental support)
+Google [Cloud Debugger](https://cloud.google.com/debugger/) for Python 2.7, and
+with experimental support for Python 3.6, Python 3.7 and Python 3.8.
 
 ## Overview
 
@@ -27,8 +27,8 @@ tested on Debian Linux, but it should work on other distributions as well.
 
 Cloud Debugger consists of 3 primary components:
 
-1.  The Python debugger agent (this repo implements one for CPython 2.7, and an
-    experimental one for CPython 3.7).
+1.  The Python debugger agent (this repo implements one for CPython 2.7, and
+    experimental ones for CPython 3.6, 3.7 and 3.8).
 2.  Cloud Debugger service storing and managing snapshots/logpoints. Explore the
     APIs using
     [APIs Explorer](https://developers.google.com/apis-explorer/#p/clouddebugger/v2/).
@@ -82,12 +82,13 @@ sudo apt-get -y -q --no-install-recommends install \
 
 ### Python 3
 
-There is experimental support for Python 3.6 and Python 3.7. Python 3.0 to 3.5
-are not supported, and newer versions have not been tested.
+There is experimental support for Python 3.6, Python 3.7 and Python 3.8. Python
+3.0 to 3.5 are not supported, and newer versions have not been tested.
 
-To build, the `python3.7` and `python3.7-dev` packages are additionally needed.
-If Python 3.7 is not the default version of the 'python' command on your system,
-run the build script as `PYTHON=python3.7 ./build.sh`.
+To build for Python 3.x (x in [6-8]), the `python3.x` and `python3.x-dev`
+packages are additionally needed.  If Python 3.x is not the default version of
+the 'python' command on your system, run the build script as `PYTHON=python3.x
+./build.sh`.
 
 ### Alpine Linux
 
