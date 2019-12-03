@@ -17,11 +17,12 @@
 // Ensure that Python.h is included before any other header.
 #include "common.h"
 
+#include "native_module.h"
+
 #include "bytecode_breakpoint.h"
 #include "common.h"
 #include "conditional_breakpoint.h"
 #include "immutability_tracer.h"
-#include "native_module.h"
 #include "python_callback.h"
 #include "python_util.h"
 #include "rate_limit.h"
