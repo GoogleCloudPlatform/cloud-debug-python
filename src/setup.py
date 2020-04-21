@@ -107,7 +107,7 @@ setup(
     author='Google Inc.',
     version=version,
     install_requires=[
-        'google-api-python-client',
+        'google-api-python-client==1.8.0',
         'google-auth>=1.0.0',
         'google-auth-httplib2',
         'pyyaml',
