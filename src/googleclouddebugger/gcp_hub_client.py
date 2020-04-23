@@ -30,9 +30,9 @@ import traceback
 
 
 
-import apiclient
-import apiclient.discovery
 import google_auth_httplib2
+import googleapiclient
+import googleapiclient.discovery
 import httplib2
 import six
 
@@ -129,7 +129,7 @@ class GcpHubClient(object):
             return False
         return True
     self._log_filter = _ChildLogFilter({logging.INFO})
-    apiclient.discovery.logger.addFilter(self._log_filter)
+    googleapiclient.discovery.logger.addFilter(self._log_filter)
 
     #
     # Configuration options (constants only modified by unit test)
@@ -265,7 +265,7 @@ class GcpHubClient(object):
     http = httplib2.Http(timeout=_HTTP_TIMEOUT_SECONDS)
     http = google_auth_httplib2.AuthorizedHttp(self._credentials, http)
 
-    api = apiclient.discovery.build(
+    api = googleapiclient.discovery.build(
         'clouddebugger', 'v2', http=http, cache_discovery=False)
     return api.controller()
 
@@ -414,7 +414,7 @@ class GcpHubClient(object):
 
         native.LogInfo('Breakpoint %s update transmitted successfully' % (
             breakpoint['id']))
-      except apiclient.errors.HttpError as err:
+      except googleapiclient.errors.HttpError as err:
         # Treat 400 error codes (except timeout) as application error that will
         # not be retried. All other errors are assumed to be transient.
         status = err.resp.status
