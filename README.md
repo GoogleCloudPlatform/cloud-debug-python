@@ -35,7 +35,7 @@ Cloud Debugger consists of 3 primary components:
 3.  User interface, including a command line interface
     [`gcloud debug`](https://cloud.google.com/sdk/gcloud/reference/debug/) and a
     Web interface on
-    [Google Cloud Console](https://console.developers.google.com/debug/). See
+    [Google Cloud Console](https://console.cloud.google.com/debug/). See
     the [online help](https://cloud.google.com/debugger/docs/debugging) on how
     to use Google Cloud Console Debug page.
 
