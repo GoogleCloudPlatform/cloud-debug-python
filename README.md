@@ -31,12 +31,12 @@ Cloud Debugger consists of 3 primary components:
     experimental ones for CPython 3.6, 3.7 and 3.8).
 2.  Cloud Debugger service storing and managing snapshots/logpoints. Explore the
     APIs using
-    [APIs Explorer](https://developers.google.com/apis-explorer/#p/clouddebugger/v2/).
+    [APIs Explorer](https://cloud.google.com/debugger/api/reference/rest/).
 3.  User interface, including a command line interface
     [`gcloud debug`](https://cloud.google.com/sdk/gcloud/reference/debug/) and a
     Web interface on
-    [Google Cloud Console](https://console.cloud.google.com/debug/). See
-    the [online help](https://cloud.google.com/debugger/docs/debugging) on how
+    [Google Cloud Console](https://console.cloud.google.com/debug/). See the
+    [online help](https://cloud.google.com/debugger/docs/using/snapshots) on how
     to use Google Cloud Console Debug page.
 
 ## Getting Help
