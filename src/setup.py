@@ -23,6 +23,7 @@ except ImportError:
 from glob import glob
 import os
 import re
+import sys
 from distutils import sysconfig
 from setuptools import Extension
 from setuptools import setup
@@ -108,7 +109,8 @@ setup(
     version=version,
     install_requires=[
         'google-api-python-client',
-        'google-auth>=1.0.0',
+        'google-auth==1.8.2'
+        if sys.version_info.major < 3 else 'google-auth>=1.0.0',
         'google-auth-httplib2',
         'pyyaml',
         'six>=1.10.0',
