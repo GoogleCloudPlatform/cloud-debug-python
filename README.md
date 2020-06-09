@@ -271,3 +271,9 @@ Default Credentials](https://cloud.google.com/docs/authentication/production)
 which are automatically available on machines hosted on GCP, or can be set via
 `gcloud auth application-default login` or the `GOOGLE_APPLICATION_CREDENTIALS`
 environment variable.
+
+`breakpoint_enable_canary`: Whether to enable the
+[breakpoint canary feature](https://cloud.google.com/debugger/docs/using/snapshots#with_canarying).
+It expects a boolean value (`True`/`False`) or a string, with `'True'`
+interpreted as `True` and any other string interpreted as `False`). If not
+provided, the breakpoint canarying will not be enabled.

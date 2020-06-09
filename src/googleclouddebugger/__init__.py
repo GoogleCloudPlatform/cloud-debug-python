@@ -72,6 +72,9 @@ def _StartDebugger():
       _flags.get('project_id'),
       _flags.get('project_number'),
       _flags.get('service_account_json_file'))
+  _hub_client.SetupCanaryMode(
+      _flags.get('breakpoint_enable_canary'),
+      _flags.get('breakpoint_allow_canary_override'))
   _hub_client.InitializeDebuggeeLabels(_flags)
   _hub_client.Start()
 

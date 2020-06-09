@@ -75,6 +75,15 @@ _DESCRIPTION_LABELS = [
 # of 40 seconds.
 _HTTP_TIMEOUT_SECONDS = 100
 
+# The map from the values of flags (breakpoint_enable_canary,
+# breakpoint_allow_canary_override) to canary mode.
+_CANARY_MODE_MAP = {
+    (True, True): 'CANARY_MODE_DEFAULT_ENABLED',
+    (True, False): 'CANARY_MODE_ALWAYS_ENABLED',
+    (False, True): 'CANARY_MODE_DEFAULT_DISABLED',
+    (False, False): 'CANARY_MODE_ALWAYS_DISABLED',
+}
+
 
 class NoProjectIdError(Exception):
   """Used to indicate the project id cannot be determined."""
@@ -101,6 +110,8 @@ class GcpHubClient(object):
     self._debuggee_labels = {}
     self._service_account_auth = False
     self._debuggee_id = None
+    self._agent_id = None
+    self._canary_mode = None
     self._wait_token = 'init'
     self._breakpoints = []
     self._main_thread = None
@@ -218,6 +229,21 @@ class GcpHubClient(object):
     self._project_id = project_id
     self._project_number = project_number or project_id
 
+  def SetupCanaryMode(self, breakpoint_enable_canary,
+                      breakpoint_allow_canary_override):
+    """Sets up canaryMode for the debuggee according to input parameters.
+
+    Args:
+      breakpoint_enable_canary: str or bool, whether to enable breakpoint
+          canary. Any string except 'True' is interpreted as False.
+      breakpoint_allow_canary_override: str or bool, whether to allow the
+          individually set breakpoint to override the canary behavior. Any
+          string except 'True' is interpreted as False.
+    """
+    enable_canary = breakpoint_enable_canary in ('True', True)
+    allow_canary_override = breakpoint_allow_canary_override in ('True', True)
+    self._canary_mode = _CANARY_MODE_MAP[enable_canary, allow_canary_override]
+
   def Start(self):
     """Starts the worker thread."""
     self._shutdown = False
@@ -327,8 +353,11 @@ class GcpHubClient(object):
         self._project_number = project_number or self._project_number
 
         self._debuggee_id = response['debuggee']['id']
-        native.LogInfo('Debuggee registered successfully, ID: %s' % (
-            self._debuggee_id))
+        self._agent_id = response['agentId']
+        native.LogInfo(
+            'Debuggee registered successfully, ID: %s, agent ID: %s, '
+            'canary mode: %s' % (self._debuggee_id, self._agent_id,
+                                 response['debuggee'].get('canaryMode')))
         self.register_backoff.Succeeded()
         return (False, 0)  # Proceed immediately to list active breakpoints.
       except BaseException:
@@ -355,7 +384,9 @@ class GcpHubClient(object):
     """
     try:
       response = service.debuggees().breakpoints().list(
-          debuggeeId=self._debuggee_id, waitToken=self._wait_token,
+          debuggeeId=self._debuggee_id,
+          agentId=self._agent_id,
+          waitToken=self._wait_token,
           successOnTimeout=True).execute()
       if not response.get('waitExpired'):
         self._wait_token = response.get('nextWaitToken')
@@ -469,6 +500,7 @@ class GcpHubClient(object):
         'description': self._GetDebuggeeDescription(),
         'labels': self._debuggee_labels,
         'agentVersion': agent_version,
+        'canaryMode': self._canary_mode,
     }
 
     source_context = self._ReadAppJsonFile('source-context.json')
