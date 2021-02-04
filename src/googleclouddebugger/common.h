@@ -59,6 +59,36 @@ using google::LogSeverity;
 using google::AddLogSink;
 using google::RemoveLogSink;
 
+// The open source build uses gflags, which uses the traditional (v1) flags APIs
+// to define/declare/access command line flags. The internal build has upgraded
+// to use v2 flags API (DEFINE_FLAG/DECLARE_FLAG/GetFlag/SetFlag), which is not
+// supported by gflags yet (and absl is not released to open source yet).
+// Here, we use simple, dummy v2 flags wrappers around v1 flags implementation.
+// This allows us to use the same flags APIs both internally and externally.
+
+#define ABSL_FLAG(type, name, default_value, help) \
+  DEFINE_##type(name, default_value, help)
+
+#define ABSL_DECLARE_FLAG(type, name) DECLARE_##type(name)
+
+namespace absl {
+// Return the value of an old-style flag.  Not thread-safe.
+inline bool GetFlag(bool flag) { return flag; }
+inline int32 GetFlag(int32 flag) { return flag; }
+inline int64 GetFlag(int64 flag) { return flag; }
+inline uint64 GetFlag(uint64 flag) { return flag; }
+inline double GetFlag(double flag) { return flag; }
+inline string GetFlag(const string& flag) { return flag; }
+
+// Change the value of an old-style flag.  Not thread-safe.
+inline void SetFlag(bool* f, bool v) { *f = v; }
+inline void SetFlag(int32* f, int32 v) { *f = v; }
+inline void SetFlag(int64* f, int64 v) { *f = v; }
+inline void SetFlag(uint64* f, uint64 v) { *f = v; }
+inline void SetFlag(double* f, double v) { *f = v; }
+inline void SetFlag(string* f, const string& v) { *f = v; }
+}  // namespace absl
+
 // Python 3 compatibility
 #if PY_MAJOR_VERSION >= 3
 // Python 2 has both an 'int' and a 'long' type, and Python 3 only as an 'int'

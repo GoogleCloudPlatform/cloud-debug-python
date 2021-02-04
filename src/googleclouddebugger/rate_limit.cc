@@ -19,22 +19,20 @@
 
 #include "rate_limit.h"
 
-DEFINE_int32(
-    max_condition_lines_rate,
-    5000,
+ABSL_FLAG(
+    int32, max_condition_lines_rate, 5000,
     "maximum number of Python lines/sec to spend on condition evaluation");
 
-DEFINE_int32(
-    max_dynamic_log_rate,
+ABSL_FLAG(
+    int32, max_dynamic_log_rate,
     50,  // maximum of 50 log entries per second on average
     "maximum rate of dynamic log entries in this process; short bursts are "
     "allowed to exceed this limit");
 
-DEFINE_int32(
-    max_dynamic_log_bytes_rate,
-    20480,  // maximum of 20K bytes per second on average
-    "maximum rate of dynamic log bytes in this process; short bursts are "
-    "allowed to exceed this limit");
+ABSL_FLAG(int32, max_dynamic_log_bytes_rate,
+          20480,  // maximum of 20K bytes per second on average
+          "maximum rate of dynamic log bytes in this process; short bursts are "
+          "allowed to exceed this limit");
 
 namespace devtools {
 namespace cdbg {
@@ -60,22 +58,24 @@ static std::unique_ptr<LeakyBucket> g_global_dynamic_log_bytes_quota;
 
 
 static int64 GetBaseConditionQuotaCapacity() {
-  return FLAGS_max_condition_lines_rate * kConditionCostCapacityFactor;
+  return absl::GetFlag(FLAGS_max_condition_lines_rate) *
+         kConditionCostCapacityFactor;
 }
 
 void LazyInitializeRateLimit() {
   if (g_global_condition_quota == nullptr) {
-    g_global_condition_quota.reset(new LeakyBucket(
-        GetBaseConditionQuotaCapacity(),
-        FLAGS_max_condition_lines_rate));
+    g_global_condition_quota.reset(
+        new LeakyBucket(GetBaseConditionQuotaCapacity(),
+                        absl::GetFlag(FLAGS_max_condition_lines_rate)));
 
     g_global_dynamic_log_quota.reset(new LeakyBucket(
-        FLAGS_max_dynamic_log_rate * kDynamicLogCapacityFactor,
-        FLAGS_max_dynamic_log_rate));
+        absl::GetFlag(FLAGS_max_dynamic_log_rate) * kDynamicLogCapacityFactor,
+        absl::GetFlag(FLAGS_max_dynamic_log_rate)));
 
-    g_global_dynamic_log_bytes_quota.reset(new LeakyBucket(
-        FLAGS_max_dynamic_log_bytes_rate * kDynamicLogBytesCapacityFactor,
-        FLAGS_max_dynamic_log_bytes_rate));
+    g_global_dynamic_log_bytes_quota.reset(
+        new LeakyBucket(absl::GetFlag(FLAGS_max_dynamic_log_bytes_rate) *
+                            kDynamicLogBytesCapacityFactor,
+                        absl::GetFlag(FLAGS_max_dynamic_log_bytes_rate)));
   }
 }
 
@@ -100,9 +100,9 @@ LeakyBucket* GetGlobalDynamicLogBytesQuota() {
 }
 
 std::unique_ptr<LeakyBucket> CreatePerBreakpointConditionQuota() {
-  return std::unique_ptr<LeakyBucket>(new LeakyBucket(
-      GetBaseConditionQuotaCapacity() / 2,
-      FLAGS_max_condition_lines_rate / 2));
+  return std::unique_ptr<LeakyBucket>(
+      new LeakyBucket(GetBaseConditionQuotaCapacity() / 2,
+                      absl::GetFlag(FLAGS_max_condition_lines_rate) / 2));
 }
 
 }  // namespace cdbg

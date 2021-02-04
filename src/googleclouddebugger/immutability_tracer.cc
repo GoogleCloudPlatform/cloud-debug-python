@@ -21,10 +21,8 @@
 
 #include "python_util.h"
 
-DEFINE_int32(
-    max_expression_lines,
-    10000,
-    "maximum number of Python lines to allow in a single expression");
+ABSL_FLAG(int32, max_expression_lines, 10000,
+          "maximum number of Python lines to allow in a single expression");
 
 namespace devtools {
 namespace cdbg {
@@ -192,7 +190,7 @@ int ImmutabilityTracer::OnTraceCallbackInternal(
       break;
   }
 
-  if (line_count_ > FLAGS_max_expression_lines) {
+  if (line_count_ > absl::GetFlag(FLAGS_max_expression_lines)) {
     LOG(INFO) << "Expression evaluation exceeded quota";
     mutable_code_detected_ = true;
   }
