@@ -113,6 +113,8 @@ setup(
         'google-auth==1.8.2'
         if sys.version_info.major < 3 else 'google-auth>=1.0.0',
         'google-auth-httplib2',
+        'google-api-core==1.15.0'
+        if sys.version_info.major < 3 else 'google-api-core',
         'pyyaml',
         'six>=1.10.0',
     ],
