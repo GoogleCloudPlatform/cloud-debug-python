@@ -17,6 +17,7 @@
 #ifndef DEVTOOLS_CDBG_DEBUGLETS_PYTHON_IMMUTABILITY_TRACER_H_
 #define DEVTOOLS_CDBG_DEBUGLETS_PYTHON_IMMUTABILITY_TRACER_H_
 
+#include <cstdint>
 #include <unordered_set>
 
 #include "common.h"
@@ -56,7 +57,7 @@ class ImmutabilityTracer {
 
   // Gets the number of lines executed while the tracer was enabled. Native
   // functions calls are counted as a single line.
-  int32 GetLineCount() const { return line_count_; }
+  int32_t GetLineCount() const { return line_count_; }
 
  private:
   // Python tracer callback function.
@@ -79,7 +80,7 @@ class ImmutabilityTracer {
   void ProcessCodeLine(PyCodeObject* code_object, int line_number);
 
   // Verifies immutability of block of opcodes.
-  void ProcessCodeRange(const uint8* code_start, const uint8* opcodes,
+  void ProcessCodeRange(const uint8_t* code_start, const uint8_t* opcodes,
                         int size);
 
   // Verifies that the called C function is whitelisted.
@@ -107,11 +108,11 @@ class ImmutabilityTracer {
   // Original value of PyThreadState::tracing. We revert it to 0 to enforce
   // trace callback on this thread, even if the whole thing was executed from
   // within another trace callback (that caught the breakpoint).
-  int32 original_thread_state_tracing_;
+  int32_t original_thread_state_tracing_;
 
   // Counts the number of lines executed while the tracer was enabled. Native
   // functions calls are counted as a single line.
-  int32 line_count_;
+  int32_t line_count_;
 
   // Set to true after immutable statement is detected. When it happens we
   // want to stop execution of the entire construct entirely.
@@ -144,7 +145,7 @@ class ScopedImmutabilityTracer {
 
   // Gets the number of lines executed while the tracer was enabled. Native
   // functions calls are counted as a single line.
-  int32 GetLineCount() const { return Instance()->GetLineCount(); }
+  int32_t GetLineCount() const { return Instance()->GetLineCount(); }
 
  private:
   ImmutabilityTracer* Instance() {

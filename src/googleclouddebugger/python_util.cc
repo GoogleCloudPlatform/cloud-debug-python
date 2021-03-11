@@ -21,6 +21,8 @@
 
 #include <time.h>
 
+#include <cstdint>
+
 namespace devtools {
 namespace cdbg {
 
@@ -47,8 +49,7 @@ void CodeObjectLinesEnumerator::Initialize(
   offset_ = 0;
   line_number_ = firstlineno;
   remaining_entries_ = PyBytes_Size(lnotab) / 2;
-  next_entry_ =
-      reinterpret_cast<uint8*>(PyBytes_AsString(lnotab));
+  next_entry_ = reinterpret_cast<uint8_t*>(PyBytes_AsString(lnotab));
 
   // If the line table starts with offset 0, the first line is not
   // "code_object->co_firstlineno", but the following line.
@@ -239,7 +240,7 @@ std::string CodeObjectDebugString(PyCodeObject* code_object) {
   }
 
   str += ':';
-  str += std::to_string(static_cast<int64>(code_object->co_firstlineno));
+  str += std::to_string(static_cast<int64_t>(code_object->co_firstlineno));
 
   if ((code_object->co_filename != nullptr) &&
       PyBytes_CheckExact(code_object->co_filename)) {
@@ -250,15 +251,14 @@ std::string CodeObjectDebugString(PyCodeObject* code_object) {
   return str;
 }
 
-std::vector<uint8> PyBytesToByteArray(PyObject* obj) {
+std::vector<uint8_t> PyBytesToByteArray(PyObject* obj) {
   DCHECK(PyBytes_CheckExact(obj));
 
   const size_t bytecode_size = PyBytes_GET_SIZE(obj);
-  const uint8* const bytecode_data =
-      reinterpret_cast<uint8*>(PyBytes_AS_STRING(obj));
-  return std::vector<uint8>(bytecode_data, bytecode_data + bytecode_size);
+  const uint8_t* const bytecode_data =
+      reinterpret_cast<uint8_t*>(PyBytes_AS_STRING(obj));
+  return std::vector<uint8_t>(bytecode_data, bytecode_data + bytecode_size);
 }
-
 
 // Creates a new tuple by appending "items" to elements in "tuple".
 ScopedPyObject AppendTuple(

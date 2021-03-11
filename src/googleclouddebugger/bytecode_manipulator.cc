@@ -20,6 +20,7 @@
 #include "bytecode_manipulator.h"
 
 #include <algorithm>
+#include <cstdint>
 
 namespace devtools {
 namespace cdbg {
@@ -51,8 +52,8 @@ enum PythonOpcodeType {
 // actual instruction. The argument of the EXTENDED_ARG instruction is combined
 // with the argument of the next instruction to form the full argument.
 struct PythonInstruction {
-  uint8 opcode;
-  uint32 argument;
+  uint8_t opcode;
+  uint32_t argument;
   int size;
 };
 
@@ -60,7 +61,7 @@ struct PythonInstruction {
 static const PythonInstruction kInvalidInstruction { 0xFF, 0xFFFFFFFF,  0 };
 
 // Creates an instance of PythonInstruction for instruction with no arguments.
-static PythonInstruction PythonInstructionNoArg(uint8 opcode) {
+static PythonInstruction PythonInstructionNoArg(uint8_t opcode) {
   DCHECK(!HAS_ARG(opcode));
 
   PythonInstruction instruction;
@@ -76,9 +77,9 @@ static PythonInstruction PythonInstructionNoArg(uint8 opcode) {
   return instruction;
 }
 
-
 // Creates an instance of PythonInstruction for instruction with an argument.
-static PythonInstruction PythonInstructionArg(uint8 opcode, uint32 argument) {
+static PythonInstruction PythonInstructionArg(uint8_t opcode,
+                                              uint32_t argument) {
   DCHECK(HAS_ARG(opcode));
 
   PythonInstruction instruction;
@@ -102,7 +103,6 @@ static PythonInstruction PythonInstructionArg(uint8 opcode, uint32 argument) {
   return instruction;
 }
 
-
 // Calculates the size of a set of instructions.
 static int GetInstructionsSize(
     const std::vector<PythonInstruction>& instructions) {
@@ -116,7 +116,7 @@ static int GetInstructionsSize(
 
 
 // Classification of an opcode.
-static PythonOpcodeType GetOpcodeType(uint8 opcode) {
+static PythonOpcodeType GetOpcodeType(uint8_t opcode) {
   switch (opcode) {
     case YIELD_VALUE:
 #if PY_MAJOR_VERSION >= 3
@@ -154,7 +154,6 @@ static PythonOpcodeType GetOpcodeType(uint8 opcode) {
   }
 }
 
-
 // Gets the target offset of a branch instruction.
 static int GetBranchTarget(int offset, PythonInstruction instruction) {
   switch (GetOpcodeType(instruction.opcode)) {
@@ -191,8 +190,8 @@ static void WritePythonBytecodeUInt16(
 // Read instruction at the specified offset. Returns kInvalidInstruction
 // buffer underflow.
 static PythonInstruction ReadInstruction(
-    const std::vector<uint8>& bytecode,
-    std::vector<uint8>::const_iterator it) {
+    const std::vector<uint8_t>& bytecode,
+    std::vector<uint8_t>::const_iterator it) {
   PythonInstruction instruction { 0, 0, 0 };
 
 #if PY_MAJOR_VERSION >= 3
@@ -251,21 +250,19 @@ static PythonInstruction ReadInstruction(
   return instruction;
 }
 
-
 // Writes instruction to the specified destination. The caller is responsible
 // to make sure the target vector has enough space. Returns size of an
 // instruction.
-static int WriteInstruction(
-    std::vector<uint8>::iterator it,
-    const PythonInstruction& instruction) {
+static int WriteInstruction(std::vector<uint8_t>::iterator it,
+                            const PythonInstruction& instruction) {
 #if PY_MAJOR_VERSION >= 3
-  uint32 arg = instruction.argument;
+  uint32_t arg = instruction.argument;
   int size_written = 0;
   // Start writing backwards from the real instruction, followed by any
   // EXTENDED_ARG instructions if needed.
   for (int i = instruction.size - 2; i >= 0; i -= 2) {
     it[i] = size_written == 0 ? instruction.opcode : EXTENDED_ARG;
-    it[i + 1] = static_cast<uint8>(arg);
+    it[i + 1] = static_cast<uint8_t>(arg);
     arg = arg >> 8;
     size_written += 2;
   }
@@ -295,10 +292,9 @@ static int WriteInstruction(
 #endif
 }
 
-
 // Write set of instructions to the specified destination.
 static void WriteInstructions(
-    std::vector<uint8>::iterator it,
+    std::vector<uint8_t>::iterator it,
     const std::vector<PythonInstruction>& instructions) {
   for (auto it_instruction = instructions.begin();
        it_instruction != instructions.end();
@@ -308,7 +304,6 @@ static void WriteInstructions(
     it += instruction_size;
   }
 }
-
 
 // Returns set of instructions to invoke a method with no arguments. The
 // method is assumed to be defined in the specified item of a constants tuple.
@@ -321,11 +316,9 @@ static std::vector<PythonInstruction> BuildMethodCall(int const_index) {
   return instructions;
 }
 
-
-BytecodeManipulator::BytecodeManipulator(
-    std::vector<uint8> bytecode,
-    const bool has_lnotab,
-    std::vector<uint8> lnotab)
+BytecodeManipulator::BytecodeManipulator(std::vector<uint8_t> bytecode,
+                                         const bool has_lnotab,
+                                         std::vector<uint8_t> lnotab)
     : has_lnotab_(has_lnotab) {
   data_.bytecode = std::move(bytecode);
   data_.lnotab = std::move(lnotab);
@@ -346,7 +339,6 @@ BytecodeManipulator::BytecodeManipulator(
     it += instruction.size;
   }
 }
-
 
 bool BytecodeManipulator::InjectMethodCall(
     int offset,
@@ -417,7 +409,7 @@ static const int kMaxInsertionIterations = 10;
 // instruction before is an EXTENDED_ARG which will now be applied to the first
 // instruction inserted instead of its original target.
 static void InsertAndUpdateLnotab(int offset, int size,
-                                  std::vector<uint8>* lnotab) {
+                                  std::vector<uint8_t>* lnotab) {
   int current_offset = 0;
   for (auto it = lnotab->begin(); it != lnotab->end(); it += 2) {
     current_offset += it[0];
@@ -437,7 +429,6 @@ static void InsertAndUpdateLnotab(int offset, int size,
     }
   }
 }
-
 
 // Reserves space for instructions to be inserted into the bytecode, and
 // calculates the new offsets and arguments of branch instructions.
@@ -504,7 +495,7 @@ static bool InsertAndUpdateBranchInstructions(
     for (auto it = instructions.begin();
          it < instructions.end(); it++) {
       PythonInstruction instruction = it->instruction;
-      int32 arg = static_cast<int32>(instruction.argument);
+      int32_t arg = static_cast<int32_t>(instruction.argument);
       bool need_to_update = false;
       PythonOpcodeType opcode_type = GetOpcodeType(instruction.opcode);
       if (opcode_type == BRANCH_DELTA_OPCODE) {
@@ -514,7 +505,7 @@ static bool InsertAndUpdateBranchInstructions(
         // argument of 0 even when it is not required. This needs to be taken
         // into account when calculating the target of a branch instruction.
         int inst_size = std::max(instruction.size, it->original_size);
-        int32 target = it->current_offset + inst_size + arg;
+        int32_t target = it->current_offset + inst_size + arg;
         need_to_update = it->current_offset < insertion.current_offset &&
                          insertion.current_offset < target;
       } else if (opcode_type == BRANCH_ABSOLUTE_OPCODE) {

@@ -19,6 +19,8 @@
 
 #include "native_module.h"
 
+#include <cstdint>
+
 #include "bytecode_breakpoint.h"
 #include "common.h"
 #include "conditional_breakpoint.h"
@@ -38,31 +40,18 @@ const LogSeverity LOG_SEVERITY_ERROR = ::google::ERROR;
 
 struct INTEGER_CONSTANT {
   const char* name;
-  int32 value;
+  int32_t value;
 };
 
 static const INTEGER_CONSTANT kIntegerConstants[] = {
-  {
-    "BREAKPOINT_EVENT_HIT",
-    static_cast<int32>(BreakpointEvent::Hit)
-  },
-  {
-    "BREAKPOINT_EVENT_ERROR",
-    static_cast<int32>(BreakpointEvent::Error)
-  },
-  {
-    "BREAKPOINT_EVENT_GLOBAL_CONDITION_QUOTA_EXCEEDED",
-    static_cast<int32>(BreakpointEvent::GlobalConditionQuotaExceeded)
-  },
-  {
-    "BREAKPOINT_EVENT_BREAKPOINT_CONDITION_QUOTA_EXCEEDED",
-    static_cast<int32>(BreakpointEvent::BreakpointConditionQuotaExceeded)
-  },
-  {
-    "BREAKPOINT_EVENT_CONDITION_EXPRESSION_MUTABLE",
-    static_cast<int32>(BreakpointEvent::ConditionExpressionMutable)
-  }
-};
+    {"BREAKPOINT_EVENT_HIT", static_cast<int32_t>(BreakpointEvent::Hit)},
+    {"BREAKPOINT_EVENT_ERROR", static_cast<int32_t>(BreakpointEvent::Error)},
+    {"BREAKPOINT_EVENT_GLOBAL_CONDITION_QUOTA_EXCEEDED",
+     static_cast<int32_t>(BreakpointEvent::GlobalConditionQuotaExceeded)},
+    {"BREAKPOINT_EVENT_BREAKPOINT_CONDITION_QUOTA_EXCEEDED",
+     static_cast<int32_t>(BreakpointEvent::BreakpointConditionQuotaExceeded)},
+    {"BREAKPOINT_EVENT_CONDITION_EXPRESSION_MUTABLE",
+     static_cast<int32_t>(BreakpointEvent::ConditionExpressionMutable)}};
 
 // Class to set zero overhead breakpoints.
 static BytecodeBreakpoint g_bytecode_breakpoint;
@@ -438,7 +427,7 @@ PyObject* InitDebuggerNativeModuleInternal() {
   }
 
   // Add constants we want to share with the Python code.
-  for (uint32 i = 0; i < arraysize(kIntegerConstants); ++i) {
+  for (uint32_t i = 0; i < arraysize(kIntegerConstants); ++i) {
     if (PyModule_AddObject(
           module,
           kIntegerConstants[i].name,

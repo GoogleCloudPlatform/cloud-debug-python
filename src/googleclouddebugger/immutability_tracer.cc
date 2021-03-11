@@ -19,6 +19,8 @@
 
 #include "immutability_tracer.h"
 
+#include <cstdint>
+
 #include "python_util.h"
 
 ABSL_FLAG(int32, max_expression_lines, 10000,
@@ -250,8 +252,8 @@ void ImmutabilityTracer::ProcessCodeLine(
     PyCodeObject* code_object,
     int line_number) {
   int size = PyBytes_Size(code_object->co_code);
-  const uint8* opcodes =
-      reinterpret_cast<uint8*>(PyBytes_AsString(code_object->co_code));
+  const uint8_t* opcodes =
+      reinterpret_cast<uint8_t*>(PyBytes_AsString(code_object->co_code));
 
   DCHECK(opcodes != nullptr);
 
@@ -283,7 +285,7 @@ enum OpcodeMutableStatus {
   OPCODE_MAYBE_MUTABLE
 };
 
-static OpcodeMutableStatus IsOpcodeMutable(const uint8 opcode) {
+static OpcodeMutableStatus IsOpcodeMutable(const uint8_t opcode) {
   // Notes:
   // * We allow changing local variables (i.e. STORE_FAST). Expression
   //   evaluation doesn't let changing local variables of the top frame
@@ -486,12 +488,12 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8 opcode) {
   }
 }
 
-void ImmutabilityTracer::ProcessCodeRange(const uint8* code_start,
-                                          const uint8* opcodes, int size) {
-  const uint8* end = opcodes + size;
+void ImmutabilityTracer::ProcessCodeRange(const uint8_t* code_start,
+                                          const uint8_t* opcodes, int size) {
+  const uint8_t* end = opcodes + size;
   while (opcodes < end) {
     // Read opcode.
-    const uint8 opcode = *opcodes;
+    const uint8_t opcode = *opcodes;
     switch (IsOpcodeMutable(opcode)) {
       case OPCODE_NOT_MUTABLE:
         // We don't worry about the sizes of instructions with EXTENDED_ARG.
@@ -524,7 +526,7 @@ void ImmutabilityTracer::ProcessCodeRange(const uint8* code_start,
           break;
         }
 #endif
-        LOG(WARNING) << "Unknown opcode " << static_cast<uint32>(opcode);
+        LOG(WARNING) << "Unknown opcode " << static_cast<uint32_t>(opcode);
         mutable_code_detected_ = true;
         return;
 
@@ -534,7 +536,6 @@ void ImmutabilityTracer::ProcessCodeRange(const uint8* code_start,
     }
   }
 }
-
 
 void ImmutabilityTracer::ProcessCCall(PyObject* function) {
   if (PyCFunction_Check(function)) {
@@ -549,7 +550,7 @@ void ImmutabilityTracer::ProcessCCall(PyObject* function) {
     auto c_function = reinterpret_cast<PyCFunctionObject*>(function);
     const char* name = c_function->m_ml->ml_name;
 
-    for (uint32 i = 0; i < arraysize(kWhitelistedCFunctions); ++i) {
+    for (uint32_t i = 0; i < arraysize(kWhitelistedCFunctions); ++i) {
       if (!strcmp(name, kWhitelistedCFunctions[i])) {
         return;
       }

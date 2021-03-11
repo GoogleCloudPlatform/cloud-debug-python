@@ -19,6 +19,8 @@
 
 #include "bytecode_breakpoint.h"
 
+#include <cstdint>
+
 #include "bytecode_manipulator.h"
 #include "python_callback.h"
 #include "python_util.h"
@@ -227,10 +229,10 @@ void BytecodeBreakpoint::PatchCodeObject(CodeObjectBreakpoints* code) {
     return;
   }
 
-  std::vector<uint8> bytecode = PyBytesToByteArray(code->original_code.get());
+  std::vector<uint8_t> bytecode = PyBytesToByteArray(code->original_code.get());
 
   bool has_lnotab = false;
-  std::vector<uint8> lnotab;
+  std::vector<uint8_t> lnotab;
   if (!code->original_lnotab.is_null() &&
       PyBytes_CheckExact(code->original_lnotab.get())) {
     has_lnotab = true;

@@ -19,6 +19,8 @@
 
 #include "rate_limit.h"
 
+#include <cstdint>
+
 ABSL_FLAG(
     int32, max_condition_lines_rate, 5000,
     "maximum number of Python lines/sec to spend on condition evaluation");
@@ -56,8 +58,7 @@ static std::unique_ptr<LeakyBucket> g_global_condition_quota;
 static std::unique_ptr<LeakyBucket> g_global_dynamic_log_quota;
 static std::unique_ptr<LeakyBucket> g_global_dynamic_log_bytes_quota;
 
-
-static int64 GetBaseConditionQuotaCapacity() {
+static int64_t GetBaseConditionQuotaCapacity() {
   return absl::GetFlag(FLAGS_max_condition_lines_rate) *
          kConditionCostCapacityFactor;
 }

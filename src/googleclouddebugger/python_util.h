@@ -17,6 +17,7 @@
 #ifndef DEVTOOLS_CDBG_DEBUGLETS_PYTHON_PYTHON_UTIL_H_
 #define DEVTOOLS_CDBG_DEBUGLETS_PYTHON_PYTHON_UTIL_H_
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 
@@ -183,10 +184,10 @@ class CodeObjectLinesEnumerator {
   bool Next();
 
   // Gets the bytecode offset of the current line.
-  int32 offset() const { return offset_; }
+  int32_t offset() const { return offset_; }
 
   // Gets the current source code line number.
-  int32 line_number() const { return line_number_; }
+  int32_t line_number() const { return line_number_; }
 
  private:
   void Initialize(int firstlineno, PyObject* lnotab);
@@ -196,13 +197,13 @@ class CodeObjectLinesEnumerator {
   int remaining_entries_;
 
   // Pointer to the next entry of line table.
-  const uint8* next_entry_;
+  const uint8_t* next_entry_;
 
   // Bytecode offset of the current line.
-  int32 offset_;
+  int32_t offset_;
 
   // Current source code line number
-  int32 line_number_;
+  int32_t line_number_;
 
   DISALLOW_COPY_AND_ASSIGN(CodeObjectLinesEnumerator);
 };
@@ -314,7 +315,7 @@ std::string CodeObjectDebugString(PyCodeObject* code_object);
 
 // Reads Python string as a byte array. The function does not verify that
 // "obj" is of a string type.
-std::vector<uint8> PyBytesToByteArray(PyObject* obj);
+std::vector<uint8_t> PyBytesToByteArray(PyObject* obj);
 
 // Creates a new tuple by appending "items" to elements in "tuple".
 ScopedPyObject AppendTuple(

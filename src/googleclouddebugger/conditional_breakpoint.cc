@@ -19,6 +19,8 @@
 
 #include "conditional_breakpoint.h"
 
+#include <cstdint>
+
 #include "immutability_tracer.h"
 #include "rate_limit.h"
 
@@ -64,7 +66,7 @@ bool ConditionalBreakpoint::EvaluateCondition(PyFrameObject* frame) {
 
   ScopedPyObject result;
   bool is_mutable_code_detected = false;
-  int32 line_count = 0;
+  int32_t line_count = 0;
 
   {
     ScopedImmutabilityTracer immutability_tracer;

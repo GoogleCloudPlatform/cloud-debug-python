@@ -17,6 +17,7 @@
 #ifndef DEVTOOLS_CDBG_DEBUGLETS_PYTHON_BYTECODE_MANIPULATOR_H_
 #define DEVTOOLS_CDBG_DEBUGLETS_PYTHON_BYTECODE_MANIPULATOR_H_
 
+#include <cstdint>
 #include <vector>
 
 #include "common.h"
@@ -70,19 +71,17 @@ namespace cdbg {
 //     19 JUMP_ABSOLUTE            3
 class BytecodeManipulator {
  public:
-  BytecodeManipulator(
-      std::vector<uint8> bytecode,
-      const bool has_lnotab,
-      std::vector<uint8> lnotab);
+  BytecodeManipulator(std::vector<uint8_t> bytecode, const bool has_lnotab,
+                      std::vector<uint8_t> lnotab);
 
   // Gets the transformed method bytecode.
-  const std::vector<uint8>& bytecode() const { return data_.bytecode; }
+  const std::vector<uint8_t>& bytecode() const { return data_.bytecode; }
 
   // Returns true if this class was initialized with line numbers table.
   bool has_lnotab() const { return has_lnotab_; }
 
   // Gets the method line numbers table or empty vector if not available.
-  const std::vector<uint8>& lnotab() const { return data_.lnotab; }
+  const std::vector<uint8_t>& lnotab() const { return data_.lnotab; }
 
   // Rewrites the method bytecode to invoke callable at the specified offset.
   // Return false if the method call could not be inserted. The bytecode
@@ -108,10 +107,10 @@ class BytecodeManipulator {
 
   struct Data {
     // Bytecode of a transformed method.
-    std::vector<uint8> bytecode;
+    std::vector<uint8_t> bytecode;
 
     // Method line numbers table or empty vector if "has_lnotab_" is false.
-    std::vector<uint8> lnotab;
+    std::vector<uint8_t> lnotab;
   };
 
   // Insert space into the bytecode. This space is later used to add new
