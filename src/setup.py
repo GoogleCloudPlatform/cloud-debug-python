@@ -88,6 +88,12 @@ with open('googleclouddebugger/version.py', 'r') as version_file:
       version = match.groups()[0]
 assert version
 
+
+cdbg_native_module_libraries = ['rt']
+if sys.platform == 'darwin':
+    cdbg_native_module_libraries = []
+
+
 cdbg_native_module = Extension(
     'googleclouddebugger.cdbg_native',
     sources=glob('googleclouddebugger/*.cc'),
@@ -98,7 +104,8 @@ cdbg_native_module = Extension(
         '-O3',
     ] + extra_compile_args,
     extra_link_args=static_libs + extra_link_args,
-    libraries=['rt'])
+    libraries=cdbg_native_module_libraries,
+)
 
 setup(
     name='google-python-cloud-debugger',
