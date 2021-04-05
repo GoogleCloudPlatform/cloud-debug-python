@@ -551,8 +551,10 @@ class GcpHubClient(object):
       Parsed JSON data or None if the file does not exist, can't be read or
       not a valid JSON file.
     """
-    try:
-      with open(os.path.join(sys.path[0], relative_path), 'r') as f:
-        return json.load(f)
-    except (IOError, ValueError):
-      return None
+    for path in (sys.path[0], os.getcwd()):
+      try:
+        with open(os.path.join(path, relative_path), 'r') as f:
+          return json.load(f)
+      except (IOError, ValueError):
+        pass
+    return None
