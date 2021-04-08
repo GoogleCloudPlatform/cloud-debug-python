@@ -108,10 +108,10 @@ setup(
     author='Google Inc.',
     version=version,
     install_requires=[
-        'google-api-python-client==1.8.4'
-        if sys.version_info.major < 3 else 'google-api-python-client',
-        'google-auth==1.8.2'
-        if sys.version_info.major < 3 else 'google-auth>=1.0.0',
+        'google-api-python-client==1.8.4; python_version < "3.0"',
+        'google-api-python-client; python_version > "3.0"',
+        'google-auth==1.8.2; python_version < "3.0"',
+        'google-auth>=1.0.0; python_version > "3.0"',
         'google-auth-httplib2',
         'google-api-core==1.15.0'
         if sys.version_info.major < 3 else 'google-api-core',
