@@ -133,7 +133,8 @@ static PythonOpcodeType GetOpcodeType(uint8_t opcode) {
 #endif
     case SETUP_FINALLY:
     case SETUP_WITH:
-#if PY_VERSION_HEX >= 0x03080000
+#if PY_VERSION_HEX >= 0x03080000 && PY_VERSION_HEX < 0x03090000
+    // Added in Python 3.8 and removed in 3.9
     case CALL_FINALLY:
 #endif
       return BRANCH_DELTA_OPCODE;

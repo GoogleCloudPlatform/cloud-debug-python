@@ -374,15 +374,25 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8_t opcode) {
     case UNPACK_EX:
     case CALL_FUNCTION_EX:
     case LOAD_CLASSDEREF:
+#if PY_VERSION_HEX < 0x03090000
+    // Removed in Python 3.9.
     case BUILD_LIST_UNPACK:
     case BUILD_MAP_UNPACK:
     case BUILD_MAP_UNPACK_WITH_CALL:
     case BUILD_TUPLE_UNPACK:
+    case BUILD_TUPLE_UNPACK_WITH_CALL:
     case BUILD_SET_UNPACK:
+#endif
+#if PY_VERSION_HEX > 0x03090000
+    // Added in Python 3.9.
+    case LIST_TO_TUPLE:
+    case IS_OP:
+    case CONTAINS_OP:
+    case JUMP_IF_NOT_EXC_MATCH:
+#endif
     case FORMAT_VALUE:
     case BUILD_CONST_KEY_MAP:
     case BUILD_STRING:
-    case BUILD_TUPLE_UNPACK_WITH_CALL:
 #if PY_VERSION_HEX >= 0x03070000
     // Added in Python 3.7.
     case LOAD_METHOD:
@@ -433,7 +443,6 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8_t opcode) {
     case STORE_DEREF:
     // TODO: allow exception handling
     case RAISE_VARARGS:
-    case END_FINALLY:
     case SETUP_WITH:
     // TODO: allow closures
     case LOAD_CLOSURE:
@@ -447,8 +456,12 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8_t opcode) {
     case BEFORE_ASYNC_WITH:
     case LOAD_BUILD_CLASS:
     case GET_AWAITABLE:
+#if PY_VERSION_HEX < 0x03090000
+    // Removed in 3.9.
     case WITH_CLEANUP_START:
     case WITH_CLEANUP_FINISH:
+    case END_FINALLY:
+#endif
     case SETUP_ANNOTATIONS:
     case POP_EXCEPT:
 #if PY_VERSION_HEX < 0x03070000
@@ -459,10 +472,23 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8_t opcode) {
     case SETUP_ASYNC_WITH:
 #if PY_VERSION_HEX >= 0x03080000
     // Added in Python 3.8.
-    case BEGIN_FINALLY:
     case END_ASYNC_FOR:
+#endif
+#if PY_VERSION_HEX >= 0x03080000 && PY_VERSION_HEX < 0x03090000
+    // Added in Python 3.8 and removed in 3.9
+    case BEGIN_FINALLY:
     case CALL_FINALLY:
     case POP_FINALLY:
+#endif
+#if PY_VERSION_HEX >= 0x03090000
+    // Added in 3.9.
+    case DICT_MERGE:
+    case DICT_UPDATE:
+    case LIST_EXTEND:
+    case SET_UPDATE:
+    case RERAISE:
+    case WITH_EXCEPT_START:
+    case LOAD_ASSERTION_ERROR:
 #endif
 #else
     case STORE_SLICE+0:
