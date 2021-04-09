@@ -1,7 +1,7 @@
 # Python Cloud Debugger Agent
 
 Google [Cloud Debugger](https://cloud.google.com/debugger/) for Python 2.7,
-Python 3.6, Python 3.7 and Python 3.8.
+Python 3.6, Python 3.7, Python 3.8 and Python 3.9.
 
 ## Overview
 
@@ -28,7 +28,7 @@ tested on Debian Linux, but it should work on other distributions as well.
 Cloud Debugger consists of 3 primary components:
 
 1.  The Python debugger agent (this repo implements one for CPython 2.7, 3.6,
-    3.7 and 3.8).
+    3.7, 3.8 and 3.9).
 2.  Cloud Debugger service storing and managing snapshots/logpoints. Explore the
     APIs using
     [APIs Explorer](https://cloud.google.com/debugger/api/reference/rest/).
@@ -82,8 +82,8 @@ sudo apt-get -y -q --no-install-recommends install \
 
 ### Python 3
 
-There is support for Python 3.6, Python 3.7 and Python 3.8. Python 3.0 to 3.5
-are not supported, and newer versions have not been tested.
+There is support for Python 3.6, Python 3.7, Python 3.8 and Python 3.9. Python
+3.0 to 3.5 are not supported, and newer versions have not been tested.
 
 To build for Python 3.x (x in [6-8]), the `python3.x` and `python3.x-dev`
 packages are additionally needed.  If Python 3.x is not the default version of
