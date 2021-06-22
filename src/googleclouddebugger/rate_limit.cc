@@ -22,16 +22,16 @@
 #include <cstdint>
 
 ABSL_FLAG(
-    int32_t, max_condition_lines_rate, 5000,
+    int32, max_condition_lines_rate, 5000,
     "maximum number of Python lines/sec to spend on condition evaluation");
 
 ABSL_FLAG(
-    int32_t, max_dynamic_log_rate,
+    int32, max_dynamic_log_rate,
     50,  // maximum of 50 log entries per second on average
     "maximum rate of dynamic log entries in this process; short bursts are "
     "allowed to exceed this limit");
 
-ABSL_FLAG(int32_t, max_dynamic_log_bytes_rate,
+ABSL_FLAG(int32, max_dynamic_log_bytes_rate,
           20480,  // maximum of 20K bytes per second on average
           "maximum rate of dynamic log bytes in this process; short bursts are "
           "allowed to exceed this limit");

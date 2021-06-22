@@ -23,7 +23,7 @@
 
 #include "python_util.h"
 
-ABSL_FLAG(int32_t, max_expression_lines, 10000,
+ABSL_FLAG(int32, max_expression_lines, 10000,
           "maximum number of Python lines to allow in a single expression");
 
 namespace devtools {
