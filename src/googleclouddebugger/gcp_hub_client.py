@@ -43,6 +43,7 @@ from . import backoff
 from . import cdbg_native as native
 from . import labels
 from . import uniquifier_computer
+from . import application_info
 from . import version
 # This module catches all exception. This is safe because it runs in
 # a daemon thread (so we are not blocking Ctrl+C). We need to catch all
@@ -57,9 +58,12 @@ _CLOUD_PLATFORM_SCOPE = ['https://www.googleapis.com/auth/cloud-platform']
 # a map is optional environment variable that can be used to set the flag
 # (flags still take precedence).
 _DEBUGGEE_LABELS = {
-    labels.Debuggee.MODULE: ['GAE_SERVICE', 'GAE_MODULE_NAME', 'K_SERVICE'],
+    labels.Debuggee.MODULE: [
+        'GAE_SERVICE', 'GAE_MODULE_NAME', 'K_SERVICE', 'FUNCTION_NAME'
+    ],
     labels.Debuggee.VERSION: [
-        'GAE_VERSION', 'GAE_MODULE_VERSION', 'K_REVISION'
+        'GAE_VERSION', 'GAE_MODULE_VERSION', 'K_REVISION',
+        'X_GOOGLE_FUNCTION_VERSION'
     ],
     labels.Debuggee.MINOR_VERSION: ['GAE_DEPLOYMENT_ID', 'GAE_MINOR_VERSION']
 }
@@ -182,12 +186,23 @@ class GcpHubClient(object):
           self._debuggee_labels[label] = value
           break
 
+    # Special case when FUNCTION_NAME is set and X_GOOGLE_FUNCTION_VERSION
+    # isn't set. We set the version to 'unversioned' to be consistent with other
+    # agents.
+    # TODO: Stop assigning 'unversioned' to a GCF and find the
+    # actual version.
+    if ('FUNCTION_NAME' in os.environ and
+        labels.Debuggee.VERSION not in self._debuggee_labels):
+      self._debuggee_labels[labels.Debuggee.VERSION] = 'unversioned'
+
     if flags:
       self._debuggee_labels.update(
           {name: value for (name, value) in six.iteritems(flags)
            if name in _DEBUGGEE_LABELS})
 
-    self._debuggee_labels['projectid'] = self._project_id
+    self._debuggee_labels[labels.Debuggee.PROJECT_ID] = self._project_id
+    self._debuggee_labels[
+        labels.Debuggee.PLATFORM] = application_info.GetPlatform().value
 
   def SetupAuth(self,
                 project_id=None,
