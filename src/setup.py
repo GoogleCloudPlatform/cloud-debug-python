@@ -107,6 +107,7 @@ setup(
     author='Google Inc.',
     version=version,
     install_requires=[
+        'enum34; python_version < "3.4"',
         'google-api-python-client==1.8.4; python_version < "3.0"',
         'google-api-python-client; python_version > "3.0"',
         'google-auth==1.8.2; python_version < "3.0"',
