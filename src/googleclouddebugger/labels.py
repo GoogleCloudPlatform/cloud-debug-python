@@ -35,6 +35,7 @@ class Debuggee(object):
   VERSION = 'version'
   MINOR_VERSION = 'minorversion'
   PLATFORM = 'platform'
+  REGION = 'region'
 
   SET_ALL = frozenset([
       'domain',
@@ -43,4 +44,5 @@ class Debuggee(object):
       'version',
       'minorversion',
       'platform',
+      'region',
   ])
