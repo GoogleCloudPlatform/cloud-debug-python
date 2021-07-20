@@ -14,7 +14,9 @@
 
 """Defines the keys of the well known labels used by the cloud debugger.
 
-DO NOT EDIT
+TODO:  Define these strings in a common format for all agents to
+share. This file needs to be maintained with the code generator file
+being used in the UI, until the labels are unified.
 """
 
 
@@ -32,6 +34,7 @@ class Debuggee(object):
   MODULE = 'module'
   VERSION = 'version'
   MINOR_VERSION = 'minorversion'
+  PLATFORM = 'platform'
 
   SET_ALL = frozenset([
       'domain',
@@ -39,4 +42,5 @@ class Debuggee(object):
       'module',
       'version',
       'minorversion',
+      'platform',
   ])

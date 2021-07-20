@@ -1,0 +1,51 @@
+# Copyright 2015 Google Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS-IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Module to fetch information regarding the current application.
+
+Some examples of the information the methods in this module fetch are platform
+and region of the application.
+"""
+
+import enum
+import os
+
+# These environment variables will be set automatically by cloud functions
+# depending on the runtime. If one of these values is set, we can infer that
+# the current environment is GCF. Reference:
+# https://cloud.google.com/functions/docs/env-var#runtime_environment_variables_set_automatically
+_GCF_ENV_VARIABLES = ['FUNCTION_NAME', 'FUNCTION_TARGET']
+
+
+class PlatformType(enum.Enum):
+  """The type of platform the application is running on.
+
+  TODO: Define this enum in a common format for all agents to
+  share. This enum needs to be maintained between the labels code generator
+  and other agents, until there is a unified way to generate it.
+  """
+  CLOUD_FUNCTION = 'cloud_function'
+  DEFAULT = 'default'
+
+
+def GetPlatform():
+  """Returns PlatformType for the current application."""
+
+  # Check if it's a cloud function.
+  for name in _GCF_ENV_VARIABLES:
+    if name in os.environ:
+      return PlatformType.CLOUD_FUNCTION
+
+  # If we weren't able to identify the platform, fall back to default value.
+  return PlatformType.DEFAULT
