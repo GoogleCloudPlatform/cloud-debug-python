@@ -20,12 +20,17 @@ and region of the application.
 
 import enum
 import os
+import requests
 
 # These environment variables will be set automatically by cloud functions
 # depending on the runtime. If one of these values is set, we can infer that
 # the current environment is GCF. Reference:
 # https://cloud.google.com/functions/docs/env-var#runtime_environment_variables_set_automatically
-_GCF_ENV_VARIABLES = ['FUNCTION_NAME', 'FUNCTION_TARGET']
+_GCF_EXISTENCE_ENV_VARIABLES = ['FUNCTION_NAME', 'FUNCTION_TARGET']
+_GCF_REGION_ENV_VARIABLE = 'FUNCTION_REGION'
+
+_GCP_METADATA_REGION_URL = 'http://metadata/computeMetadata/v1/instance/region'
+_GCP_METADATA_HEADER = {'Metadata-Flavor': 'Google'}
 
 
 class PlatformType(enum.Enum):
@@ -43,9 +48,28 @@ def GetPlatform():
   """Returns PlatformType for the current application."""
 
   # Check if it's a cloud function.
-  for name in _GCF_ENV_VARIABLES:
+  for name in _GCF_EXISTENCE_ENV_VARIABLES:
     if name in os.environ:
       return PlatformType.CLOUD_FUNCTION
 
   # If we weren't able to identify the platform, fall back to default value.
   return PlatformType.DEFAULT
+
+
+def GetRegion():
+  """Returns region of the current application."""
+
+  # If it's running cloud function with an old runtime.
+  if _GCF_REGION_ENV_VARIABLE in os.environ:
+    return os.environ.get(_GCF_REGION_ENV_VARIABLE)
+
+  # Otherwise try fetching it from the metadata server.
+  try:
+    response = requests.get(_GCP_METADATA_REGION_URL,
+                            headers=_GCP_METADATA_HEADER)
+    response.raise_for_status()
+    # Example of response text: projects/id/regions/us-central1. So we strip
+    # everything before the last /.
+    return response.text.split('/')[-1]
+  except requests.exceptions.RequestException:
+    return None

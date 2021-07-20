@@ -201,8 +201,14 @@ class GcpHubClient(object):
            if name in _DEBUGGEE_LABELS})
 
     self._debuggee_labels[labels.Debuggee.PROJECT_ID] = self._project_id
-    self._debuggee_labels[
-        labels.Debuggee.PLATFORM] = application_info.GetPlatform().value
+
+    platform_enum = application_info.GetPlatform()
+    self._debuggee_labels[labels.Debuggee.PLATFORM] = platform_enum.value
+
+    if platform_enum == application_info.PlatformType.CLOUD_FUNCTION:
+      region = application_info.GetRegion()
+      if region:
+        self._debuggee_labels[labels.Debuggee.REGION] = region
 
   def SetupAuth(self,
                 project_id=None,
