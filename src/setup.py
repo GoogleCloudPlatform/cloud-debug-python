@@ -14,12 +14,7 @@
 
 """Python Cloud Debugger build and packaging script."""
 
-# pylint: disable=g-statement-before-imports,g-import-not-at-top
-try:
-  from ConfigParser import ConfigParser  # Python 2
-except ImportError:
-  from configparser import ConfigParser  # Python 3
-# pylint: enable=g-statement-before-imports,g-import-not-at-top
+from configparser import ConfigParser
 from glob import glob
 import os
 import re
@@ -107,14 +102,10 @@ setup(
     author='Google Inc.',
     version=version,
     install_requires=[
-        'enum34; python_version < "3.4"',
-        'google-api-python-client==1.8.4; python_version < "3.0"',
-        'google-api-python-client; python_version > "3.0"',
-        'google-auth==1.8.2; python_version < "3.0"',
-        'google-auth>=1.0.0; python_version > "3.0"',
+        'google-api-python-client',
+        'google-auth>=1.0.0',
         'google-auth-httplib2',
-        'google-api-core==1.15.0; python_version < "3.0"',
-        'google-api-core; python_version > "3.0"',
+        'google-api-core',
         'pyyaml',
         'six>=1.10.0',
     ],
@@ -123,8 +114,6 @@ setup(
     license='Apache License, Version 2.0',
     keywords='google cloud debugger',
     classifiers=[
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
