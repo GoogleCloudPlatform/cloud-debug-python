@@ -66,7 +66,7 @@ void BytecodeBreakpoint::Detach() {
 }
 
 
-int BytecodeBreakpoint::SetBreakpoint(
+int BytecodeBreakpoint::CreateBreakpoint(
     PyCodeObject* code_object,
     int line,
     std::function<void()> hit_callback,
@@ -102,6 +102,7 @@ int BytecodeBreakpoint::SetBreakpoint(
   breakpoint->hit_callable = PythonCallback::Wrap(hit_callback);
   breakpoint->error_callback = error_callback;
   breakpoint->cookie = cookie;
+  breakpoint->status = BreakpointStatus::kInactive;
 
   code_object_breakpoints->breakpoints.insert(
       std::make_pair(breakpoint->offset, breakpoint.get()));
@@ -109,15 +110,44 @@ int BytecodeBreakpoint::SetBreakpoint(
   DCHECK(cookie_map_[cookie] == nullptr);
   cookie_map_[cookie] = breakpoint.release();
 
-  PatchCodeObject(code_object_breakpoints);
-
   return cookie;
 }
 
+void BytecodeBreakpoint::ActivateBreakpoint(int cookie) {
+  if (cookie == -1) return;  // no-op if invalid cookie.
 
-void BytecodeBreakpoint::ClearBreakpoint(int cookie) {
   auto it_breakpoint = cookie_map_.find(cookie);
   if (it_breakpoint == cookie_map_.end()) {
+    LOG(WARNING) << "Trying to activate a breakpoint with an unknown cookie: "
+                 << cookie;
+    return;  // No breakpoint with this cookie.
+  }
+
+  auto it_code = patches_.find(it_breakpoint->second->code_object);
+  if (it_code != patches_.end()) {
+    CodeObjectBreakpoints* code = it_code->second;
+    // Ensure that there is a new breakpoint that was added.
+    if (it_breakpoint->second->status == BreakpointStatus::kInactive) {
+      // Set breakpoint to active.
+      it_breakpoint->second->status = BreakpointStatus::kActive;
+      // Patch code.
+      PatchCodeObject(code);
+    } else {
+      LOG(WARNING) << "Breakpoint with cookie: " << cookie
+                   << " has already been activated";
+    }
+  } else {
+    LOG(DFATAL) << "Missing code object";
+  }
+}
+
+void BytecodeBreakpoint::ClearBreakpoint(int cookie) {
+  if (cookie == -1) return;  // no-op if invalid cookie
+
+  auto it_breakpoint = cookie_map_.find(cookie);
+  if (it_breakpoint == cookie_map_.end()) {
+    LOG(WARNING) << "Trying to clear a breakpoint with an unknown cookie: "
+                 << cookie;
     return;  // No breakpoint with this cookie.
   }
 
@@ -141,6 +171,9 @@ void BytecodeBreakpoint::ClearBreakpoint(int cookie) {
 
     DCHECK_EQ(1, erase_count);
 
+    // Set breakpoint as done, as it was removed from code->breakpoints map.
+    it_breakpoint->second->status = BreakpointStatus::kDone;
+
     PatchCodeObject(code);
 
     if (code->breakpoints.empty() && code->zombie_refs.empty()) {
@@ -148,13 +181,22 @@ void BytecodeBreakpoint::ClearBreakpoint(int cookie) {
       patches_.erase(it_code);
     }
   } else {
-    DCHECK(false) << "Missing code object";
+    LOG(DFATAL) << "Missing code object";
   }
 
   delete it_breakpoint->second;
   cookie_map_.erase(it_breakpoint);
 }
 
+BreakpointStatus BytecodeBreakpoint::GetBreakpointStatus(int cookie) {
+  auto it_breakpoint = cookie_map_.find(cookie);
+  if (it_breakpoint == cookie_map_.end()) {
+    // No breakpoint with this cookie.
+    return BreakpointStatus::kUnknown;
+  }
+
+  return it_breakpoint->second->status;
+}
 
 BytecodeBreakpoint::CodeObjectBreakpoints*
 BytecodeBreakpoint::PreparePatchCodeObject(
@@ -254,6 +296,9 @@ void BytecodeBreakpoint::PatchCodeObject(CodeObjectBreakpoints* code) {
   for (auto it_entry = code->breakpoints.begin();
        it_entry != code->breakpoints.end();
        ++it_entry, ++const_index) {
+    // Skip breakpoint if it still hasn't been activated.
+    if (it_entry->second->status == BreakpointStatus::kInactive) continue;
+
     int offset = it_entry->first;
     bool offset_found = true;
     const Breakpoint& breakpoint = *it_entry->second;
@@ -287,6 +332,9 @@ void BytecodeBreakpoint::PatchCodeObject(CodeObjectBreakpoints* code) {
       LOG(WARNING) << "Failed to insert bytecode for breakpoint "
                    << breakpoint.cookie << " at line " << breakpoint.line;
       errors.push_back(breakpoint.error_callback);
+      it_entry->second->status = BreakpointStatus::kError;
+    } else {
+      it_entry->second->status = BreakpointStatus::kActive;
     }
   }
 

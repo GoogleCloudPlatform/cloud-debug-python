@@ -27,6 +27,43 @@
 namespace devtools {
 namespace cdbg {
 
+// Enum representing the status of a breakpoint. State tracking is helpful
+// for testing and debugging the bytecode breakpoints.
+//  =======================================================================
+//  State transition map:
+//
+//  (start) kUnknown
+//              |- [CreateBreakpoint]
+//              |
+//              |
+//              | [ActivateBreakpoint]  [PatchCodeObject]
+//              v     |                 |
+//          kInactive ----> kActive <---> kError
+//                  |          |          |
+//                  |-------|  |  |-------|
+//                          |  |  |
+//                          |- |- |- [ClearBreakpoint]
+//                          v  v  v
+//                           kDone
+//
+//  =======================================================================
+enum class BreakpointStatus {
+  // Unknown status for the breakpoint
+  kUnknown = 0,
+
+  // Breakpoint is created and is patched in the bytecode.
+  kActive,
+
+  // Breakpoint is created but is currently not patched in the bytecode.
+  kInactive,
+
+  // Breakpoint has been cleared.
+  kDone,
+
+  // Breakpoint is created but failed to be activated (patched in the bytecode).
+  kError
+};
+
 // Sets breakpoints in Python code with zero runtime overhead.
 // BytecodeBreakpoint rewrites Python bytecode to insert a breakpoint. The
 // implementation is specific to CPython 2.7.
@@ -41,20 +78,35 @@ class BytecodeBreakpoint {
   // Clears all the set breakpoints.
   void Detach();
 
-  // Sets a new breakpoint in the specified code object. More than one
-  // breakpoint can be set at the same source location. When the breakpoint
-  // hits, the "callback" parameter is invoked. Every time this class fails to
-  // install the breakpoint, "error_callback" is invoked. Returns cookie used
-  // to clear the breakpoint.
-  int SetBreakpoint(
-      PyCodeObject* code_object,
-      int line,
-      std::function<void()> hit_callback,
-      std::function<void()> error_callback);
+  // Creates a new breakpoint in the specified code object. More than one
+  // breakpoint can be created at the same source location. When the breakpoint
+  // hits, the "callback" parameter is invoked. Every time this method fails to
+  // create the breakpoint, "error_callback" is invoked and a cookie value of
+  // -1 is returned. If it succeeds in creating the breakpoint, returns the
+  // unique cookie used to activate and clear the breakpoint. Note this method
+  // only creates the breakpoint, to activate it you must call
+  // "ActivateBreakpoint".
+  int CreateBreakpoint(PyCodeObject* code_object, int line,
+                       std::function<void()> hit_callback,
+                       std::function<void()> error_callback);
 
-  // Removes a previously set breakpoint. If the cookie is invalid, this
-  // function does nothing.
+  // Activates a previously created breakpoint. If it fails to set any
+  // breakpoint, the error callback will be invoked. This method is kept
+  // separate from "CreateBreakpoint" to ensure that the cookie is available
+  // before the "error_callback" is invoked. Calling this method with a cookie
+  // value of -1 is a no-op. Note that any breakpoints in the same function that
+  // previously failed to activate will retry to activate during this call.
+  // TODO: Provide a method "ActivateAllBreakpoints" to optimize
+  // the code and patch the code once, instead of multiple times.
+  void ActivateBreakpoint(int cookie);
+
+  // Removes a previously set breakpoint. Calling this method with a cookie
+  // value of -1 is a no-op. Note that any breakpoints in the same function that
+  // previously failed to activate will retry to activate during this call.
   void ClearBreakpoint(int cookie);
+
+  // Get the status of a breakpoint.
+  BreakpointStatus GetBreakpointStatus(int cookie);
 
  private:
   // Information about the breakpoint.
@@ -77,6 +129,9 @@ class BytecodeBreakpoint {
 
     // Breakpoint ID used to clear the breakpoint.
     int cookie;
+
+    // Status of the breakpoint.
+    BreakpointStatus status;
   };
 
   // Set of breakpoints in a particular code object and original data of
