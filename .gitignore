@@ -1,2 +1,6 @@
 /dist/
-
+/src/build/
+/src/dist/
+/src/setup.cfg
+__pycache__/
+*.egg-info/
