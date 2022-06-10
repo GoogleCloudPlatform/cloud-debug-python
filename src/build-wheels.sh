@@ -1,3 +1,5 @@
+#!/bin/bash -e
+
 GFLAGS_URL=https://github.com/gflags/gflags/archive/v2.1.2.tar.gz
 GLOG_URL=https://github.com/google/glog/archive/v0.3.4.tar.gz
 
@@ -67,7 +69,7 @@ for PY_VERSION in ${SUPPORTED_VERSIONS[@]}; do
 
     echo "Running tests"
     "/opt/python/${PY_VERSION}/bin/pip" install google-python-cloud-debugger --no-index -f /io/dist
-    (cd "$HOME"; "/opt/python/${PY_VERSION}/bin/pytest" /io/tests)
+    "/opt/python/${PY_VERSION}/bin/pytest" /io/tests
 done
 
 popd
