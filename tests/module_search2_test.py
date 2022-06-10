@@ -14,7 +14,7 @@ from googleclouddebugger import module_search2
 class SearchModulesTest(absltest.TestCase):
 
   def setUp(self):
-    self._test_package_dir = tempfile.mkdtemp('', 'package_', absltest.get_default_test_tmpdir())
+    self._test_package_dir = tempfile.mkdtemp('', 'package_')
     sys.path.append(self._test_package_dir)
 
   def tearDown(self):

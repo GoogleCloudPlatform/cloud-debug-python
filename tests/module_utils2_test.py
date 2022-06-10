@@ -24,7 +24,7 @@ def _AddSysModule(name, path):
 class ModuleUtilsTest(absltest.TestCase):
 
   def setUp(self):
-    self._test_package_dir = tempfile.mkdtemp('', 'package_', absltest.get_default_test_tmpdir())
+    self._test_package_dir = tempfile.mkdtemp('', 'package_')
     self.modules = sys.modules.copy()
 
   def tearDown(self):

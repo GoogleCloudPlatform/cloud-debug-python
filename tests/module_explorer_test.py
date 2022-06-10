@@ -164,7 +164,7 @@ class ModuleExplorerTest(absltest.TestCase):
 
   def testCodeExtensionMismatch(self):
     """Verify module match when code object points to .py and module to .pyc."""
-    test_dir = tempfile.mkdtemp('', 'module_explorer_', absltest.get_default_test_tmpdir())
+    test_dir = tempfile.mkdtemp('', 'module_explorer_')
     sys.path.append(test_dir)
     try:
       # Create and compile module, remove the .py file and leave the .pyc file.

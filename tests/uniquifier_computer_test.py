@@ -30,7 +30,7 @@ class UniquifierComputerTest(absltest.TestCase):
       def update(self, s):
         self.data += s
 
-    root = tempfile.mkdtemp('', 'fake_app_', absltest.get_default_test_tmpdir())
+    root = tempfile.mkdtemp('', 'fake_app_')
     for relative_path, content in files.items():
       path = os.path.join(root, relative_path)
       directory = os.path.split(path)[0]

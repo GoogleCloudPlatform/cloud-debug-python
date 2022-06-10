@@ -15,7 +15,7 @@ class ImportHookTest2(absltest.TestCase):
   """Tests for the new module import hook."""
 
   def setUp(self):
-    self._test_package_dir = tempfile.mkdtemp('', 'imphook_', absltest.get_default_test_tmpdir())
+    self._test_package_dir = tempfile.mkdtemp('', 'imphook_')
     sys.path.append(self._test_package_dir)
 
     self._import_callbacks_log = []

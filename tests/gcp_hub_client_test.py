@@ -120,9 +120,7 @@ class GcpHubClientTest(parameterized.TestCase):
     with mock.patch.object(
         service_account.Credentials,
         'from_service_account_file') as from_service_account_file:
-      test_tmpdir = absltest.get_default_test_tmpdir()
-      json_file = tempfile.NamedTemporaryFile(
-          dir=test_tmpdir)
+      json_file = tempfile.NamedTemporaryFile()
       with open(json_file.name, 'w') as f:
         f.write('{"project_id": "%s"}' % TEST_PROJECT_ID)
       self._client.SetupAuth(service_account_json_file=json_file.name)
@@ -400,7 +398,7 @@ class GcpHubClientTest(parameterized.TestCase):
     """Verify that uniquifier_computer is used if minor version not defined."""
     self._Start()
 
-    root = tempfile.mkdtemp('', 'fake_app_', absltest.get_default_test_tmpdir())
+    root = tempfile.mkdtemp('', 'fake_app_')
     sys.path.insert(0, root)
     try:
       uniquifier1 = self._client._ComputeUniquifier({})
@@ -417,7 +415,7 @@ class GcpHubClientTest(parameterized.TestCase):
     """Verify that uniquifier_computer not used if minor version is defined."""
     self._Start()
 
-    root = tempfile.mkdtemp('', 'fake_app_', absltest.get_default_test_tmpdir())
+    root = tempfile.mkdtemp('', 'fake_app_')
 
     os.environ['GAE_MINOR_VERSION'] = '12345'
     sys.path.insert(0, root)
@@ -438,7 +436,7 @@ class GcpHubClientTest(parameterized.TestCase):
   def testSourceContext(self):
     self._Start()
 
-    root = tempfile.mkdtemp('', 'fake_app_', absltest.get_default_test_tmpdir())
+    root = tempfile.mkdtemp('', 'fake_app_')
     source_context_path = os.path.join(root, 'source-context.json')
 
     sys.path.insert(0, root)

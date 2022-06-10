@@ -19,7 +19,7 @@ class PythonBreakpointTest(absltest.TestCase):
   """Unit test for python_breakpoint module."""
 
   def setUp(self):
-    self._test_package_dir = tempfile.mkdtemp('', 'package_', absltest.get_default_test_tmpdir())
+    self._test_package_dir = tempfile.mkdtemp('', 'package_')
     sys.path.append(self._test_package_dir)
 
     path, line = python_test_util.ResolveTag(type(self), 'CODE_LINE')
