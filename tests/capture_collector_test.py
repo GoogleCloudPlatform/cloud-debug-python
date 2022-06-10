@@ -337,7 +337,6 @@ class CaptureCollectorTest(absltest.TestCase):
 
     # Side effect logic for the mock data visibility object
     def IsDataVisible(name):
-      print(f"checking {name}")
       if name == 'capture_collector_test.TestClass':
         return (False, 'data blocked')
       return (True, None)
