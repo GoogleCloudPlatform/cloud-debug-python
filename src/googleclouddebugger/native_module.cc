@@ -176,7 +176,7 @@ static PyObject* LogError(PyObject* self, PyObject* py_args) {
 }
 
 
-// Sets a new breakpoint in Python code. The breakpoint may have an optional
+// Creates a new breakpoint in Python code. The breakpoint may have an optional
 // condition to evaluate. When the breakpoint hits (and the condition matches)
 // a callable object will be invoked from that thread.
 //
@@ -196,7 +196,8 @@ static PyObject* LogError(PyObject* self, PyObject* py_args) {
 // Returns:
 //   Integer cookie identifying this breakpoint. It needs to be specified when
 //   clearing the breakpoint.
-static PyObject* SetConditionalBreakpoint(PyObject* self, PyObject* py_args) {
+static PyObject* CreateConditionalBreakpoint(PyObject* self,
+	                                     PyObject* py_args) {
   PyCodeObject* code_object = nullptr;
   int line = -1;
   PyCodeObject* condition = nullptr;
@@ -238,7 +239,7 @@ static PyObject* SetConditionalBreakpoint(PyObject* self, PyObject* py_args) {
 
   int cookie = -1;
 
-  cookie = g_bytecode_breakpoint.SetBreakpoint(
+  cookie = g_bytecode_breakpoint.CreateBreakpoint(
       code_object,
       line,
       std::bind(
@@ -255,11 +256,11 @@ static PyObject* SetConditionalBreakpoint(PyObject* self, PyObject* py_args) {
 }
 
 
-// Clears the breakpoint previously set by "SetConditionalBreakpoint". Must be
-// called exactly once per each call to "SetConditionalBreakpoint".
+// Clears a breakpoint previously created by "CreateConditionalBreakpoint". Must
+// be called exactly once per each call to "CreateConditionalBreakpoint".
 //
 // Args:
-//   cookie: breakpoint identifier returned by "SetConditionalBreakpoint".
+//   cookie: breakpoint identifier returned by "CreateConditionalBreakpoint".
 static PyObject* ClearConditionalBreakpoint(PyObject* self, PyObject* py_args) {
   int cookie = -1;
   if (!PyArg_ParseTuple(py_args, "i", &cookie)) {
@@ -271,6 +272,24 @@ static PyObject* ClearConditionalBreakpoint(PyObject* self, PyObject* py_args) {
   Py_RETURN_NONE;
 }
 
+// Activates a previously created breakpoint by "CreateConditionalBreakpoint"
+// and that haven't been cleared yet using "ClearConditionalBreakpoint".
+// TODO: Optimize breakpoint activation by having one method
+// "ActivateAllConditionalBreakpoints" for all previously created breakpoints.
+//
+// Args:
+//   cookie: breakpoint identifier returned by "CreateConditionalBreakpoint".
+static PyObject* ActivateConditionalBreakpoint(PyObject* self,
+                                               PyObject* py_args) {
+  int cookie = -1;
+  if (!PyArg_ParseTuple(py_args, "i", &cookie)) {
+    return nullptr;
+  }
+
+  g_bytecode_breakpoint.ActivateBreakpoint(cookie);
+
+  Py_RETURN_NONE;
+}
 
 // Invokes a Python callable object with immutability tracer.
 //
@@ -369,16 +388,22 @@ static PyMethodDef g_module_functions[] = {
     "ERROR level logging from Python code."
   },
   {
-    "SetConditionalBreakpoint",
-    SetConditionalBreakpoint,
+    "CreateConditionalBreakpoint",
+    CreateConditionalBreakpoint,
     METH_VARARGS,
-    "Sets a new breakpoint in Python code."
+    "Creates a new breakpoint in Python code."
+  },
+  {
+    "ActivateConditionalBreakpoint",
+    ActivateConditionalBreakpoint,
+    METH_VARARGS,
+    "Activates previously created breakpoint in Python code."
   },
   {
     "ClearConditionalBreakpoint",
     ClearConditionalBreakpoint,
     METH_VARARGS,
-    "Clears previously set breakpoint in Python code."
+    "Clears previously created breakpoint in Python code."
   },
   {
     "CallImmutable",

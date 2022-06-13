@@ -334,11 +334,13 @@ class PythonBreakpoint(object):
     native.LogInfo('Creating new Python breakpoint %s in %s, line %d' % (
         self.GetBreakpointId(), codeobj, line))
 
-    self._cookie = native.SetConditionalBreakpoint(
+    self._cookie = native.CreateConditionalBreakpoint(
         codeobj,
         line,
         condition,
         self._BreakpointEvent)
+
+    native.ActivateConditionalBreakpoint(self._cookie)
 
   def _RemoveImportHook(self):
     """Removes the import hook if one was installed."""

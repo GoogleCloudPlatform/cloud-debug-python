@@ -85,6 +85,6 @@ library_dirs=${ROOT}/build/third_party/lib" > ${ROOT}/setup.cfg
 # Build the Python Cloud Debugger agent.
 pushd ${ROOT}
 # Use custom python command if variable is set
-"${PYTHON:-python}" setup.py bdist_egg
+"${PYTHON:-python3}" setup.py bdist_wheel
 popd
 
