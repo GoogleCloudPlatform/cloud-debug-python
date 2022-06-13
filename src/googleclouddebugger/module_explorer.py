@@ -195,7 +195,7 @@ def _FindCodeObjectsReferents(module, start_objects, visit_recorder):
   code_objects = set()
   current = start_objects
   for obj in current:
-    visit_recorder.Record(current)
+    visit_recorder.Record(obj)
 
   depth = 0
   while current and depth < _MAX_REFERENTS_BFS_DEPTH:
