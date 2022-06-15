@@ -66,12 +66,10 @@ pip install dist/google_python_cloud_debugger-*.whl
 Note that the build script assumes some dependencies. To install these
 dependencies on Debian, run this command:
 
-TODO: Figure out what the new dependencies are.  May be able to trim.
-
 ```shell
 sudo apt-get -y -q --no-install-recommends install \
     curl ca-certificates gcc build-essential cmake \
-    python3 python3-dev python3-setuptools python3-pip
+    python3 python3-dev python3-pip
 ```
 
 If the desired target version of Python is not the default version of
