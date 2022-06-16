@@ -365,7 +365,6 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8_t opcode) {
     case CONTINUE_LOOP:
     case SETUP_LOOP:
 #endif
-#if PY_MAJOR_VERSION >= 3
     case DUP_TOP_TWO:
     case BINARY_MATRIX_MULTIPLY:
     case INPLACE_MATRIX_MULTIPLY:
@@ -402,25 +401,6 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8_t opcode) {
     // Added back in Python 3.8 (was in 2.7 as well)
     case ROT_FOUR:
 #endif
-#else
-    case ROT_FOUR:
-    case DUP_TOPX:
-    case UNARY_NOT:
-    case UNARY_CONVERT:
-    case BINARY_DIVIDE:
-    case BINARY_OR:
-    case INPLACE_DIVIDE:
-    case SLICE+0:
-    case SLICE+1:
-    case SLICE+2:
-    case SLICE+3:
-    case LOAD_LOCALS:
-    case EXEC_STMT:
-    case JUMP_ABSOLUTE:
-    case CALL_FUNCTION_VAR:
-    case CALL_FUNCTION_VAR_KW:
-    case MAKE_CLOSURE:
-#endif
       return OPCODE_NOT_MUTABLE;
 
     case PRINT_EXPR:
@@ -450,7 +430,6 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8_t opcode) {
     // Removed in Python 3.8.
     case SETUP_EXCEPT:
 #endif
-#if PY_MAJOR_VERSION >= 3
     case GET_AITER:
     case GET_ANEXT:
     case BEFORE_ASYNC_WITH:
@@ -490,23 +469,6 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8_t opcode) {
     case WITH_EXCEPT_START:
     case LOAD_ASSERTION_ERROR:
 #endif
-#else
-    case STORE_SLICE+0:
-    case STORE_SLICE+1:
-    case STORE_SLICE+2:
-    case STORE_SLICE+3:
-    case DELETE_SLICE+0:
-    case DELETE_SLICE+1:
-    case DELETE_SLICE+2:
-    case DELETE_SLICE+3:
-    case STORE_MAP:
-    case PRINT_ITEM_TO:
-    case PRINT_ITEM:
-    case PRINT_NEWLINE_TO:
-    case PRINT_NEWLINE:
-    case BUILD_CLASS:
-    case WITH_CLEANUP:
-#endif
       return OPCODE_MUTABLE;
 
     default:
@@ -525,16 +487,11 @@ void ImmutabilityTracer::ProcessCodeRange(const uint8_t* code_start,
         // We don't worry about the sizes of instructions with EXTENDED_ARG.
         // The argument does not really matter and so EXTENDED_ARGs can be
         // treated as just another instruction with an opcode.
-#if PY_MAJOR_VERSION >= 3
         opcodes += 2;
-#else
-        opcodes += HAS_ARG(opcode) ? 3 : 1;
-#endif
         DCHECK_LE(opcodes, end);
         break;
 
       case OPCODE_MAYBE_MUTABLE:
-#if PY_MAJOR_VERSION >= 3
         if (opcode == JUMP_ABSOLUTE) {
           // Check for a jump to itself, which happens in "while True: pass".
           // The tracer won't call our tracing function unless there is a jump
@@ -551,7 +508,6 @@ void ImmutabilityTracer::ProcessCodeRange(const uint8_t* code_start,
           DCHECK_LE(opcodes, end);
           break;
         }
-#endif
         LOG(WARNING) << "Unknown opcode " << static_cast<uint32_t>(opcode);
         mutable_code_detected_ = true;
         return;
