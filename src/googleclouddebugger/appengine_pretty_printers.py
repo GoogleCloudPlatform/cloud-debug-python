@@ -14,8 +14,6 @@
 
 """Formatters for well known objects that don't show up nicely by default."""
 
-import six
-
 try:
   from protorpc import messages  # pylint: disable=g-import-not-at-top
 except ImportError:
@@ -31,7 +29,7 @@ def PrettyPrinter(obj):
   """Pretty printers for AppEngine objects."""
 
   if ndb and isinstance(obj, ndb.Model):
-    return six.iteritems(obj.to_dict()), 'ndb.Model(%s)' % type(obj).__name__
+    return obj.to_dict().items(), 'ndb.Model(%s)' % type(obj).__name__
 
   if messages and isinstance(obj, messages.Enum):
     return [('name', obj.name), ('number', obj.number)], type(obj).__name__

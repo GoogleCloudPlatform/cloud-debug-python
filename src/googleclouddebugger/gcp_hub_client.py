@@ -34,7 +34,6 @@ import google_auth_httplib2
 import googleapiclient
 import googleapiclient.discovery
 import httplib2
-import six
 
 import google.auth
 from google.oauth2 import service_account
@@ -173,7 +172,7 @@ class GcpHubClient(object):
     """
     self._debuggee_labels = {}
 
-    for (label, var_names) in six.iteritems(_DEBUGGEE_LABELS):
+    for (label, var_names) in _DEBUGGEE_LABELS.items():
       # var_names is a list of possible environment variables that may contain
       # the label value. Find the first one that is set.
       for name in var_names:
@@ -197,7 +196,7 @@ class GcpHubClient(object):
 
     if flags:
       self._debuggee_labels.update(
-          {name: value for (name, value) in six.iteritems(flags)
+          {name: value for (name, value) in flags.items()
            if name in _DEBUGGEE_LABELS})
 
     self._debuggee_labels[labels.Debuggee.PROJECT_ID] = self._project_id

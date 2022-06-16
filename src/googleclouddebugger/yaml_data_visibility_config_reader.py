@@ -27,7 +27,6 @@ Example Usage:
 
 import os
 import sys
-import six
 import yaml
 
 
@@ -128,7 +127,7 @@ def _CheckData(yaml_data):
     raise UnknownConfigKeyError(
         'Unknown keys in configuration: %s' % unknown_keys)
 
-  for key, data in six.iteritems(yaml_data):
+  for key, data in yaml_data.items():
     _AssertDataIsList(key, data)
 
 

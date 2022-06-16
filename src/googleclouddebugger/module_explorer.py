@@ -19,8 +19,6 @@ import os
 import sys
 import types
 
-import six
-
 # Maximum traversal depth when looking for all the code objects referenced by
 # a module or another code object.
 _MAX_REFERENTS_BFS_DEPTH = 15
@@ -35,9 +33,9 @@ _MAX_VISIT_OBJECTS = 100000
 _MAX_OBJECT_REFERENTS = 1000
 
 # Object types to ignore when looking for the code objects.
-_BFS_IGNORE_TYPES = (types.ModuleType, type(None), bool, float, six.binary_type,
-                     six.text_type, types.BuiltinFunctionType,
-                     types.BuiltinMethodType, list) + six.integer_types
+_BFS_IGNORE_TYPES = (types.ModuleType, type(None), bool, float, bytes,
+                     str, int, types.BuiltinFunctionType,
+                     types.BuiltinMethodType, list)
 
 
 def GetCodeObjectAtLine(module, line):
@@ -56,7 +54,7 @@ def GetCodeObjectAtLine(module, line):
     return (False, (None, None))
 
   prev_line = 0
-  next_line = six.MAXSIZE
+  next_line = sys.maxsize
 
   for code_object in _GetModuleCodeObjects(module):
     for co_line_number in _GetLineNumbers(code_object):
@@ -69,7 +67,7 @@ def GetCodeObjectAtLine(module, line):
         break
 
   prev_line = None if prev_line == 0 else prev_line
-  next_line = None if next_line == six.MAXSIZE else next_line
+  next_line = None if next_line == sys.maxsize else next_line
   return (False, (prev_line, next_line))
 
 
@@ -85,12 +83,8 @@ def _GetLineNumbers(code_object):
   # Get the line number deltas, which are the odd number entries, from the
   # lnotab. See
   # https://svn.python.org/projects/python/branches/pep-0384/Objects/lnotab_notes.txt
-  # In Python 3, this is just a byte array. In Python 2 it is a string so the
-  # numerical values have to be extracted from the individual characters.
-  if six.PY3:
-    line_incrs = code_object.co_lnotab[1::2]
-  else:
-    line_incrs = (ord(c) for c in code_object.co_lnotab[1::2])
+  # In Python 3, this is just a byte array.
+  line_incrs = code_object.co_lnotab[1::2]
   current_line = code_object.co_firstlineno
   for line_incr in line_incrs:
     current_line += line_incr
@@ -213,7 +207,7 @@ def _FindCodeObjectsReferents(module, start_objects, visit_recorder):
         if isinstance(obj, types.CodeType) and CheckIgnoreCodeObject(obj):
           continue
 
-        if isinstance(obj, six.class_types) and CheckIgnoreClass(obj):
+        if isinstance(obj, type) and CheckIgnoreClass(obj):
           continue
 
         if isinstance(obj, types.CodeType):
