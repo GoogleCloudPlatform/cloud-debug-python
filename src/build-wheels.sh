@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
-GFLAGS_URL=https://github.com/gflags/gflags/archive/v2.1.2.tar.gz
-GLOG_URL=https://github.com/google/glog/archive/v0.3.4.tar.gz
+GFLAGS_URL=https://github.com/gflags/gflags/archive/v2.2.2.tar.gz
+GLOG_URL=https://github.com/google/glog/archive/v0.4.0.tar.gz
 
 SUPPORTED_VERSIONS=(cp36-cp36m cp37-cp37m cp38-cp38 cp39-cp39)
 
@@ -36,9 +36,12 @@ pushd ${ROOT}/build/third_party
 curl -L ${GLOG_URL} -o glog.tar.gz
 tar xzvf glog.tar.gz
 cd glog-*
-./configure --with-pic \
-            --prefix=${ROOT}/build/third_party \
-            --with-gflags=${ROOT}/build/third_party
+mkdir build
+cd build
+cmake -DCMAKE_CXX_FLAGS=-fpic \
+      -DCMAKE_PREFIX_PATH=${ROOT}/build/third_party \
+      -DCMAKE_INSTALL_PREFIX:PATH=${ROOT}/build/third_party \
+      ..
 make ${PARALLEL_BUILD_OPTION}
 make install
 popd
@@ -54,7 +57,7 @@ verbose=1
 
 [build_ext]
 include_dirs=${ROOT}/build/third_party/include
-library_dirs=${ROOT}/build/third_party/lib" > ${ROOT}/setup.cfg
+library_dirs=${ROOT}/build/third_party/lib:${ROOT}/build/third_party/lib64" > ${ROOT}/setup.cfg
 
 # Build the Python Cloud Debugger agent.
 pushd ${ROOT}
