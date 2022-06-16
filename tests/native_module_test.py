@@ -5,8 +5,6 @@ import sys
 import threading
 import time
 
-import six
-
 from absl.testing import absltest
 
 from googleclouddebugger import cdbg_native as native
@@ -250,7 +248,7 @@ class NativeModuleTest(absltest.TestCase):
       compiled_condition = compile(condition, '<string>', 'eval')
 
     cookie = native.CreateConditionalBreakpoint(
-        six.get_function_code(method), line, compiled_condition,
+        method.__code__, line, compiled_condition,
         self._BreakpointEvent)
 
     self._cookies.append(cookie)

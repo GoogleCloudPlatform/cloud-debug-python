@@ -10,7 +10,6 @@ import shutil
 import sys
 import tempfile
 
-import six
 from absl.testing import absltest
 
 from googleclouddebugger import module_explorer
@@ -29,7 +28,7 @@ class ModuleExplorerTest(absltest.TestCase):
 
   def testGlobalMethod(self):
     """Verify that global method is found."""
-    self.assertIn(six.get_function_code(_GlobalMethod), self._code_objects)
+    self.assertIn(_GlobalMethod.__code__, self._code_objects)
 
   def testInnerMethodOfGlobalMethod(self):
     """Verify that inner method defined in a global method is found."""
@@ -37,8 +36,7 @@ class ModuleExplorerTest(absltest.TestCase):
 
   def testInstanceClassMethod(self):
     """Verify that instance class method is found."""
-    self.assertIn(
-        six.get_function_code(self.testInstanceClassMethod), self._code_objects)
+    self.assertIn( self.testInstanceClassMethod.__code__, self._code_objects)
 
   def testInnerMethodOfInstanceClassMethod(self):
     """Verify that inner method defined in a class instance method is found."""
@@ -46,13 +44,11 @@ class ModuleExplorerTest(absltest.TestCase):
     def InnerMethod():
       pass
 
-    self.assertIn(six.get_function_code(InnerMethod), self._code_objects)
+    self.assertIn(InnerMethod.__code__, self._code_objects)
 
   def testStaticMethod(self):
     """Verify that static class method is found."""
-    self.assertIn(
-        six.get_function_code(ModuleExplorerTest._StaticMethod),
-        self._code_objects)
+    self.assertIn(ModuleExplorerTest._StaticMethod.__code__, self._code_objects)
 
   def testInnerMethodOfStaticMethod(self):
     """Verify that static class method is found."""
@@ -60,7 +56,7 @@ class ModuleExplorerTest(absltest.TestCase):
 
   def testNonModuleClassMethod(self):
     """Verify that instance method defined in a base class is not added."""
-    self.assertNotIn(six.get_function_code(self.assertTrue), self._code_objects)
+    self.assertNotIn(self.assertTrue.__code__, self._code_objects)
 
   def testDeepInnerMethod(self):
     """Verify that inner of inner of inner, etc. method is found."""
@@ -70,7 +66,7 @@ class ModuleExplorerTest(absltest.TestCase):
           def Inner4():
             def Inner5():
               pass
-            return six.get_function_code(Inner5)
+            return Inner5.__code__
           return Inner4()
         return Inner3()
       return Inner2()
@@ -96,7 +92,7 @@ class ModuleExplorerTest(absltest.TestCase):
         pass
 
     self.assertIn(
-        six.get_function_code(InnerClass().InnerClassMethod),
+        InnerClass().InnerClassMethod.__code__,
         self._code_objects)
 
   def testMethodOfInnerOldStyleClass(self):
@@ -108,7 +104,7 @@ class ModuleExplorerTest(absltest.TestCase):
         pass
 
     self.assertIn(
-        six.get_function_code(InnerClass().InnerClassMethod),
+        InnerClass().InnerClassMethod.__code__,
         self._code_objects)
 
   def testGlobalMethodWithClosureDecorator(self):
@@ -146,8 +142,7 @@ class ModuleExplorerTest(absltest.TestCase):
   def testCodeObjectAtLine(self):
     """Verify that query of code object at a specified source line."""
     test_cases = [
-        (six.get_function_code(self.testCodeObjectAtLine),
-         'TEST_CODE_OBJECT_AT_ASSERT'),
+        (self.testCodeObjectAtLine.__code__, 'TEST_CODE_OBJECT_AT_ASSERT'),
         (ModuleExplorerTest._StaticMethod(), 'INNER_OF_STATIC_METHOD'),
         (_GlobalMethod(), 'INNER_OF_GLOBAL_METHOD')]
 
@@ -175,19 +170,17 @@ class ModuleExplorerTest(absltest.TestCase):
 #      with open(module_path, 'w') as f:
 #        f.write('def f():\n  pass')
 #      py_compile.compile(module_path)
-#      if six.PY3:
-#        module_pyc_path = os.path.join(test_dir, '__pycache__',
-#                                       'module.cpython-37.pyc')
-#        os.rename(module_pyc_path, module_path + 'c')
+#      module_pyc_path = os.path.join(test_dir, '__pycache__',
+#                                     'module.cpython-37.pyc')
+#      os.rename(module_pyc_path, module_path + 'c')
 #      os.remove(module_path)
 #
 #      import module  # pylint: disable=g-import-not-at-top
 #      self.assertEqual('.py',
-#                       os.path.splitext(
-#                           six.get_function_code(module.f).co_filename)[1])
+#                       os.path.splitext(module.f.__code__.co_filename)[1])
 #      self.assertEqual('.pyc', os.path.splitext(module.__file__)[1])
 #
-#      func_code = six.get_function_code(module.f)
+#      func_code = module.f.__code__
 #      self.assertEqual(func_code,
 #                       module_explorer.GetCodeObjectAtLine(
 #                           module,
@@ -252,7 +245,7 @@ class ModuleExplorerTest(absltest.TestCase):
     def InnerMethod():
       pass  # BPTAG: INNER_OF_STATIC_METHOD
 
-    return six.get_function_code(InnerMethod)
+    return InnerMethod.__code__
 
   def _GetCodeObjectAtLine(self, fn, tag):
     """Wrapper over GetCodeObjectAtLine for tags in this module."""
@@ -264,7 +257,7 @@ def _GlobalMethod():
   def InnerMethod():
     pass  # BPTAG: INNER_OF_GLOBAL_METHOD
 
-  return six.get_function_code(InnerMethod)
+  return InnerMethod.__code__
 
 
 def ClosureDecorator(handler):
@@ -305,7 +298,7 @@ class GlobalClass(object):
 
 
 def _MethodWithLambdaExpression():
-  return six.get_function_code(lambda x: x**3)
+  return (lambda x: x**3).__code__
 
 
 def _MethodWithGeneratorExpression():
