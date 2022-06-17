@@ -20,8 +20,8 @@ LOGPOINT_PAUSE_MSG = (
     'quota is restored')
 
 
-def CaptureCollectorWithDefaultLocation(
-    definition, data_visibility_policy=None):
+def CaptureCollectorWithDefaultLocation(definition,
+                                        data_visibility_policy=None):
   """Makes a LogCollector with a default location.
 
   Args:
@@ -80,6 +80,7 @@ class CaptureCollectorTest(absltest.TestCase):
     self.assertEqual(frame_below_line, frame_below['location']['line'])
 
   def testCallStackLimitedExpandedFrames(self):
+
     def CountLocals(frame):
       return len(frame['arguments']) + len(frame['locals'])
 
@@ -99,10 +100,15 @@ class CaptureCollectorTest(absltest.TestCase):
     def Method(unused_a, unused_b):
       self._collector.Collect(inspect.currentframe())
       top_frame = self._collector.breakpoint['stackFrames'][0]
-      self.assertListEqual(
-          [{'name': 'unused_a', 'value': '158', 'type': 'int'},
-           {'name': 'unused_b', 'value': "'hello'", 'type': 'str'}],
-          top_frame['arguments'])
+      self.assertListEqual([{
+          'name': 'unused_a',
+          'value': '158',
+          'type': 'int'
+      }, {
+          'name': 'unused_b',
+          'value': "'hello'",
+          'type': 'str'
+      }], top_frame['arguments'])
       self.assertEqual('Method', top_frame['function'])
 
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
@@ -114,11 +120,19 @@ class CaptureCollectorTest(absltest.TestCase):
     def Method(self, unused_a, unused_b):  # pylint: disable=unused-argument
       this._collector.Collect(inspect.currentframe())
       top_frame = this._collector.breakpoint['stackFrames'][0]
-      this.assertListEqual(
-          [{'name': 'self', 'value': "'world'", 'type': 'str'},
-           {'name': 'unused_a', 'value': '158', 'type': 'int'},
-           {'name': 'unused_b', 'value': "'hello'", 'type': 'str'}],
-          top_frame['arguments'])
+      this.assertListEqual([{
+          'name': 'self',
+          'value': "'world'",
+          'type': 'str'
+      }, {
+          'name': 'unused_a',
+          'value': '158',
+          'type': 'int'
+      }, {
+          'name': 'unused_b',
+          'value': "'hello'",
+          'type': 'str'
+      }], top_frame['arguments'])
       # This is the incorrect function name, but we are validating that no
       # exceptions are thrown here.
       this.assertEqual('str.Method', top_frame['function'])
@@ -132,11 +146,19 @@ class CaptureCollectorTest(absltest.TestCase):
     def Method(unused_a, unused_b, self):  # pylint: disable=unused-argument
       this._collector.Collect(inspect.currentframe())
       top_frame = this._collector.breakpoint['stackFrames'][0]
-      this.assertListEqual(
-          [{'name': 'unused_a', 'value': '158', 'type': 'int'},
-           {'name': 'unused_b', 'value': "'hello'", 'type': 'str'},
-           {'name': 'self', 'value': "'world'", 'type': 'str'}],
-          top_frame['arguments'])
+      this.assertListEqual([{
+          'name': 'unused_a',
+          'value': '158',
+          'type': 'int'
+      }, {
+          'name': 'unused_b',
+          'value': "'hello'",
+          'type': 'str'
+      }, {
+          'name': 'self',
+          'value': "'world'",
+          'type': 'str'
+      }], top_frame['arguments'])
       this.assertEqual('Method', top_frame['function'])
 
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
@@ -146,9 +168,10 @@ class CaptureCollectorTest(absltest.TestCase):
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.Collect(inspect.currentframe())
     top_frame = self._collector.breakpoint['stackFrames'][0]
-    self.assertListEqual(
-        [{'name': 'self', 'varTableIndex': 1}],
-        top_frame['arguments'])
+    self.assertListEqual([{
+        'name': 'self',
+        'varTableIndex': 1
+    }], top_frame['arguments'])
     self.assertEqual('CaptureCollectorTest.testClassMethod',
                      top_frame['function'])
 
@@ -157,10 +180,14 @@ class CaptureCollectorTest(absltest.TestCase):
     def Method(unused_a, unused_optional='notneeded'):
       self._collector.Collect(inspect.currentframe())
       top_frame = self._collector.breakpoint['stackFrames'][0]
-      self.assertListEqual(
-          [{'name': 'unused_a', 'varTableIndex': 1},
-           {'name': 'unused_optional', 'value': "'notneeded'", 'type': 'str'}],
-          top_frame['arguments'])
+      self.assertListEqual([{
+          'name': 'unused_a',
+          'varTableIndex': 1
+      }, {
+          'name': 'unused_optional',
+          'value': "'notneeded'",
+          'type': 'str'
+      }], top_frame['arguments'])
       self.assertEqual('Method', top_frame['function'])
 
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
@@ -171,11 +198,15 @@ class CaptureCollectorTest(absltest.TestCase):
     def Method(*unused_pos):
       self._collector.Collect(inspect.currentframe())
       top_frame = self._collector.breakpoint['stackFrames'][0]
-      self.assertListEqual(
-          [{'name': 'unused_pos',
-            'type': 'tuple',
-            'members': [{'name': '[0]', 'value': '1', 'type': 'int'}]}],
-          top_frame['arguments'])
+      self.assertListEqual([{
+          'name': 'unused_pos',
+          'type': 'tuple',
+          'members': [{
+              'name': '[0]',
+              'value': '1',
+              'type': 'int'
+          }]
+      }], top_frame['arguments'])
       self.assertEqual('Method', top_frame['function'])
 
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
@@ -186,10 +217,15 @@ class CaptureCollectorTest(absltest.TestCase):
     def Method(**unused_kwd):
       self._collector.Collect(inspect.currentframe())
       top_frame = self._collector.breakpoint['stackFrames'][0]
-      self.assertCountEqual(
-          [{'name': "'first'", 'value': '1', 'type': 'int'},
-           {'name': "'second'", 'value': '2', 'type': 'int'}],
-          top_frame['arguments'][0]['members'])
+      self.assertCountEqual([{
+          'name': "'first'",
+          'value': '1',
+          'type': 'int'
+      }, {
+          'name': "'second'",
+          'value': '2',
+          'type': 'int'
+      }], top_frame['arguments'][0]['members'])
       self.assertEqual('Method', top_frame['function'])
 
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
@@ -204,6 +240,7 @@ class CaptureCollectorTest(absltest.TestCase):
                      top_frame['function'])
 
   def testRuntimeError(self):
+
     class BadDict(dict):
 
       def __init__(self, d):
@@ -238,6 +275,7 @@ class CaptureCollectorTest(absltest.TestCase):
         }, var_a)
 
   def testBadDictionary(self):
+
     class BadDict(dict):
 
       def items(self):
@@ -281,12 +319,22 @@ class CaptureCollectorTest(absltest.TestCase):
     self._collector.Collect(inspect.currentframe())
     top_frame = self._collector.breakpoint['stackFrames'][0]
     self.assertLen(top_frame['arguments'], 1)  # just self.
-    self.assertCountEqual(
-        [{'name': 'unused_a', 'value': '8', 'type': 'int'},
-         {'name': 'unused_b', 'value': 'True', 'type': 'bool'},
-         {'name': 'unused_nothing', 'value': 'None'},
-         {'name': 'unused_s', 'value': "'hippo'", 'type': 'str'}],
-        top_frame['locals'])
+    self.assertCountEqual([{
+        'name': 'unused_a',
+        'value': '8',
+        'type': 'int'
+    }, {
+        'name': 'unused_b',
+        'value': 'True',
+        'type': 'bool'
+    }, {
+        'name': 'unused_nothing',
+        'value': 'None'
+    }, {
+        'name': 'unused_s',
+        'value': "'hippo'",
+        'type': 'str'
+    }], top_frame['locals'])
 
   def testLocalVariablesWithBlacklist(self):
     unused_a = capture_collector.LineNoFilter()
@@ -302,9 +350,8 @@ class CaptureCollectorTest(absltest.TestCase):
     mock_policy = mock.MagicMock()
     mock_policy.IsDataVisible.side_effect = IsDataVisible
 
-    self._collector = CaptureCollectorWithDefaultLocation(
-        {'id': 'BP_ID'},
-        mock_policy)
+    self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'},
+                                                          mock_policy)
     self._collector.Collect(inspect.currentframe())
     top_frame = self._collector.breakpoint['stackFrames'][0]
     # Should be blocked
@@ -312,22 +359,22 @@ class CaptureCollectorTest(absltest.TestCase):
         {
             'name': 'unused_a',
             'status': {
-                'description': {'format': 'data blocked'},
+                'description': {
+                    'format': 'data blocked'
+                },
                 'refersTo': 'VARIABLE_NAME',
                 'isError': True
             }
-        },
-        top_frame['locals'])
+        }, top_frame['locals'])
     # Should not be blocked
-    self.assertIn(
-        {
-            'name': 'unused_b',
-            'value': '5',
-            'type': 'int'
-        },
-        top_frame['locals'])
+    self.assertIn({
+        'name': 'unused_b',
+        'value': '5',
+        'type': 'int'
+    }, top_frame['locals'])
 
   def testWatchedExpressionsBlacklisted(self):
+
     class TestClass(object):
 
       def __init__(self):
@@ -340,6 +387,7 @@ class CaptureCollectorTest(absltest.TestCase):
       if name == 'capture_collector_test.TestClass':
         return (False, 'data blocked')
       return (True, None)
+
     mock_policy = mock.MagicMock()
     mock_policy.IsDataVisible.side_effect = IsDataVisible
 
@@ -347,42 +395,45 @@ class CaptureCollectorTest(absltest.TestCase):
         {
             'id': 'BP_ID',
             'expressions': ['unused_a', 'unused_a.a']
-        },
-        mock_policy)
+        }, mock_policy)
     self._collector.Collect(inspect.currentframe())
     # Class should be blocked
     self.assertIn(
         {
             'name': 'unused_a',
             'status': {
-                'description': {'format': 'data blocked'},
+                'description': {
+                    'format': 'data blocked'
+                },
                 'refersTo': 'VARIABLE_NAME',
                 'isError': True
             }
-        },
-        self._collector.breakpoint['evaluatedExpressions'])
+        }, self._collector.breakpoint['evaluatedExpressions'])
     # TODO: Explicit member SHOULD also be blocked but this is
     # currently not implemented.  After fixing the implementation, change
     # the test below to assert that it's blocked too.
-    self.assertIn(
-        {
-            'name': 'unused_a.a',
-            'type': 'int',
-            'value': '5'
-        },
-        self._collector.breakpoint['evaluatedExpressions'])
+    self.assertIn({
+        'name': 'unused_a.a',
+        'type': 'int',
+        'value': '5'
+    }, self._collector.breakpoint['evaluatedExpressions'])
 
   def testLocalsNonTopFrame(self):
 
     def Method():
       self._collector.Collect(inspect.currentframe())
-      self.assertListEqual(
-          [{'name': 'self', 'varTableIndex': 1}],
-          self._collector.breakpoint['stackFrames'][1]['arguments'])
-      self.assertCountEqual(
-          [{'name': 'unused_a', 'value': '47', 'type': 'int'},
-           {'name': 'Method', 'value': 'function Method'}],
-          self._collector.breakpoint['stackFrames'][1]['locals'])
+      self.assertListEqual([{
+          'name': 'self',
+          'varTableIndex': 1
+      }], self._collector.breakpoint['stackFrames'][1]['arguments'])
+      self.assertCountEqual([{
+          'name': 'unused_a',
+          'value': '47',
+          'type': 'int'
+      }, {
+          'name': 'Method',
+          'value': 'function Method'
+      }], self._collector.breakpoint['stackFrames'][1]['locals'])
 
     unused_a = 47
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
@@ -399,12 +450,20 @@ class CaptureCollectorTest(absltest.TestCase):
     self._collector.default_capture_limits.max_depth = 3
     self._collector.Collect(inspect.currentframe())
     self.assertDictEqual(
-        {'name': 'd',
-         'type': 'dict',
-         'members': [{'name': "'inner'",
-                      'type': 'dict',
-                      'members': [{'name': "'inner'", 'varTableIndex': 0}]}]},
-        self._LocalByName('d'))
+        {
+            'name':
+                'd',
+            'type':
+                'dict',
+            'members': [{
+                'name': "'inner'",
+                'type': 'dict',
+                'members': [{
+                    'name': "'inner'",
+                    'varTableIndex': 0
+                }]
+            }]
+        }, self._LocalByName('d'))
 
   def testVectorMaxDepth(self):
     l = []
@@ -417,31 +476,42 @@ class CaptureCollectorTest(absltest.TestCase):
     self._collector.default_capture_limits.max_depth = 3
     self._collector.Collect(inspect.currentframe())
     self.assertDictEqual(
-        {'name': 'l',
-         'type': 'list',
-         'members': [{'name': '[0]',
-                      'type': 'list',
-                      'members': [{'name': '[0]', 'varTableIndex': 0}]}]},
-        self._LocalByName('l'))
+        {
+            'name':
+                'l',
+            'type':
+                'list',
+            'members': [{
+                'name': '[0]',
+                'type': 'list',
+                'members': [{
+                    'name': '[0]',
+                    'varTableIndex': 0
+                }]
+            }]
+        }, self._LocalByName('l'))
 
   def testStringTrimming(self):
     unused_s = '123456789'
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.default_capture_limits.max_value_len = 8
     self._collector.Collect(inspect.currentframe())
-    self.assertListEqual(
-        [{'name': 'unused_s', 'value': "'12345678...", 'type': 'str'}],
-        self._collector.breakpoint['stackFrames'][0]['locals'])
+    self.assertListEqual([{
+        'name': 'unused_s',
+        'value': "'12345678...",
+        'type': 'str'
+    }], self._collector.breakpoint['stackFrames'][0]['locals'])
 
   def testBytearrayTrimming(self):
     unused_bytes = bytearray(range(20))
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.default_capture_limits.max_value_len = 20
     self._collector.Collect(inspect.currentframe())
-    self.assertListEqual(
-        [{'name': 'unused_bytes', 'value': r"bytearray(b'\x00\x01\...",
-          'type': 'bytearray'}],
-        self._collector.breakpoint['stackFrames'][0]['locals'])
+    self.assertListEqual([{
+        'name': 'unused_bytes',
+        'value': r"bytearray(b'\x00\x01\...",
+        'type': 'bytearray'
+    }], self._collector.breakpoint['stackFrames'][0]['locals'])
 
   def testObject(self):
 
@@ -458,10 +528,15 @@ class CaptureCollectorTest(absltest.TestCase):
     self.assertEqual(
         __name__ + '.MyClass',
         self._collector.breakpoint['variableTable'][var_index]['type'])
-    self.assertCountEqual(
-        [{'name': 'a', 'value': '1', 'type': 'int'},
-         {'name': 'b', 'value': '2', 'type': 'int'}],
-        self._collector.breakpoint['variableTable'][var_index]['members'])
+    self.assertCountEqual([{
+        'name': 'a',
+        'value': '1',
+        'type': 'int'
+    }, {
+        'name': 'b',
+        'value': '2',
+        'type': 'int'
+    }], self._collector.breakpoint['variableTable'][var_index]['members'])
 
   def testBufferFullLocalRef(self):
 
@@ -514,8 +589,10 @@ class CaptureCollectorTest(absltest.TestCase):
       self._collector.Collect(inspect.currentframe())
 
       # Verify that one of {d1,d2} could fit and the other didn't.
-      var_indexes = [self._LocalByName(n)['members'][0]['varTableIndex'] == 0
-                     for n in ['unused_d1', 'unused_d2']]
+      var_indexes = [
+          self._LocalByName(n)['members'][0]['varTableIndex'] == 0
+          for n in ['unused_d1', 'unused_d2']
+      ]
       self.assertEqual(1, sum(var_indexes))
 
     Method()
@@ -538,13 +615,21 @@ class CaptureCollectorTest(absltest.TestCase):
 
     var_table = self._collector.breakpoint['variableTable']
     self.assertDictEqual(
-        {'type': __name__ + '.MyClass',
-         'members': [{'name': 'other', 'varTableIndex': m1_var_index}]},
-        var_table[m2_var_index])
+        {
+            'type': __name__ + '.MyClass',
+            'members': [{
+                'name': 'other',
+                'varTableIndex': m1_var_index
+            }]
+        }, var_table[m2_var_index])
     self.assertDictEqual(
-        {'type': __name__ + '.MyClass',
-         'members': [{'name': 'other', 'varTableIndex': m2_var_index}]},
-        var_table[m1_var_index])
+        {
+            'type': __name__ + '.MyClass',
+            'members': [{
+                'name': 'other',
+                'varTableIndex': m2_var_index
+            }]
+        }, var_table[m1_var_index])
 
   def testCaptureVector(self):
     unused_my_list = [1, 2, 3, 4, 5]
@@ -554,21 +639,53 @@ class CaptureCollectorTest(absltest.TestCase):
     self._collector.Collect(inspect.currentframe())
 
     self.assertDictEqual(
-        {'name': 'unused_my_list',
-         'type': 'list',
-         'members': [{'name': '[0]', 'value': '1', 'type': 'int'},
-                     {'name': '[1]', 'value': '2', 'type': 'int'},
-                     {'name': '[2]', 'value': '3', 'type': 'int'},
-                     {'name': '[3]', 'value': '4', 'type': 'int'},
-                     {'name': '[4]', 'value': '5', 'type': 'int'}]},
-        self._LocalByName('unused_my_list'))
+        {
+            'name':
+                'unused_my_list',
+            'type':
+                'list',
+            'members': [{
+                'name': '[0]',
+                'value': '1',
+                'type': 'int'
+            }, {
+                'name': '[1]',
+                'value': '2',
+                'type': 'int'
+            }, {
+                'name': '[2]',
+                'value': '3',
+                'type': 'int'
+            }, {
+                'name': '[3]',
+                'value': '4',
+                'type': 'int'
+            }, {
+                'name': '[4]',
+                'value': '5',
+                'type': 'int'
+            }]
+        }, self._LocalByName('unused_my_list'))
     self.assertDictEqual(
-        {'name': 'unused_my_slice',
-         'type': 'list',
-         'members': [{'name': '[0]', 'value': '2', 'type': 'int'},
-                     {'name': '[1]', 'value': '3', 'type': 'int'},
-                     {'name': '[2]', 'value': '4', 'type': 'int'}]},
-        self._LocalByName('unused_my_slice'))
+        {
+            'name':
+                'unused_my_slice',
+            'type':
+                'list',
+            'members': [{
+                'name': '[0]',
+                'value': '2',
+                'type': 'int'
+            }, {
+                'name': '[1]',
+                'value': '3',
+                'type': 'int'
+            }, {
+                'name': '[2]',
+                'value': '4',
+                'type': 'int'
+            }]
+        }, self._LocalByName('unused_my_slice'))
 
   def testCaptureDictionary(self):
     unused_my_dict = {
@@ -577,33 +694,73 @@ class CaptureCollectorTest(absltest.TestCase):
         (5, 6): 7,
         frozenset([5, 6]): 'frozen',
         'vector': ['odin', 'dva', 'tri'],
-        'inner': {1: 'one'},
-        'empty': {}}
+        'inner': {
+            1: 'one'
+        },
+        'empty': {}
+    }
 
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.Collect(inspect.currentframe())
 
     frozenset_name = 'frozenset({5, 6})' if six.PY3 else 'frozenset([5, 6])'
-    self.assertCountEqual(
-        [{'name': "'first'", 'value': '1', 'type': 'int'},
-         {'name': '3.14', 'value': "'pi'", 'type': 'str'},
-         {'name': '(5, 6)', 'value': '7', 'type': 'int'},
-         {'name': frozenset_name, 'value': "'frozen'", 'type': 'str'},
-         {'name': "'vector'",
-          'type': 'list',
-          'members': [{'name': '[0]', 'value': "'odin'", 'type': 'str'},
-                      {'name': '[1]', 'value': "'dva'", 'type': 'str'},
-                      {'name': '[2]', 'value': "'tri'", 'type': 'str'}]},
-         {'name': "'inner'",
-          'type': 'dict',
-          'members': [{'name': '1', 'value': "'one'", 'type': 'str'}]},
-         {'name': "'empty'",
-          'type': 'dict',
-          'members': [
-              {'status': {
-                  'refersTo': 'VARIABLE_NAME',
-                  'description': {'format': 'Empty dictionary'}}}]}],
-        self._LocalByName('unused_my_dict')['members'])
+    self.assertCountEqual([{
+        'name': "'first'",
+        'value': '1',
+        'type': 'int'
+    }, {
+        'name': '3.14',
+        'value': "'pi'",
+        'type': 'str'
+    }, {
+        'name': '(5, 6)',
+        'value': '7',
+        'type': 'int'
+    }, {
+        'name': frozenset_name,
+        'value': "'frozen'",
+        'type': 'str'
+    }, {
+        'name':
+            "'vector'",
+        'type':
+            'list',
+        'members': [{
+            'name': '[0]',
+            'value': "'odin'",
+            'type': 'str'
+        }, {
+            'name': '[1]',
+            'value': "'dva'",
+            'type': 'str'
+        }, {
+            'name': '[2]',
+            'value': "'tri'",
+            'type': 'str'
+        }]
+    }, {
+        'name': "'inner'",
+        'type': 'dict',
+        'members': [{
+            'name': '1',
+            'value': "'one'",
+            'type': 'str'
+        }]
+    }, {
+        'name':
+            "'empty'",
+        'type':
+            'dict',
+        'members': [{
+            'status': {
+                'refersTo': 'VARIABLE_NAME',
+                'description': {
+                    'format': 'Empty dictionary'
+                }
+            }
+        }]
+    }],
+                          self._LocalByName('unused_my_dict')['members'])
 
   def testEscapeDictionaryKey(self):
     unused_dict = {}
@@ -617,10 +774,16 @@ class CaptureCollectorTest(absltest.TestCase):
     unicode_name = "'\xe0'" if six.PY3 else "u'\\xe0'"
     unicode_value = "'\xe0'" if six.PY3 else "u'\\xe0'"
 
-    self.assertCountEqual(
-        [{'type': 'str', 'name': "'\\x88'", 'value': "'\\x88'"},
-         {'type': unicode_type, 'name': unicode_name, 'value': unicode_value}],
-        self._LocalByName('unused_dict')['members'])
+    self.assertCountEqual([{
+        'type': 'str',
+        'name': "'\\x88'",
+        'value': "'\\x88'"
+    }, {
+        'type': unicode_type,
+        'name': unicode_name,
+        'value': unicode_value
+    }],
+                          self._LocalByName('unused_dict')['members'])
 
   def testOversizedList(self):
     unused_big_list = ['x'] * 10000
@@ -631,17 +794,23 @@ class CaptureCollectorTest(absltest.TestCase):
     members = self._LocalByName('unused_big_list')['members']
 
     self.assertLen(members, 26)
-    self.assertDictEqual({'name': '[7]', 'value': "'x'", 'type': 'str'},
-                         members[7])
+    self.assertDictEqual({
+        'name': '[7]',
+        'value': "'x'",
+        'type': 'str'
+    }, members[7])
     self.assertDictEqual(
-        {'status': {
-            'refersTo': 'VARIABLE_VALUE',
-            'description': {
-                'format':
-                    ('Only first $0 items were captured. Use in an expression'
-                     ' to see all items.'),
-                'parameters': ['25']}}},
-        members[25])
+        {
+            'status': {
+                'refersTo': 'VARIABLE_VALUE',
+                'description': {
+                    'format': (
+                        'Only first $0 items were captured. Use in an expression'
+                        ' to see all items.'),
+                    'parameters': ['25']
+                }
+            }
+        }, members[25])
 
   def testOversizedDictionary(self):
     unused_big_dict = {'item' + str(i): i**2 for i in range(26)}
@@ -653,14 +822,17 @@ class CaptureCollectorTest(absltest.TestCase):
 
     self.assertLen(members, 26)
     self.assertDictEqual(
-        {'status': {
-            'refersTo': 'VARIABLE_VALUE',
-            'description': {
-                'format':
-                    ('Only first $0 items were captured. Use in an expression'
-                     ' to see all items.'),
-                'parameters': ['25']}}},
-        members[25])
+        {
+            'status': {
+                'refersTo': 'VARIABLE_VALUE',
+                'description': {
+                    'format': (
+                        'Only first $0 items were captured. Use in an expression'
+                        ' to see all items.'),
+                    'parameters': ['25']
+                }
+            }
+        }, members[25])
 
   def testEmptyDictionary(self):
     unused_empty_dict = {}
@@ -669,13 +841,20 @@ class CaptureCollectorTest(absltest.TestCase):
     self._collector.Collect(inspect.currentframe())
 
     self.assertEqual(
-        {'name': 'unused_empty_dict',
-         'type': 'dict',
-         'members': [{
-             'status': {
-                 'refersTo': 'VARIABLE_NAME',
-                 'description': {'format': 'Empty dictionary'}}}]},
-        self._LocalByName('unused_empty_dict'))
+        {
+            'name':
+                'unused_empty_dict',
+            'type':
+                'dict',
+            'members': [{
+                'status': {
+                    'refersTo': 'VARIABLE_NAME',
+                    'description': {
+                        'format': 'Empty dictionary'
+                    }
+                }
+            }]
+        }, self._LocalByName('unused_empty_dict'))
 
   def testEmptyCollection(self):
     for unused_c, object_type in [([], 'list'), ((), 'tuple'), (set(), 'set')]:
@@ -683,13 +862,20 @@ class CaptureCollectorTest(absltest.TestCase):
       self._collector.Collect(inspect.currentframe())
 
       self.assertEqual(
-          {'name': 'unused_c',
-           'type': object_type,
-           'members': [{
-               'status': {
-                   'refersTo': 'VARIABLE_NAME',
-                   'description': {'format': 'Empty collection'}}}]},
-          self._Pack(self._LocalByName('unused_c')))
+          {
+              'name':
+                  'unused_c',
+              'type':
+                  object_type,
+              'members': [{
+                  'status': {
+                      'refersTo': 'VARIABLE_NAME',
+                      'description': {
+                          'format': 'Empty collection'
+                      }
+                  }
+              }]
+          }, self._Pack(self._LocalByName('unused_c')))
 
   def testEmptyClass(self):
 
@@ -702,13 +888,20 @@ class CaptureCollectorTest(absltest.TestCase):
     self._collector.Collect(inspect.currentframe())
 
     self.assertEqual(
-        {'name': 'unused_empty_object',
-         'type': __name__ + '.EmptyObject',
-         'members': [{
-             'status': {
-                 'refersTo': 'VARIABLE_NAME',
-                 'description': {'format': 'Object has no fields'}}}]},
-        self._Pack(self._LocalByName('unused_empty_object')))
+        {
+            'name':
+                'unused_empty_object',
+            'type':
+                __name__ + '.EmptyObject',
+            'members': [{
+                'status': {
+                    'refersTo': 'VARIABLE_NAME',
+                    'description': {
+                        'format': 'Object has no fields'
+                    }
+                }
+            }]
+        }, self._Pack(self._LocalByName('unused_empty_object')))
 
   def testWatchedExpressionsSuccess(self):
     unused_dummy_a = 'x'
@@ -716,16 +909,32 @@ class CaptureCollectorTest(absltest.TestCase):
 
     self._collector = CaptureCollectorWithDefaultLocation({
         'id': 'BP_ID',
-        'expressions': ['1+2', 'unused_dummy_a*8', 'unused_dummy_b']})
+        'expressions': ['1+2', 'unused_dummy_a*8', 'unused_dummy_b']
+    })
     self._collector.Collect(inspect.currentframe())
-    self.assertListEqual(
-        [{'name': '1+2', 'value': '3', 'type': 'int'},
-         {'name': 'unused_dummy_a*8', 'value': "'xxxxxxxx'", 'type': 'str'},
-         {'name': 'unused_dummy_b',
-          'type': 'dict',
-          'members': [{'name': '1', 'value': '2', 'type': 'int'},
-                      {'name': '3', 'value': "'a'", 'type': 'str'}]}],
-        self._collector.breakpoint['evaluatedExpressions'])
+    self.assertListEqual([{
+        'name': '1+2',
+        'value': '3',
+        'type': 'int'
+    }, {
+        'name': 'unused_dummy_a*8',
+        'value': "'xxxxxxxx'",
+        'type': 'str'
+    }, {
+        'name':
+            'unused_dummy_b',
+        'type':
+            'dict',
+        'members': [{
+            'name': '1',
+            'value': '2',
+            'type': 'int'
+        }, {
+            'name': '3',
+            'value': "'a'",
+            'type': 'str'
+        }]
+    }], self._collector.breakpoint['evaluatedExpressions'])
 
   def testOversizedStringExpression(self):
     # This test checks that string expressions are collected first, up to the
@@ -737,33 +946,42 @@ class CaptureCollectorTest(absltest.TestCase):
     # ensure that we're not using the normal limit of 256 bytes.
     self._collector = CaptureCollectorWithDefaultLocation({
         'id': 'BP_ID',
-        'expressions': ['unused_dummy_a']})
+        'expressions': ['unused_dummy_a']
+    })
     self._collector.max_size = 500
     unused_dummy_a = '|'.join(['%04d' % i for i in range(5, 510, 5)])
     self._collector.Collect(inspect.currentframe())
-    self.assertListEqual(
-        [{'name': 'unused_dummy_a',
-          'type': 'str',
-          'value': "'{0}...".format(unused_dummy_a[0:-18])}],
-        self._collector.breakpoint['evaluatedExpressions'])
+    self.assertListEqual([{
+        'name': 'unused_dummy_a',
+        'type': 'str',
+        'value': "'{0}...".format(unused_dummy_a[0:-18])
+    }], self._collector.breakpoint['evaluatedExpressions'])
 
   def testOversizedListExpression(self):
     self._collector = CaptureCollectorWithDefaultLocation({
         'id': 'BP_ID',
-        'expressions': ['unused_dummy_a']})
+        'expressions': ['unused_dummy_a']
+    })
     unused_dummy_a = list(range(0, 100))
     self._collector.Collect(inspect.currentframe())
     # Verify that the list did not get truncated.
-    self.assertListEqual(
-        [{'name': 'unused_dummy_a', 'type': 'list', 'members': [
-            {'type': 'int', 'value': str(a), 'name': '[{0}]'.format(a)}
-            for a in unused_dummy_a]}],
-        self._collector.breakpoint['evaluatedExpressions'])
+    self.assertListEqual([{
+        'name':
+            'unused_dummy_a',
+        'type':
+            'list',
+        'members': [{
+            'type': 'int',
+            'value': str(a),
+            'name': '[{0}]'.format(a)
+        } for a in unused_dummy_a]
+    }], self._collector.breakpoint['evaluatedExpressions'])
 
   def testExpressionNullBytes(self):
     self._collector = CaptureCollectorWithDefaultLocation({
         'id': 'BP_ID',
-        'expressions': ['\0']})
+        'expressions': ['\0']
+    })
     self._collector.Collect(inspect.currentframe())
 
     evaluated_expressions = self._collector.breakpoint['evaluatedExpressions']
@@ -773,36 +991,39 @@ class CaptureCollectorTest(absltest.TestCase):
   def testSyntaxErrorExpression(self):
     self._collector = CaptureCollectorWithDefaultLocation({
         'id': 'BP_ID',
-        'expressions': ['2+']})
+        'expressions': ['2+']
+    })
     self._collector.Collect(inspect.currentframe())
 
     evaluated_expressions = self._collector.breakpoint['evaluatedExpressions']
     self.assertLen(evaluated_expressions, 1)
     self.assertTrue(evaluated_expressions[0]['status']['isError'])
-    self.assertEqual(
-        'VARIABLE_NAME',
-        evaluated_expressions[0]['status']['refersTo'])
+    self.assertEqual('VARIABLE_NAME',
+                     evaluated_expressions[0]['status']['refersTo'])
 
   def testExpressionException(self):
     unused_dummy_a = 1
     unused_dummy_b = 0
     self._collector = CaptureCollectorWithDefaultLocation({
         'id': 'BP_ID',
-        'expressions': ['unused_dummy_a/unused_dummy_b']})
+        'expressions': ['unused_dummy_a/unused_dummy_b']
+    })
     self._collector.Collect(inspect.currentframe())
 
     zero_division_msg = ('division by zero'
                          if six.PY3 else 'integer division or modulo by zero')
 
-    self.assertListEqual(
-        [{'name': 'unused_dummy_a/unused_dummy_b',
-          'status': {
-              'isError': True,
-              'refersTo': 'VARIABLE_VALUE',
-              'description': {
-                  'format': 'Exception occurred: $0',
-                  'parameters': [zero_division_msg]}}}],
-        self._collector.breakpoint['evaluatedExpressions'])
+    self.assertListEqual([{
+        'name': 'unused_dummy_a/unused_dummy_b',
+        'status': {
+            'isError': True,
+            'refersTo': 'VARIABLE_VALUE',
+            'description': {
+                'format': 'Exception occurred: $0',
+                'parameters': [zero_division_msg]
+            }
+        }
+    }], self._collector.breakpoint['evaluatedExpressions'])
 
   def testMutableExpression(self):
 
@@ -813,20 +1034,24 @@ class CaptureCollectorTest(absltest.TestCase):
     ChangeA()
     self._collector = CaptureCollectorWithDefaultLocation({
         'id': 'BP_ID',
-        'expressions': ['ChangeA()']})
+        'expressions': ['ChangeA()']
+    })
     self._collector.Collect(inspect.currentframe())
 
     self.assertEqual(1, self._a)
-    self.assertListEqual(
-        [{'name': 'ChangeA()',
-          'status': {
-              'isError': True,
-              'refersTo': 'VARIABLE_VALUE',
-              'description': {
-                  'format': 'Exception occurred: $0',
-                  'parameters': [('Only immutable methods can be '
-                                  'called from expressions')]}}}],
-        self._collector.breakpoint['evaluatedExpressions'])
+    self.assertListEqual([{
+        'name': 'ChangeA()',
+        'status': {
+            'isError': True,
+            'refersTo': 'VARIABLE_VALUE',
+            'description': {
+                'format':
+                    'Exception occurred: $0',
+                'parameters': [('Only immutable methods can be '
+                                'called from expressions')]
+            }
+        }
+    }], self._collector.breakpoint['evaluatedExpressions'])
 
   def testPrettyPrinters(self):
 
@@ -844,7 +1069,8 @@ class CaptureCollectorTest(absltest.TestCase):
       return ((('name2_%d' % i, '2_%d' % i) for i in range(3)), 'pp-type2')
 
     capture_collector.CaptureCollector.pretty_printers += [
-        PrettyPrinter1, PrettyPrinter2]
+        PrettyPrinter1, PrettyPrinter2
+    ]
 
     unused_obj1 = MyClass()
     unused_obj2 = MyClass()
@@ -853,29 +1079,56 @@ class CaptureCollectorTest(absltest.TestCase):
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.Collect(inspect.currentframe())
 
-    obj_vars = [self._Pack(self._LocalByName('unused_obj%d' % i))
-                for i in range(1, 4)]
+    obj_vars = [
+        self._Pack(self._LocalByName('unused_obj%d' % i)) for i in range(1, 4)
+    ]
 
-    self.assertListEqual(
-        [
-            {'name': 'unused_obj1',
-             'type': 'pp-type1',
-             'members': [
-                 {'name': 'name1_0', 'value': "'1_0'", 'type': 'str'},
-                 {'name': 'name1_1', 'value': "'1_1'", 'type': 'str'}]},
-            {'name': 'unused_obj2',
-             'type': 'pp-type2',
-             'members': [
-                 {'name': 'name2_0', 'value': "'2_0'", 'type': 'str'},
-                 {'name': 'name2_1', 'value': "'2_1'", 'type': 'str'},
-                 {'name': 'name2_2', 'value': "'2_2'", 'type': 'str'}]},
-            {'name': 'unused_obj3',
-             'type': __name__ + '.MyClass',
-             'members': [
-                 {'status': {
-                     'refersTo': 'VARIABLE_NAME',
-                     'description': {'format': 'Object has no fields'}}}]}],
-        obj_vars)
+    self.assertListEqual([{
+        'name':
+            'unused_obj1',
+        'type':
+            'pp-type1',
+        'members': [{
+            'name': 'name1_0',
+            'value': "'1_0'",
+            'type': 'str'
+        }, {
+            'name': 'name1_1',
+            'value': "'1_1'",
+            'type': 'str'
+        }]
+    }, {
+        'name':
+            'unused_obj2',
+        'type':
+            'pp-type2',
+        'members': [{
+            'name': 'name2_0',
+            'value': "'2_0'",
+            'type': 'str'
+        }, {
+            'name': 'name2_1',
+            'value': "'2_1'",
+            'type': 'str'
+        }, {
+            'name': 'name2_2',
+            'value': "'2_2'",
+            'type': 'str'
+        }]
+    }, {
+        'name':
+            'unused_obj3',
+        'type':
+            __name__ + '.MyClass',
+        'members': [{
+            'status': {
+                'refersTo': 'VARIABLE_NAME',
+                'description': {
+                    'format': 'Object has no fields'
+                }
+            }
+        }]
+    }], obj_vars)
 
   def testDateTime(self):
     unused_datetime = datetime.datetime(2014, 6, 11, 2, 30)
@@ -887,28 +1140,32 @@ class CaptureCollectorTest(absltest.TestCase):
     self._collector.Collect(inspect.currentframe())
 
     self.assertDictEqual(
-        {'name': 'unused_datetime',
-         'type': 'datetime.datetime',
-         'value': '2014-06-11 02:30:00'},
-        self._Pack(self._LocalByName('unused_datetime')))
+        {
+            'name': 'unused_datetime',
+            'type': 'datetime.datetime',
+            'value': '2014-06-11 02:30:00'
+        }, self._Pack(self._LocalByName('unused_datetime')))
 
     self.assertDictEqual(
-        {'name': 'unused_date',
-         'type': 'datetime.datetime',
-         'value': '1980-03-01 00:00:00'},
-        self._Pack(self._LocalByName('unused_date')))
+        {
+            'name': 'unused_date',
+            'type': 'datetime.datetime',
+            'value': '1980-03-01 00:00:00'
+        }, self._Pack(self._LocalByName('unused_date')))
 
     self.assertDictEqual(
-        {'name': 'unused_time',
-         'type': 'datetime.time',
-         'value': '18:43:11'},
-        self._Pack(self._LocalByName('unused_time')))
+        {
+            'name': 'unused_time',
+            'type': 'datetime.time',
+            'value': '18:43:11'
+        }, self._Pack(self._LocalByName('unused_time')))
 
     self.assertDictEqual(
-        {'name': 'unused_timedelta',
-         'type': 'datetime.timedelta',
-         'value': '3 days, 0:00:00.008237'},
-        self._Pack(self._LocalByName('unused_timedelta')))
+        {
+            'name': 'unused_timedelta',
+            'type': 'datetime.timedelta',
+            'value': '3 days, 0:00:00.008237'
+        }, self._Pack(self._LocalByName('unused_timedelta')))
 
   def testException(self):
     unused_exception = ValueError('arg1', 2, [3])
@@ -919,12 +1176,23 @@ class CaptureCollectorTest(absltest.TestCase):
 
     self.assertEqual('unused_exception', obj['name'])
     self.assertEqual('ValueError', obj['type'])
-    self.assertListEqual([
-        {'value': "'arg1'", 'type': 'str', 'name': '[0]'},
-        {'value': '2', 'type': 'int', 'name': '[1]'},
-        {'members': [{'value': '3', 'type': 'int', 'name': '[0]'}],
-         'type': 'list',
-         'name': '[2]'}], obj['members'])
+    self.assertListEqual([{
+        'value': "'arg1'",
+        'type': 'str',
+        'name': '[0]'
+    }, {
+        'value': '2',
+        'type': 'int',
+        'name': '[1]'
+    }, {
+        'members': [{
+            'value': '3',
+            'type': 'int',
+            'name': '[0]'
+        }],
+        'type': 'list',
+        'name': '[2]'
+    }], obj['members'])
 
   def testRequestLogIdCapturing(self):
     capture_collector.request_log_id_collector = lambda: 'test_log_id'
@@ -952,12 +1220,10 @@ class CaptureCollectorTest(absltest.TestCase):
     self._collector.Collect(inspect.currentframe())
 
     self.assertIn('evaluatedUserId', self._collector.breakpoint)
-    self.assertEqual(
-        {
-            'kind': 'mdb_user',
-            'id': 'noogler'
-        },
-        self._collector.breakpoint['evaluatedUserId'])
+    self.assertEqual({
+        'kind': 'mdb_user',
+        'id': 'noogler'
+    }, self._collector.breakpoint['evaluatedUserId'])
 
   def testUserIdIsNone(self):
     capture_collector.user_id_collector = lambda: (None, None)
@@ -997,8 +1263,9 @@ class CaptureCollectorTest(absltest.TestCase):
       del packed_variable['varTableIndex']
 
     if 'members' in packed_variable:
-      packed_variable['members'] = [self._Pack(member) for member
-                                    in packed_variable['members']]
+      packed_variable['members'] = [
+          self._Pack(member) for member in packed_variable['members']
+      ]
 
     return packed_variable
 
@@ -1018,7 +1285,10 @@ class LogCollectorTest(absltest.TestCase):
       def emit(self, record):
         self._received_records.append(record)
 
-      def GotMessage(self, msg, level=logging.INFO, line_number=10,
+      def GotMessage(self,
+                     msg,
+                     level=logging.INFO,
+                     line_number=10,
                      func_name=None):
         """Checks that the given message was logged correctly.
 
@@ -1037,8 +1307,8 @@ class LogCollectorTest(absltest.TestCase):
         record = self._received_records.pop(0)
         frame = inspect.currentframe().f_back
         if level != record.levelno:
-          logging.error('Expected log level %d, got %d (%s)',
-                        level, record.levelno, record.levelname)
+          logging.error('Expected log level %d, got %d (%s)', level,
+                        record.levelno, record.levelname)
           return False
         if msg != record.msg:
           logging.error('Expected msg "%s", received "%s"', msg, record.msg)
@@ -1053,12 +1323,12 @@ class LogCollectorTest(absltest.TestCase):
                         os.path.basename(pathname), record.filename)
           return False
         if func_name and func_name != record.funcName:
-          logging.error('Expected function "%s", received "%s"',
-                        func_name, record.funcName)
+          logging.error('Expected function "%s", received "%s"', func_name,
+                        record.funcName)
           return False
         if line_number and record.lineno != line_number:
-          logging.error('Expected lineno %d, received %d',
-                        line_number, record.lineno)
+          logging.error('Expected lineno %d, received %d', line_number,
+                        record.lineno)
           return False
         for attr in ['cdbg_pathname', 'cdbg_lineno']:
           if hasattr(record, attr):
@@ -1114,20 +1384,23 @@ class LogCollectorTest(absltest.TestCase):
     # recover so the ordering of tests ideally doesn't affect this test.
     self.ResetGlobalLogQuota()
     bucket_max_capacity = 250
-    collector = LogCollectorWithDefaultLocation(
-        {'logMessageFormat': '$0', 'expressions': ['i']})
+    collector = LogCollectorWithDefaultLocation({
+        'logMessageFormat': '$0',
+        'expressions': ['i']
+    })
     for i in range(0, bucket_max_capacity * 2):
       self.assertIsNone(collector.Log(inspect.currentframe()))
       if not self._verifier.CheckMessageSafe('LOGPOINT: %s' % i):
-        self.assertGreaterEqual(
-            i, bucket_max_capacity,
-            'Log quota exhausted earlier than expected')
-        self.assertTrue(self._verifier.CheckMessageSafe(LOGPOINT_PAUSE_MSG),
-                        'Quota hit message not logged')
+        self.assertGreaterEqual(i, bucket_max_capacity,
+                                'Log quota exhausted earlier than expected')
+        self.assertTrue(
+            self._verifier.CheckMessageSafe(LOGPOINT_PAUSE_MSG),
+            'Quota hit message not logged')
         time.sleep(0.6)
         self.assertIsNone(collector.Log(inspect.currentframe()))
-        self.assertTrue(self._verifier.CheckMessageSafe('LOGPOINT: %s' % i),
-                        'Logging not resumed after quota recovery time')
+        self.assertTrue(
+            self._verifier.CheckMessageSafe('LOGPOINT: %s' % i),
+            'Logging not resumed after quota recovery time')
         return
     self.fail('Logging was never paused when quota was exceeded')
 
@@ -1140,15 +1413,15 @@ class LogCollectorTest(absltest.TestCase):
     # implemented, it can allow effectively twice that amount to go out in a
     # very short time frame. So the third 30k message should pause.
     msg = ' ' * 30000
-    collector = LogCollectorWithDefaultLocation(
-        {'logMessageFormat': msg})
+    collector = LogCollectorWithDefaultLocation({'logMessageFormat': msg})
     self.assertIsNone(collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage('LOGPOINT: ' + msg))
     self.assertIsNone(collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage('LOGPOINT: ' + msg))
     self.assertIsNone(collector.Log(inspect.currentframe()))
-    self.assertTrue(self._verifier.CheckMessageSafe(LOGPOINT_PAUSE_MSG),
-                    'Quota hit message not logged')
+    self.assertTrue(
+        self._verifier.CheckMessageSafe(LOGPOINT_PAUSE_MSG),
+        'Quota hit message not logged')
     time.sleep(0.6)
     collector._definition['logMessageFormat'] = 'hello'
     self.assertIsNone(collector.Log(inspect.currentframe()))
@@ -1158,8 +1431,7 @@ class LogCollectorTest(absltest.TestCase):
 
   def testMissingLogLevel(self):
     # Missing is equivalent to INFO.
-    collector = LogCollectorWithDefaultLocation(
-        {'logMessageFormat': 'hello'})
+    collector = LogCollectorWithDefaultLocation({'logMessageFormat': 'hello'})
     self.assertIsNone(collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage('LOGPOINT: hello'))
 
@@ -1167,13 +1439,18 @@ class LogCollectorTest(absltest.TestCase):
     capture_collector.log_info_message = None
     collector = LogCollectorWithDefaultLocation({'logLevel': 'INFO'})
     self.assertDictEqual(
-        {'isError': True,
-         'description': {'format': 'Log action on a breakpoint not supported'}},
-        collector.Log(inspect.currentframe()))
+        {
+            'isError': True,
+            'description': {
+                'format': 'Log action on a breakpoint not supported'
+            }
+        }, collector.Log(inspect.currentframe()))
 
   def testLogInfo(self):
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO', 'logMessageFormat': 'hello'})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'INFO',
+        'logMessageFormat': 'hello'
+    })
     collector._definition['location']['line'] = 20
     self.assertIsNone(collector.Log(inspect.currentframe()))
     self.assertTrue(
@@ -1183,8 +1460,10 @@ class LogCollectorTest(absltest.TestCase):
             line_number=20))
 
   def testLogWarning(self):
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'WARNING', 'logMessageFormat': 'hello'})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'WARNING',
+        'logMessageFormat': 'hello'
+    })
     self.assertIsNone(collector.Log(inspect.currentframe()))
     self.assertTrue(
         self._verifier.GotMessage(
@@ -1193,8 +1472,10 @@ class LogCollectorTest(absltest.TestCase):
             func_name='LogCollectorTest.testLogWarning'))
 
   def testLogError(self):
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'ERROR', 'logMessageFormat': 'hello'})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'ERROR',
+        'logMessageFormat': 'hello'
+    })
     self.assertIsNone(collector.Log(inspect.currentframe()))
     self.assertTrue(
         self._verifier.GotMessage(
@@ -1203,15 +1484,17 @@ class LogCollectorTest(absltest.TestCase):
             func_name='LogCollectorTest.testLogError'))
 
   def testBadExpression(self):
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO',
-         'logMessageFormat': 'a=$0, b=$1',
-         'expressions': ['-', '+']})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'INFO',
+        'logMessageFormat': 'a=$0, b=$1',
+        'expressions': ['-', '+']
+    })
     self.assertIsNone(collector.Log(inspect.currentframe()))
-    self.assertTrue(self._verifier.GotMessage(
-        'LOGPOINT: a=<Expression could not be compiled: unexpected EOF while '
-        'parsing>, b=<Expression could not be compiled: unexpected EOF while '
-        'parsing>'))
+    self.assertTrue(
+        self._verifier.GotMessage(
+            'LOGPOINT: a=<Expression could not be compiled: unexpected EOF while '
+            'parsing>, b=<Expression could not be compiled: unexpected EOF while '
+            'parsing>'))
 
   def testDollarEscape(self):
     unused_integer = 12345
@@ -1226,42 +1509,48 @@ class LogCollectorTest(absltest.TestCase):
     self.assertTrue(self._verifier.GotMessage(msg))
 
   def testInvalidExpressionIndex(self):
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO',
-         'logMessageFormat': 'a=$0'})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'INFO',
+        'logMessageFormat': 'a=$0'
+    })
     self.assertIsNone(collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage('LOGPOINT: a=<N/A>'))
 
   def testException(self):
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO',
-         'logMessageFormat': '$0',
-         'expressions': ['[][1]']})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'INFO',
+        'logMessageFormat': '$0',
+        'expressions': ['[][1]']
+    })
     self.assertIsNone(collector.Log(inspect.currentframe()))
-    self.assertTrue(self._verifier.GotMessage(
-        'LOGPOINT: <Exception occurred: list index out of range>'))
+    self.assertTrue(
+        self._verifier.GotMessage(
+            'LOGPOINT: <Exception occurred: list index out of range>'))
 
   def testMutableExpression(self):
 
     def MutableMethod():  # pylint: disable=unused-variable
       self.abc = None
 
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO',
-         'logMessageFormat': '$0',
-         'expressions': ['MutableMethod()']})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'INFO',
+        'logMessageFormat': '$0',
+        'expressions': ['MutableMethod()']
+    })
     self.assertIsNone(collector.Log(inspect.currentframe()))
-    self.assertTrue(self._verifier.GotMessage(
-        'LOGPOINT: <Exception occurred: Only immutable methods can be called '
-        'from expressions>'))
+    self.assertTrue(
+        self._verifier.GotMessage(
+            'LOGPOINT: <Exception occurred: Only immutable methods can be called '
+            'from expressions>'))
 
   def testNone(self):
     unused_none = None
 
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO',
-         'logMessageFormat': '$0',
-         'expressions': ['unused_none']})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'INFO',
+        'logMessageFormat': '$0',
+        'expressions': ['unused_none']
+    })
     self.assertIsNone(collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage('LOGPOINT: None'))
 
@@ -1270,20 +1559,22 @@ class LogCollectorTest(absltest.TestCase):
     unused_integer = 12345
     unused_string = 'hello'
 
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO',
-         'logMessageFormat': '$0,$1,$2',
-         'expressions': ['unused_boolean', 'unused_integer', 'unused_string']})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'INFO',
+        'logMessageFormat': '$0,$1,$2',
+        'expressions': ['unused_boolean', 'unused_integer', 'unused_string']
+    })
     self.assertIsNone(collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage("LOGPOINT: True,12345,'hello'"))
 
   def testLongString(self):
     unused_string = '1234567890'
 
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO',
-         'logMessageFormat': '$0',
-         'expressions': ['unused_string']})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'INFO',
+        'logMessageFormat': '$0',
+        'expressions': ['unused_string']
+    })
     collector.max_value_len = 9
     self.assertIsNone(collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage("LOGPOINT: '123456789..."))
@@ -1291,14 +1582,15 @@ class LogCollectorTest(absltest.TestCase):
   def testLongBytes(self):
     unused_bytes = bytearray([i for i in range(20)])
 
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO',
-         'logMessageFormat': '$0',
-         'expressions': ['unused_bytes']})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'INFO',
+        'logMessageFormat': '$0',
+        'expressions': ['unused_bytes']
+    })
     collector.max_value_len = 20
     self.assertIsNone(collector.Log(inspect.currentframe()))
-    self.assertTrue(self._verifier.GotMessage(
-        r"LOGPOINT: bytearray(b'\x00\x01\..."))
+    self.assertTrue(
+        self._verifier.GotMessage(r"LOGPOINT: bytearray(b'\x00\x01\..."))
 
   def testDate(self):
     unused_datetime = datetime.datetime(2014, 6, 11, 2, 30)
@@ -1306,53 +1598,62 @@ class LogCollectorTest(absltest.TestCase):
     unused_time = datetime.time(18, 43, 11)
     unused_timedelta = datetime.timedelta(days=3, microseconds=8237)
 
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO',
-         'logMessageFormat': '$0;$1;$2;$3',
-         'expressions': ['unused_datetime', 'unused_date',
-                         'unused_time', 'unused_timedelta']})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel':
+            'INFO',
+        'logMessageFormat':
+            '$0;$1;$2;$3',
+        'expressions': [
+            'unused_datetime', 'unused_date', 'unused_time', 'unused_timedelta'
+        ]
+    })
     self.assertIsNone(collector.Log(inspect.currentframe()))
-    self.assertTrue(self._verifier.GotMessage(
-        'LOGPOINT: 2014-06-11 02:30:00;1980-03-01 00:00:00;'
-        '18:43:11;3 days, 0:00:00.008237'))
+    self.assertTrue(
+        self._verifier.GotMessage(
+            'LOGPOINT: 2014-06-11 02:30:00;1980-03-01 00:00:00;'
+            '18:43:11;3 days, 0:00:00.008237'))
 
   def testSet(self):
     unused_set = set(['a'])
 
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO',
-         'logMessageFormat': '$0',
-         'expressions': ['unused_set']})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'INFO',
+        'logMessageFormat': '$0',
+        'expressions': ['unused_set']
+    })
     self.assertIsNone(collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage("LOGPOINT: {'a'}"))
 
   def testTuple(self):
     unused_tuple = (1, 2, 3, 4, 5)
 
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO',
-         'logMessageFormat': '$0',
-         'expressions': ['unused_tuple']})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'INFO',
+        'logMessageFormat': '$0',
+        'expressions': ['unused_tuple']
+    })
     self.assertIsNone(collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage('LOGPOINT: (1, 2, 3, 4, 5)'))
 
   def testList(self):
     unused_list = ['a', 'b', 'c']
 
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO',
-         'logMessageFormat': '$0',
-         'expressions': ['unused_list']})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'INFO',
+        'logMessageFormat': '$0',
+        'expressions': ['unused_list']
+    })
     self.assertIsNone(collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage("LOGPOINT: ['a', 'b', 'c']"))
 
   def testOversizedList(self):
     unused_list = [1, 2, 3, 4]
 
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO',
-         'logMessageFormat': '$0',
-         'expressions': ['unused_list']})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'INFO',
+        'logMessageFormat': '$0',
+        'expressions': ['unused_list']
+    })
     collector.max_list_items = 3
     self.assertIsNone(collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage('LOGPOINT: [1, 2, 3, ...]'))
@@ -1360,10 +1661,11 @@ class LogCollectorTest(absltest.TestCase):
   def testSlice(self):
     unused_slice = slice(1, 10)
 
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO',
-         'logMessageFormat': '$0',
-         'expressions': ['unused_slice']})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'INFO',
+        'logMessageFormat': '$0',
+        'expressions': ['unused_slice']
+    })
     collector.max_list_items = 3
     self.assertIsNone(collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage('LOGPOINT: slice(1, 10, None)'))
@@ -1371,10 +1673,11 @@ class LogCollectorTest(absltest.TestCase):
   def testMap(self):
     unused_map = {'a': 1}
 
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO',
-         'logMessageFormat': '$0',
-         'expressions': ['unused_map']})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'INFO',
+        'logMessageFormat': '$0',
+        'expressions': ['unused_map']
+    })
     self.assertIsNone(collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage("LOGPOINT: {'a': 1}"))
 
@@ -1387,61 +1690,70 @@ class LogCollectorTest(absltest.TestCase):
 
     unused_my = MyClass()
 
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO',
-         'logMessageFormat': '$0',
-         'expressions': ['unused_my']})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'INFO',
+        'logMessageFormat': '$0',
+        'expressions': ['unused_my']
+    })
     self.assertIsNone(collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage("LOGPOINT: {'some': 'thing'}"))
 
   def testNestedBelowLimit(self):
     unused_list = [1, [2], [1, 2, 3], [1, [1, 2, 3]], 5]
 
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO',
-         'logMessageFormat': '$0',
-         'expressions': ['unused_list']})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'INFO',
+        'logMessageFormat': '$0',
+        'expressions': ['unused_list']
+    })
     self.assertIsNone(collector.Log(inspect.currentframe()))
-    self.assertTrue(self._verifier.GotMessage(
-        'LOGPOINT: [1, [2], [1, 2, 3], [1, [1, 2, 3]], 5]'))
+    self.assertTrue(
+        self._verifier.GotMessage(
+            'LOGPOINT: [1, [2], [1, 2, 3], [1, [1, 2, 3]], 5]'))
 
   def testNestedAtLimits(self):
     unused_list = [
-        1, [1, 2, 3, 4, 5], [[1, 2, 3, 4, 5], 2, 3, 4, 5], 4, 5, 6, 7, 8, 9]
+        1, [1, 2, 3, 4, 5], [[1, 2, 3, 4, 5], 2, 3, 4, 5], 4, 5, 6, 7, 8, 9
+    ]
 
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO',
-         'logMessageFormat': '$0',
-         'expressions': ['unused_list']})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'INFO',
+        'logMessageFormat': '$0',
+        'expressions': ['unused_list']
+    })
     self.assertIsNone(collector.Log(inspect.currentframe()))
-    self.assertTrue(self._verifier.GotMessage(
-        'LOGPOINT: [1, [1, 2, 3, 4, 5], [[1, 2, 3, 4, 5], 2, 3, 4, 5], '
-        '4, 5, 6, 7, 8, 9]'))
+    self.assertTrue(
+        self._verifier.GotMessage(
+            'LOGPOINT: [1, [1, 2, 3, 4, 5], [[1, 2, 3, 4, 5], 2, 3, 4, 5], '
+            '4, 5, 6, 7, 8, 9]'))
 
   def testNestedRecursionLimit(self):
     unused_list = [1, [[2, [3]], 4], 5]
 
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO',
-         'logMessageFormat': '$0',
-         'expressions': ['unused_list']})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'INFO',
+        'logMessageFormat': '$0',
+        'expressions': ['unused_list']
+    })
     self.assertIsNone(collector.Log(inspect.currentframe()))
-    self.assertTrue(self._verifier.GotMessage(
-        'LOGPOINT: [1, [[2, %s], 4], 5]' % type([])))
+    self.assertTrue(
+        self._verifier.GotMessage('LOGPOINT: [1, [[2, %s], 4], 5]' % type([])))
 
   def testNestedRecursionItemLimits(self):
     unused_list = [1, [1, [1, [2], 3, 4], 3, 4], 3, 4]
 
     list_type = "<class 'list'>" if six.PY3 else "<type 'list'>"
-    collector = LogCollectorWithDefaultLocation(
-        {'logLevel': 'INFO',
-         'logMessageFormat': '$0',
-         'expressions': ['unused_list']})
+    collector = LogCollectorWithDefaultLocation({
+        'logLevel': 'INFO',
+        'logMessageFormat': '$0',
+        'expressions': ['unused_list']
+    })
     collector.max_list_items = 3
     collector.max_sublist_items = 3
     self.assertIsNone(collector.Log(inspect.currentframe()))
-    self.assertTrue(self._verifier.GotMessage(
-        'LOGPOINT: [1, [1, [1, %s, 3, ...], 3, ...], 3, ...]' % list_type))
+    self.assertTrue(
+        self._verifier.GotMessage(
+            'LOGPOINT: [1, [1, [1, %s, 3, ...], 3, ...], 3, ...]' % list_type))
 
   def testDetermineType(self):
     builtin_prefix = 'builtins.' if six.PY3 else '__builtin__.'
@@ -1450,8 +1762,7 @@ class LogCollectorTest(absltest.TestCase):
         (builtin_prefix + 'int', 5),
         (builtin_prefix + 'str', 'hello'),
         (builtin_prefix + 'function', capture_collector.DetermineType),
-        (path_prefix + 'LineNoFilter',
-         capture_collector.LineNoFilter()),
+        (path_prefix + 'LineNoFilter', capture_collector.LineNoFilter()),
     )
 
     for type_string, value in test_data:

@@ -30,7 +30,11 @@ class PythonBreakpointTest(absltest.TestCase):
     self._template = {
         'id': 'BP_ID',
         'createTime': python_test_util.DateTimeToTimestamp(self._base_time),
-        'location': {'path': path, 'line': line}}
+        'location': {
+            'path': path,
+            'line': line
+        }
+    }
     self._completed = set()
     self._update_queue = []
 
@@ -50,23 +54,20 @@ class PythonBreakpointTest(absltest.TestCase):
     self._update_queue.append(breakpoint)
 
   def testClear(self):
-    breakpoint = python_breakpoint.PythonBreakpoint(
-        self._template, self, self, None)
+    breakpoint = python_breakpoint.PythonBreakpoint(self._template, self, self,
+                                                    None)
     breakpoint.Clear()
     self.assertFalse(breakpoint._cookie)
 
   def testId(self):
-    breakpoint = python_breakpoint.PythonBreakpoint(
-        self._template, self, self, None)
+    breakpoint = python_breakpoint.PythonBreakpoint(self._template, self, self,
+                                                    None)
     breakpoint.Clear()
     self.assertEqual('BP_ID', breakpoint.GetBreakpointId())
 
   def testNullBytesInCondition(self):
     python_breakpoint.PythonBreakpoint(
-        dict(self._template, condition='\0'),
-        self,
-        self,
-        None)
+        dict(self._template, condition='\0'), self, self, None)
     self.assertEqual(set(['BP_ID']), self._completed)
     self.assertLen(self._update_queue, 1)
     self.assertTrue(self._update_queue[0]['status']['isError'])
@@ -83,10 +84,10 @@ class PythonBreakpointTest(absltest.TestCase):
       f.write('  print("Hello from deferred module")\n')
 
     python_breakpoint.PythonBreakpoint(
-        dict(self._template, location={'path': 'defer_print.py', 'line': 2}),
-        self,
-        self,
-        None)
+        dict(self._template, location={
+            'path': 'defer_print.py',
+            'line': 2
+        }), self, self, None)
 
     self.assertFalse(self._completed)
     self.assertEmpty(self._update_queue)
@@ -97,9 +98,8 @@ class PythonBreakpointTest(absltest.TestCase):
     self.assertEqual(set(['BP_ID']), self._completed)
     self.assertLen(self._update_queue, 1)
     self.assertGreater(len(self._update_queue[0]['stackFrames']), 3)
-    self.assertEqual(
-        'DoPrint',
-        self._update_queue[0]['stackFrames'][0]['function'])
+    self.assertEqual('DoPrint',
+                     self._update_queue[0]['stackFrames'][0]['function'])
     self.assertTrue(self._update_queue[0]['isFinalState'])
 
     self.assertEmpty(imphook2._import_callbacks)
@@ -124,26 +124,23 @@ class PythonBreakpointTest(absltest.TestCase):
     # Search will proceed in sys.path order, and the first match in sys.path
     # will uniquely identify the full path of the module as inner2_2/mod2.py.
     python_breakpoint.PythonBreakpoint(
-        dict(self._template, location={'path': 'mod2.py', 'line': 3}),
-        self,
-        self,
-        None)
+        dict(self._template, location={
+            'path': 'mod2.py',
+            'line': 3
+        }), self, self, None)
 
     self.assertEqual(2, mod2.DoPrint())
 
     self.assertEqual(set(['BP_ID']), self._completed)
     self.assertLen(self._update_queue, 1)
     self.assertGreater(len(self._update_queue[0]['stackFrames']), 3)
-    self.assertEqual(
-        'DoPrint',
-        self._update_queue[0]['stackFrames'][0]['function'])
+    self.assertEqual('DoPrint',
+                     self._update_queue[0]['stackFrames'][0]['function'])
     self.assertTrue(self._update_queue[0]['isFinalState'])
     self.assertEqual(
-        'x',
-        self._update_queue[0]['stackFrames'][0]['locals'][0]['name'])
+        'x', self._update_queue[0]['stackFrames'][0]['locals'][0]['name'])
     self.assertEqual(
-        '2',
-        self._update_queue[0]['stackFrames'][0]['locals'][0]['value'])
+        '2', self._update_queue[0]['stackFrames'][0]['locals'][0]['value'])
 
     self.assertEmpty(imphook2._import_callbacks)
 
@@ -166,10 +163,10 @@ class PythonBreakpointTest(absltest.TestCase):
     # This breakpoint will be deferred. It can match any one of the modules
     # created above.
     python_breakpoint.PythonBreakpoint(
-        dict(self._template, location={'path': 'defer_print3.py', 'line': 3}),
-        self,
-        self,
-        None)
+        dict(self._template, location={
+            'path': 'defer_print3.py',
+            'line': 3
+        }), self, self, None)
 
     # Lazy import module. Activates breakpoint on the loaded module.
     import inner3_1.defer_print3  # pylint: disable=g-import-not-at-top
@@ -178,16 +175,13 @@ class PythonBreakpointTest(absltest.TestCase):
     self.assertEqual(set(['BP_ID']), self._completed)
     self.assertLen(self._update_queue, 1)
     self.assertGreater(len(self._update_queue[0]['stackFrames']), 3)
-    self.assertEqual(
-        'DoPrint',
-        self._update_queue[0]['stackFrames'][0]['function'])
+    self.assertEqual('DoPrint',
+                     self._update_queue[0]['stackFrames'][0]['function'])
     self.assertTrue(self._update_queue[0]['isFinalState'])
     self.assertEqual(
-        'x',
-        self._update_queue[0]['stackFrames'][0]['locals'][0]['name'])
+        'x', self._update_queue[0]['stackFrames'][0]['locals'][0]['name'])
     self.assertEqual(
-        '1',
-        self._update_queue[0]['stackFrames'][0]['locals'][0]['value'])
+        '1', self._update_queue[0]['stackFrames'][0]['locals'][0]['value'])
 
     self.assertEmpty(imphook2._import_callbacks)
 
@@ -195,10 +189,10 @@ class PythonBreakpointTest(absltest.TestCase):
     open(os.path.join(self._test_package_dir, 'never_print.py'), 'w').close()
 
     breakpoint = python_breakpoint.PythonBreakpoint(
-        dict(self._template, location={'path': 'never_print.py', 'line': 99}),
-        self,
-        self,
-        None)
+        dict(self._template, location={
+            'path': 'never_print.py',
+            'line': 99
+        }), self, self, None)
     breakpoint.Clear()
 
     self.assertFalse(self._completed)
@@ -208,10 +202,10 @@ class PythonBreakpointTest(absltest.TestCase):
     open(os.path.join(self._test_package_dir, 'defer_empty.py'), 'w').close()
 
     python_breakpoint.PythonBreakpoint(
-        dict(self._template, location={'path': 'defer_empty.py', 'line': 10}),
-        self,
-        self,
-        None)
+        dict(self._template, location={
+            'path': 'defer_empty.py',
+            'line': 10
+        }), self, self, None)
 
     self.assertFalse(self._completed)
     self.assertEmpty(self._update_queue)
@@ -235,10 +229,10 @@ class PythonBreakpointTest(absltest.TestCase):
     open(os.path.join(self._test_package_dir, 'defer_cancel.py'), 'w').close()
 
     breakpoint = python_breakpoint.PythonBreakpoint(
-        dict(self._template, location={'path': 'defer_cancel.py', 'line': 11}),
-        self,
-        self,
-        None)
+        dict(self._template, location={
+            'path': 'defer_cancel.py',
+            'line': 11
+        }), self, self, None)
     breakpoint.Clear()
 
     self.assertFalse(self._completed)
@@ -256,10 +250,10 @@ class PythonBreakpointTest(absltest.TestCase):
                                                    'NO_CODE_LINE_BELOW')
 
     python_breakpoint.PythonBreakpoint(
-        dict(self._template, location={'path': path, 'line': line}),
-        self,
-        self,
-        None)
+        dict(self._template, location={
+            'path': path,
+            'line': line
+        }), self, self, None)
     self.assertEqual(set(['BP_ID']), self._completed)
     self.assertLen(self._update_queue, 1)
     self.assertTrue(self._update_queue[0]['isFinalState'])
@@ -278,42 +272,46 @@ class PythonBreakpointTest(absltest.TestCase):
   def testBadExtension(self):
     for path in ['unknown.so', 'unknown', 'unknown.java', 'unknown.pyc']:
       python_breakpoint.PythonBreakpoint(
-          dict(self._template, location={'path': path, 'line': 83}),
-          self,
-          self,
-          None)
+          dict(self._template, location={
+              'path': path,
+              'line': 83
+          }), self, self, None)
       self.assertEqual(set(['BP_ID']), self._completed)
       self.assertLen(self._update_queue, 1)
       self.assertTrue(self._update_queue[0]['isFinalState'])
       self.assertEqual(
-          {'isError': True,
-           'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
-           'description': {
-               'format': ('Only files with .py extension are supported')}},
-          self._update_queue[0]['status'])
+          {
+              'isError': True,
+              'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
+              'description': {
+                  'format': ('Only files with .py extension are supported')
+              }
+          }, self._update_queue[0]['status'])
       self._update_queue = []
 
   def testRootInitFile(self):
-    for path in ['__init__.py', '/__init__.py', '////__init__.py',
-                 ' __init__.py ', ' //__init__.py']:
+    for path in [
+        '__init__.py', '/__init__.py', '////__init__.py', ' __init__.py ',
+        ' //__init__.py'
+    ]:
       python_breakpoint.PythonBreakpoint(
-          dict(self._template, location={'path': path, 'line': 83}),
-          self,
-          self,
-          None)
+          dict(self._template, location={
+              'path': path,
+              'line': 83
+          }), self, self, None)
       self.assertEqual(set(['BP_ID']), self._completed)
       self.assertLen(self._update_queue, 1)
       self.assertTrue(self._update_queue[0]['isFinalState'])
       self.assertEqual(
-          {'isError': True,
-           'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
-           'description': {
-               'format':
-                   'Multiple modules matching $0. '
-                   'Please specify the module path.',
-               'parameters': ['__init__.py']
-           }},
-          self._update_queue[0]['status'])
+          {
+              'isError': True,
+              'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
+              'description': {
+                  'format': 'Multiple modules matching $0. '
+                            'Please specify the module path.',
+                  'parameters': ['__init__.py']
+              }
+          }, self._update_queue[0]['status'])
       self._update_queue = []
 
   # Old module search algorithm rejects because there are too many matches.
@@ -333,10 +331,10 @@ class PythonBreakpointTest(absltest.TestCase):
 
     for path in ['/a/__init__.py', 'a/__init__.py', 'a/b/__init__.py']:
       python_breakpoint.PythonBreakpoint(
-          dict(self._template, location={'path': path, 'line': 2}),
-          self,
-          self,
-          None)
+          dict(self._template, location={
+              'path': path,
+              'line': 2
+          }), self, self, None)
 
       inner4.DoPrint()
 
@@ -344,9 +342,8 @@ class PythonBreakpointTest(absltest.TestCase):
       self.assertLen(self._update_queue, 1)
       self.assertTrue(self._update_queue[0]['isFinalState'])
       self.assertGreater(len(self._update_queue[0]['stackFrames']), 3)
-      self.assertEqual(
-          'DoPrint',
-          self._update_queue[0]['stackFrames'][0]['function'])
+      self.assertEqual('DoPrint',
+                       self._update_queue[0]['stackFrames'][0]['function'])
 
       self.assertEmpty(imphook2._import_callbacks)
       self._update_queue = []
@@ -364,11 +361,11 @@ class PythonBreakpointTest(absltest.TestCase):
     import pkg.pkg  # pylint: disable=g-import-not-at-top,unused-variable
 
     python_breakpoint.PythonBreakpoint(
-        dict(self._template,
-             location={'path': 'pkg/pkg/__init__.py', 'line': 2}),
-        self,
-        self,
-        None)
+        dict(
+            self._template, location={
+                'path': 'pkg/pkg/__init__.py',
+                'line': 2
+            }), self, self, None)
 
     pkg.pkg.DoPrint()
 
@@ -396,41 +393,42 @@ class PythonBreakpointTest(absltest.TestCase):
     import intern_err  # pylint: disable=g-import-not-at-top,unused-variable
 
     python_breakpoint.PythonBreakpoint(
-        dict(self._template, location={'path': 'intern_err.py', 'line': 100}),
-        self,
-        self,
-        None)
+        dict(self._template, location={
+            'path': 'intern_err.py',
+            'line': 100
+        }), self, self, None)
 
     self.assertEqual(set(['BP_ID']), self._completed)
     self.assertLen(self._update_queue, 1)
     self.assertEqual(
-        {'isError': True,
-         'description': {'format': 'Internal error occurred'}},
-        self._update_queue[0]['status'])
+        {
+            'isError': True,
+            'description': {
+                'format': 'Internal error occurred'
+            }
+        }, self._update_queue[0]['status'])
 
   def testInvalidCondition(self):
     python_breakpoint.PythonBreakpoint(
-        dict(self._template, condition='2+'),
-        self,
-        self,
-        None)
+        dict(self._template, condition='2+'), self, self, None)
     self.assertEqual(set(['BP_ID']), self._completed)
     self.assertLen(self._update_queue, 1)
     self.assertTrue(self._update_queue[0]['isFinalState'])
     self.assertEqual(
-        {'isError': True,
-         'refersTo': 'BREAKPOINT_CONDITION',
-         'description': {
-             'format': 'Expression could not be compiled: $0',
-             'parameters': ['unexpected EOF while parsing']}},
-        self._update_queue[0]['status'])
+        {
+            'isError': True,
+            'refersTo': 'BREAKPOINT_CONDITION',
+            'description': {
+                'format': 'Expression could not be compiled: $0',
+                'parameters': ['unexpected EOF while parsing']
+            }
+        }, self._update_queue[0]['status'])
 
   def testHit(self):
-    breakpoint = python_breakpoint.PythonBreakpoint(
-        self._template, self, self, None)
-    breakpoint._BreakpointEvent(
-        native.BREAKPOINT_EVENT_HIT,
-        inspect.currentframe())
+    breakpoint = python_breakpoint.PythonBreakpoint(self._template, self, self,
+                                                    None)
+    breakpoint._BreakpointEvent(native.BREAKPOINT_EVENT_HIT,
+                                inspect.currentframe())
     self.assertEqual(set(['BP_ID']), self._completed)
     self.assertLen(self._update_queue, 1)
     self.assertGreater(len(self._update_queue[0]['stackFrames']), 3)
@@ -441,68 +439,73 @@ class PythonBreakpointTest(absltest.TestCase):
     self._template['createTime'] = python_test_util.DateTimeToTimestampNew(
         self._base_time)
 
-    breakpoint = python_breakpoint.PythonBreakpoint(
-        self._template, self, self, None)
-    breakpoint._BreakpointEvent(
-        native.BREAKPOINT_EVENT_HIT,
-        inspect.currentframe())
+    breakpoint = python_breakpoint.PythonBreakpoint(self._template, self, self,
+                                                    None)
+    breakpoint._BreakpointEvent(native.BREAKPOINT_EVENT_HIT,
+                                inspect.currentframe())
     self.assertEqual(set(['BP_ID']), self._completed)
     self.assertLen(self._update_queue, 1)
     self.assertGreater(len(self._update_queue[0]['stackFrames']), 3)
     self.assertTrue(self._update_queue[0]['isFinalState'])
 
   def testDoubleHit(self):
-    breakpoint = python_breakpoint.PythonBreakpoint(
-        self._template, self, self, None)
-    breakpoint._BreakpointEvent(
-        native.BREAKPOINT_EVENT_HIT,
-        inspect.currentframe())
-    breakpoint._BreakpointEvent(
-        native.BREAKPOINT_EVENT_HIT,
-        inspect.currentframe())
+    breakpoint = python_breakpoint.PythonBreakpoint(self._template, self, self,
+                                                    None)
+    breakpoint._BreakpointEvent(native.BREAKPOINT_EVENT_HIT,
+                                inspect.currentframe())
+    breakpoint._BreakpointEvent(native.BREAKPOINT_EVENT_HIT,
+                                inspect.currentframe())
     self.assertEqual(set(['BP_ID']), self._completed)
     self.assertLen(self._update_queue, 1)
 
   def testEndToEndUnconditional(self):
+
     def Trigger():
       pass  # BPTAG: E2E_UNCONDITIONAL
 
     path, line = python_test_util.ResolveTag(type(self), 'E2E_UNCONDITIONAL')
     breakpoint = python_breakpoint.PythonBreakpoint(
-        {'id': 'BP_ID',
-         'location': {'path': path, 'line': line}},
-        self,
-        self,
-        None)
+        {
+            'id': 'BP_ID',
+            'location': {
+                'path': path,
+                'line': line
+            }
+        }, self, self, None)
     self.assertEmpty(self._update_queue)
     Trigger()
     self.assertLen(self._update_queue, 1)
     breakpoint.Clear()
 
   def testEndToEndConditional(self):
+
     def Trigger():
       for i in range(2):
         self.assertLen(self._update_queue, i)  # BPTAG: E2E_CONDITIONAL
 
     path, line = python_test_util.ResolveTag(type(self), 'E2E_CONDITIONAL')
     breakpoint = python_breakpoint.PythonBreakpoint(
-        {'id': 'BP_ID',
-         'location': {'path': path, 'line': line},
-         'condition': 'i == 1'},
-        self,
-        self,
-        None)
+        {
+            'id': 'BP_ID',
+            'location': {
+                'path': path,
+                'line': line
+            },
+            'condition': 'i == 1'
+        }, self, self, None)
     Trigger()
     breakpoint.Clear()
 
   def testEndToEndCleared(self):
     path, line = python_test_util.ResolveTag(type(self), 'E2E_CLEARED')
     breakpoint = python_breakpoint.PythonBreakpoint(
-        {'id': 'BP_ID',
-         'location': {'path': path, 'line': line}},
-        self,
-        self,
-        None)
+        {
+            'id': 'BP_ID',
+            'location': {
+                'path': path,
+                'line': line
+            }
+        }, self, self, None)
     breakpoint.Clear()
     self.assertEmpty(self._update_queue)  # BPTAG: E2E_CLEARED
 
@@ -510,13 +513,11 @@ class PythonBreakpointTest(absltest.TestCase):
     events = [
         native.BREAKPOINT_EVENT_GLOBAL_CONDITION_QUOTA_EXCEEDED,
         native.BREAKPOINT_EVENT_BREAKPOINT_CONDITION_QUOTA_EXCEEDED,
-        native.BREAKPOINT_EVENT_CONDITION_EXPRESSION_MUTABLE]
+        native.BREAKPOINT_EVENT_CONDITION_EXPRESSION_MUTABLE
+    ]
     for event in events:
-      breakpoint = python_breakpoint.PythonBreakpoint(
-          self._template,
-          self,
-          self,
-          None)
+      breakpoint = python_breakpoint.PythonBreakpoint(self._template, self,
+                                                      self, None)
       breakpoint._BreakpointEvent(event, None)
       self.assertLen(self._update_queue, 1)
       self.assertEqual(set(['BP_ID']), self._completed)
@@ -525,12 +526,11 @@ class PythonBreakpointTest(absltest.TestCase):
       self._completed = set()
 
   def testExpirationTime(self):
-    breakpoint = python_breakpoint.PythonBreakpoint(
-        self._template, self, self, None)
+    breakpoint = python_breakpoint.PythonBreakpoint(self._template, self, self,
+                                                    None)
     breakpoint.Clear()
     self.assertEqual(
-        datetime(year=2015, month=1, day=2),
-        breakpoint.GetExpirationTime())
+        datetime(year=2015, month=1, day=2), breakpoint.GetExpirationTime())
 
   def testExpirationTimeWithExpiresIn(self):
     definition = self._template.copy()
@@ -538,40 +538,45 @@ class PythonBreakpointTest(absltest.TestCase):
         'seconds': 300  # 5 minutes
     }
 
-    breakpoint = python_breakpoint.PythonBreakpoint(
-        definition, self, self, None)
+    breakpoint = python_breakpoint.PythonBreakpoint(definition, self, self,
+                                                    None)
     breakpoint.Clear()
     self.assertEqual(
-        datetime(year=2015, month=1, day=2),
-        breakpoint.GetExpirationTime())
+        datetime(year=2015, month=1, day=2), breakpoint.GetExpirationTime())
 
   def testExpiration(self):
-    breakpoint = python_breakpoint.PythonBreakpoint(
-        self._template, self, self, None)
+    breakpoint = python_breakpoint.PythonBreakpoint(self._template, self, self,
+                                                    None)
     breakpoint.ExpireBreakpoint()
     self.assertEqual(set(['BP_ID']), self._completed)
     self.assertLen(self._update_queue, 1)
     self.assertTrue(self._update_queue[0]['isFinalState'])
     self.assertEqual(
-        {'isError': True,
-         'refersTo': 'BREAKPOINT_AGE',
-         'description': {'format': 'The snapshot has expired'}},
-        self._update_queue[0]['status'])
+        {
+            'isError': True,
+            'refersTo': 'BREAKPOINT_AGE',
+            'description': {
+                'format': 'The snapshot has expired'
+            }
+        }, self._update_queue[0]['status'])
 
   def testLogpointExpiration(self):
     definition = self._template.copy()
     definition['action'] = 'LOG'
-    breakpoint = python_breakpoint.PythonBreakpoint(
-        definition, self, self, None)
+    breakpoint = python_breakpoint.PythonBreakpoint(definition, self, self,
+                                                    None)
     breakpoint.ExpireBreakpoint()
     self.assertEqual(set(['BP_ID']), self._completed)
     self.assertLen(self._update_queue, 1)
     self.assertTrue(self._update_queue[0]['isFinalState'])
     self.assertEqual(
-        {'isError': True,
-         'refersTo': 'BREAKPOINT_AGE',
-         'description': {'format': 'The logpoint has expired'}},
-        self._update_queue[0]['status'])
+        {
+            'isError': True,
+            'refersTo': 'BREAKPOINT_AGE',
+            'description': {
+                'format': 'The logpoint has expired'
+            }
+        }, self._update_queue[0]['status'])
 
   def testNormalizePath(self):
     # Removes leading '/' character.
@@ -587,8 +592,10 @@ class PythonBreakpointTest(absltest.TestCase):
       self.assertEqual('__init__.py', python_breakpoint._NormalizePath(path))
 
     # Normalizes the relative path.
-    for path in ['  ./__init__.py', '././__init__.py', ' .//abc/../__init__.py',
-                 '  ///abc///..///def/..////__init__.py']:
+    for path in [
+        '  ./__init__.py', '././__init__.py', ' .//abc/../__init__.py',
+        '  ///abc///..///def/..////__init__.py'
+    ]:
       self.assertEqual('__init__.py', python_breakpoint._NormalizePath(path))
 
     # Does not remove non-leading, non-trailing space, or non-leading '/'
@@ -602,6 +609,7 @@ class PythonBreakpointTest(absltest.TestCase):
     self.assertEqual(
         'foo/bar/baz/__in it__.py',
         python_breakpoint._NormalizePath('/foo/bar/baz/__in it__.py'))
+
 
 if __name__ == '__main__':
   absltest.main()

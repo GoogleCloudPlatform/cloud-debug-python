@@ -20,7 +20,6 @@ from absl.testing import parameterized
 
 from googleclouddebugger import gcp_hub_client
 
-
 TEST_DEBUGGEE_ID = 'gcp:debuggee-id'
 TEST_AGENT_ID = 'abc-123-d4'
 TEST_PROJECT_ID = 'test-project-id'
@@ -51,9 +50,10 @@ class GcpHubClientTest(parameterized.TestCase):
 
     self._client = gcp_hub_client.GcpHubClient()
 
-    for backoff in [self._client.register_backoff,
-                    self._client.list_backoff,
-                    self._client.update_backoff]:
+    for backoff in [
+        self._client.register_backoff, self._client.list_backoff,
+        self._client.update_backoff
+    ]:
       backoff.min_interval_sec /= 100000.0
       backoff.max_interval_sec /= 100000.0
       backoff._current_interval_sec /= 100000.0
@@ -252,24 +252,25 @@ class GcpHubClientTest(parameterized.TestCase):
   def _TestInitializeLabels(self, module_var, version_var, minor_var):
     self._Start()
 
-    self._client.InitializeDebuggeeLabels(
-        {'module': 'my_module',
-         'version': '1',
-         'minorversion': '23',
-         'something_else': 'irrelevant'})
+    self._client.InitializeDebuggeeLabels({
+        'module': 'my_module',
+        'version': '1',
+        'minorversion': '23',
+        'something_else': 'irrelevant'
+    })
     self.assertEqual(
-        {'projectid': 'test-project-id',
-         'module': 'my_module',
-         'version': '1',
-         'minorversion': '23',
-         'platform': 'default'},
-        self._client._debuggee_labels)
-    self.assertEqual(
-        'test-project-id-my_module-1',
-        self._client._GetDebuggeeDescription())
+        {
+            'projectid': 'test-project-id',
+            'module': 'my_module',
+            'version': '1',
+            'minorversion': '23',
+            'platform': 'default'
+        }, self._client._debuggee_labels)
+    self.assertEqual('test-project-id-my_module-1',
+                     self._client._GetDebuggeeDescription())
 
-    uniquifier1 = self._client._ComputeUniquifier({
-        'labels': self._client._debuggee_labels})
+    uniquifier1 = self._client._ComputeUniquifier(
+        {'labels': self._client._debuggee_labels})
     self.assertTrue(uniquifier1)  # Not empty string.
 
     try:
@@ -278,29 +279,29 @@ class GcpHubClientTest(parameterized.TestCase):
       os.environ[minor_var] = '3476734'
       self._client.InitializeDebuggeeLabels(None)
       self.assertEqual(
-          {'projectid': 'test-project-id',
-           'module': 'env_module',
-           'version': '213',
-           'minorversion': '3476734',
-           'platform': 'default'},
-          self._client._debuggee_labels)
-      self.assertEqual(
-          'test-project-id-env_module-213',
-          self._client._GetDebuggeeDescription())
+          {
+              'projectid': 'test-project-id',
+              'module': 'env_module',
+              'version': '213',
+              'minorversion': '3476734',
+              'platform': 'default'
+          }, self._client._debuggee_labels)
+      self.assertEqual('test-project-id-env_module-213',
+                       self._client._GetDebuggeeDescription())
 
       os.environ[module_var] = 'default'
       os.environ[version_var] = '213'
       os.environ[minor_var] = '3476734'
       self._client.InitializeDebuggeeLabels({'minorversion': 'something else'})
       self.assertEqual(
-          {'projectid': 'test-project-id',
-           'version': '213',
-           'minorversion': 'something else',
-           'platform': 'default'},
-          self._client._debuggee_labels)
-      self.assertEqual(
-          'test-project-id-213',
-          self._client._GetDebuggeeDescription())
+          {
+              'projectid': 'test-project-id',
+              'version': '213',
+              'minorversion': 'something else',
+              'platform': 'default'
+          }, self._client._debuggee_labels)
+      self.assertEqual('test-project-id-213',
+                       self._client._GetDebuggeeDescription())
 
     finally:
       del os.environ[module_var]
@@ -308,12 +309,12 @@ class GcpHubClientTest(parameterized.TestCase):
       del os.environ[minor_var]
 
   def testInitializeLegacyDebuggeeLabels(self):
-    self._TestInitializeLabels(
-        'GAE_MODULE_NAME', 'GAE_MODULE_VERSION', 'GAE_MINOR_VERSION')
+    self._TestInitializeLabels('GAE_MODULE_NAME', 'GAE_MODULE_VERSION',
+                               'GAE_MINOR_VERSION')
 
   def testInitializeDebuggeeLabels(self):
-    self._TestInitializeLabels(
-        'GAE_SERVICE', 'GAE_VERSION', 'GAE_DEPLOYMENT_ID')
+    self._TestInitializeLabels('GAE_SERVICE', 'GAE_VERSION',
+                               'GAE_DEPLOYMENT_ID')
 
   def testInitializeCloudRunDebuggeeLabels(self):
     self._Start()
@@ -322,12 +323,13 @@ class GcpHubClientTest(parameterized.TestCase):
       os.environ['K_SERVICE'] = 'env_module'
       os.environ['K_REVISION'] = '213'
       self._client.InitializeDebuggeeLabels(None)
-      self.assertEqual({
-          'projectid': 'test-project-id',
-          'module': 'env_module',
-          'version': '213',
-          'platform': 'default'
-      }, self._client._debuggee_labels)
+      self.assertEqual(
+          {
+              'projectid': 'test-project-id',
+              'module': 'env_module',
+              'version': '213',
+              'platform': 'default'
+          }, self._client._debuggee_labels)
       self.assertEqual('test-project-id-env_module-213',
                        self._client._GetDebuggeeDescription())
 
@@ -342,12 +344,13 @@ class GcpHubClientTest(parameterized.TestCase):
       os.environ['FUNCTION_NAME'] = 'fcn-name'
       os.environ['X_GOOGLE_FUNCTION_VERSION'] = '213'
       self._client.InitializeDebuggeeLabels(None)
-      self.assertEqual({
-          'projectid': 'test-project-id',
-          'module': 'fcn-name',
-          'version': '213',
-          'platform': 'cloud_function'
-      }, self._client._debuggee_labels)
+      self.assertEqual(
+          {
+              'projectid': 'test-project-id',
+              'module': 'fcn-name',
+              'version': '213',
+              'platform': 'cloud_function'
+          }, self._client._debuggee_labels)
       self.assertEqual('test-project-id-fcn-name-213',
                        self._client._GetDebuggeeDescription())
 
@@ -361,12 +364,13 @@ class GcpHubClientTest(parameterized.TestCase):
     try:
       os.environ['FUNCTION_NAME'] = 'fcn-name'
       self._client.InitializeDebuggeeLabels(None)
-      self.assertEqual({
-          'projectid': 'test-project-id',
-          'module': 'fcn-name',
-          'version': 'unversioned',
-          'platform': 'cloud_function'
-      }, self._client._debuggee_labels)
+      self.assertEqual(
+          {
+              'projectid': 'test-project-id',
+              'module': 'fcn-name',
+              'version': 'unversioned',
+              'platform': 'cloud_function'
+          }, self._client._debuggee_labels)
       self.assertEqual('test-project-id-fcn-name-unversioned',
                        self._client._GetDebuggeeDescription())
 
@@ -380,13 +384,14 @@ class GcpHubClientTest(parameterized.TestCase):
       os.environ['FUNCTION_NAME'] = 'fcn-name'
       os.environ['FUNCTION_REGION'] = 'fcn-region'
       self._client.InitializeDebuggeeLabels(None)
-      self.assertEqual({
-          'projectid': 'test-project-id',
-          'module': 'fcn-name',
-          'version': 'unversioned',
-          'platform': 'cloud_function',
-          'region': 'fcn-region'
-      }, self._client._debuggee_labels)
+      self.assertEqual(
+          {
+              'projectid': 'test-project-id',
+              'module': 'fcn-name',
+              'version': 'unversioned',
+              'platform': 'cloud_function',
+              'region': 'fcn-region'
+          }, self._client._debuggee_labels)
       self.assertEqual('test-project-id-fcn-name-unversioned',
                        self._client._GetDebuggeeDescription())
 
@@ -461,8 +466,9 @@ class GcpHubClientTest(parameterized.TestCase):
 
     self.assertNotIn('sourceContexts', debuggee_no_source_context1)
     self.assertNotIn('sourceContexts', debuggee_bad_source_context)
-    self.assertListEqual([{'what': 'source context'}],
-                         debuggee_with_source_context['sourceContexts'])
+    self.assertListEqual([{
+        'what': 'source context'
+    }], debuggee_with_source_context['sourceContexts'])
 
     uniquifiers = set()
     uniquifiers.add(debuggee_no_source_context1['uniquifier'])

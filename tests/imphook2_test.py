@@ -52,10 +52,8 @@ class ImportHookTest2(absltest.TestCase):
     self._Hook(self._CreateFile('testpkg4/__init__.py'))
     import testpkg4  # pylint: disable=g-import-not-at-top,unused-variable
     import testpkg4  # pylint: disable=g-import-not-at-top,unused-variable
-    self.assertEqual(
-        ['testpkg4/__init__.py',
-         'testpkg4/__init__.py'],
-        sorted(self._import_callbacks_log))
+    self.assertEqual(['testpkg4/__init__.py', 'testpkg4/__init__.py'],
+                     sorted(self._import_callbacks_log))
 
   def testRemoveCallback(self):
     cleanup = self._Hook(self._CreateFile('testpkg4b/__init__.py'))
@@ -77,19 +75,15 @@ class ImportHookTest2(absltest.TestCase):
     self._Hook(self._CreateFile('testpkg6/third.py'))
     import testpkg6.first  # pylint: disable=g-import-not-at-top,unused-variable
     self.assertEqual(
-        ['testpkg6/first.py',
-         'testpkg6/second.py',
-         'testpkg6/third.py'],
+        ['testpkg6/first.py', 'testpkg6/second.py', 'testpkg6/third.py'],
         sorted(self._import_callbacks_log))
 
   def testPackageDotModuleImport(self):
     self._Hook(self._CreateFile('testpkg8/__init__.py'))
     self._Hook(self._CreateFile('testpkg8/my.py'))
     import testpkg8.my  # pylint: disable=g-import-not-at-top,unused-variable
-    self.assertEqual(
-        ['testpkg8/__init__.py',
-         'testpkg8/my.py'],
-        sorted(self._import_callbacks_log))
+    self.assertEqual(['testpkg8/__init__.py', 'testpkg8/my.py'],
+                     sorted(self._import_callbacks_log))
 
   def testNestedPackageDotModuleImport(self):
     self._Hook(self._CreateFile('testpkg9a/__init__.py'))
@@ -97,8 +91,7 @@ class ImportHookTest2(absltest.TestCase):
     self._CreateFile('testpkg9a/testpkg9b/my.py')
     import testpkg9a.testpkg9b.my  # pylint: disable=g-import-not-at-top,unused-variable
     self.assertEqual(
-        ['testpkg9a/__init__.py',
-         'testpkg9a/testpkg9b/__init__.py'],
+        ['testpkg9a/__init__.py', 'testpkg9a/testpkg9b/__init__.py'],
         sorted(self._import_callbacks_log))
 
   def testFromImport(self):
@@ -109,15 +102,12 @@ class ImportHookTest2(absltest.TestCase):
 
   def testTransitiveFromImport(self):
     self._CreateFile('testpkg7/__init__.py')
-    self._Hook(self._CreateFile(
-        'testpkg7/first.py',
-        'from testpkg7 import second'))
+    self._Hook(
+        self._CreateFile('testpkg7/first.py', 'from testpkg7 import second'))
     self._Hook(self._CreateFile('testpkg7/second.py'))
     from testpkg7 import first  # pylint: disable=g-import-not-at-top,unused-variable
-    self.assertEqual(
-        ['testpkg7/first.py',
-         'testpkg7/second.py'],
-        sorted(self._import_callbacks_log))
+    self.assertEqual(['testpkg7/first.py', 'testpkg7/second.py'],
+                     sorted(self._import_callbacks_log))
 
   def testFromNestedPackageImportModule(self):
     self._Hook(self._CreateFile('testpkg11a/__init__.py'))
@@ -125,12 +115,10 @@ class ImportHookTest2(absltest.TestCase):
     self._Hook(self._CreateFile('testpkg11a/testpkg11b/my.py'))
     self._Hook(self._CreateFile('testpkg11a/testpkg11b/your.py'))
     from testpkg11a.testpkg11b import my, your  # pylint: disable=g-import-not-at-top,unused-variable,g-multiple-import
-    self.assertEqual(
-        ['testpkg11a/__init__.py',
-         'testpkg11a/testpkg11b/__init__.py',
-         'testpkg11a/testpkg11b/my.py',
-         'testpkg11a/testpkg11b/your.py'],
-        sorted(self._import_callbacks_log))
+    self.assertEqual([
+        'testpkg11a/__init__.py', 'testpkg11a/testpkg11b/__init__.py',
+        'testpkg11a/testpkg11b/my.py', 'testpkg11a/testpkg11b/your.py'
+    ], sorted(self._import_callbacks_log))
 
   def testDoubleNestedImport(self):
     self._Hook(self._CreateFile('testpkg12a/__init__.py'))
@@ -138,14 +126,12 @@ class ImportHookTest2(absltest.TestCase):
     self._Hook(self._CreateFile('testpkg12a/testpkg12b/my.py'))
     from testpkg12a.testpkg12b import my  # pylint: disable=g-import-not-at-top,unused-variable,g-multiple-import
     from testpkg12a.testpkg12b import my  # pylint: disable=g-import-not-at-top,unused-variable,g-multiple-import
-    self.assertEqual(
-        ['testpkg12a/__init__.py',
-         'testpkg12a/__init__.py',
-         'testpkg12a/testpkg12b/__init__.py',
-         'testpkg12a/testpkg12b/__init__.py',
-         'testpkg12a/testpkg12b/my.py',
-         'testpkg12a/testpkg12b/my.py'],
-        sorted(self._import_callbacks_log))
+    self.assertEqual([
+        'testpkg12a/__init__.py', 'testpkg12a/__init__.py',
+        'testpkg12a/testpkg12b/__init__.py',
+        'testpkg12a/testpkg12b/__init__.py', 'testpkg12a/testpkg12b/my.py',
+        'testpkg12a/testpkg12b/my.py'
+    ], sorted(self._import_callbacks_log))
 
   def testFromPackageImportStar(self):
     self._Hook(self._CreateFile('testpkg13a/__init__.py'))
@@ -161,10 +147,8 @@ class ImportHookTest2(absltest.TestCase):
     self._Hook(self._CreateFile('testpkg14a/my1.py'))
     self._Hook(self._CreateFile('testpkg14a/your1.py'))
     exec('from testpkg14a import *')  # pylint: disable=exec-used
-    self.assertEqual(
-        ['testpkg14a/__init__.py',
-         'testpkg14a/my1.py'],
-        sorted(self._import_callbacks_log))
+    self.assertEqual(['testpkg14a/__init__.py', 'testpkg14a/my1.py'],
+                     sorted(self._import_callbacks_log))
 
   def testImportFunction(self):
     self._Hook(self._CreateFile('testpkg27/__init__.py'))
@@ -175,9 +159,9 @@ class ImportHookTest2(absltest.TestCase):
     self._Hook(self._CreateFile('zero.py'))
     self._Hook(self._CreateFile('testpkg15a/__init__.py'))
     self._Hook(self._CreateFile('testpkg15a/first.py'))
-    self._Hook(self._CreateFile(
-        'testpkg15a/testpkg15b/__init__.py',
-        'assert False, "unexpected import"'))
+    self._Hook(
+        self._CreateFile('testpkg15a/testpkg15b/__init__.py',
+                         'assert False, "unexpected import"'))
     self._Hook(self._CreateFile('testpkg15a/testpkg15c/__init__.py'))
     self._Hook(self._CreateFile('testpkg15a/testpkg15c/second.py'))
 
@@ -193,18 +177,14 @@ class ImportHookTest2(absltest.TestCase):
 
     # Import package.module.
     importlib.import_module('testpkg15a.first')
-    self.assertEqual(
-        ['testpkg15a/__init__.py',
-         'testpkg15a/first.py'],
-        sorted(self._import_callbacks_log))
+    self.assertEqual(['testpkg15a/__init__.py', 'testpkg15a/first.py'],
+                     sorted(self._import_callbacks_log))
     self._import_callbacks_log = []
 
     # Relative module import from package context.
     importlib.import_module('.first', 'testpkg15a')
-    self.assertEqual(
-        ['testpkg15a/__init__.py',
-         'testpkg15a/first.py'],
-        sorted(self._import_callbacks_log))
+    self.assertEqual(['testpkg15a/__init__.py', 'testpkg15a/first.py'],
+                     sorted(self._import_callbacks_log))
     self._import_callbacks_log = []
 
     # Relative module import from package context with '..'.
@@ -216,31 +196,32 @@ class ImportHookTest2(absltest.TestCase):
     else:
       importlib.import_module('..first', 'testpkg15a.testpkg15b')
     self.assertEqual(
-        ['testpkg15a/__init__.py',
-         # TODO: Importlib may or may not load testpkg15b,
-         # depending on the implementation. Currently on blaze, it does not
-         # load testpkg15b, but a similar non-blaze code on my workstation
-         # loads testpkg15b. We should verify this behavior.
-         # 'testpkg15a/testpkg15b/__init__.py',
-         'testpkg15a/first.py'],
+        [
+            'testpkg15a/__init__.py',
+            # TODO: Importlib may or may not load testpkg15b,
+            # depending on the implementation. Currently on blaze, it does not
+            # load testpkg15b, but a similar non-blaze code on my workstation
+            # loads testpkg15b. We should verify this behavior.
+            # 'testpkg15a/testpkg15b/__init__.py',
+            'testpkg15a/first.py'
+        ],
         sorted(self._import_callbacks_log))
     self._import_callbacks_log = []
 
     # Relative module import from nested package context.
     importlib.import_module('.second', 'testpkg15a.testpkg15c')
-    self.assertEqual(
-        ['testpkg15a/__init__.py',
-         'testpkg15a/testpkg15c/__init__.py',
-         'testpkg15a/testpkg15c/second.py'],
-        sorted(self._import_callbacks_log))
+    self.assertEqual([
+        'testpkg15a/__init__.py', 'testpkg15a/testpkg15c/__init__.py',
+        'testpkg15a/testpkg15c/second.py'
+    ], sorted(self._import_callbacks_log))
     self._import_callbacks_log = []
 
   def testRemoveImportHookFromCallback(self):
+
     def RunCleanup(unused_mod):
       cleanup()
 
-    cleanup = self._Hook(
-        self._CreateFile('testpkg15/__init__.py'), RunCleanup)
+    cleanup = self._Hook(self._CreateFile('testpkg15/__init__.py'), RunCleanup)
     import testpkg15  # pylint: disable=g-import-not-at-top,unused-variable
     import testpkg15  # pylint: disable=g-import-not-at-top,unused-variable
     import testpkg15  # pylint: disable=g-import-not-at-top,unused-variable
@@ -255,14 +236,13 @@ class ImportHookTest2(absltest.TestCase):
       self.assertEqual(1, getattr(module, 'validate', None), 'premature call')
 
     self._Hook(self._CreateFile('testpkg16/my1.py'))
-    self._Hook(self._CreateFile('testpkg16/__init__.py',
-                                'import my1\nvalidate = 1'), CheckFullyLoaded)
+    self._Hook(
+        self._CreateFile('testpkg16/__init__.py', 'import my1\nvalidate = 1'),
+        CheckFullyLoaded)
     import testpkg16.my1  # pylint: disable=g-import-not-at-top,unused-variable
 
-    self.assertEqual(
-        ['testpkg16/__init__.py',
-         'testpkg16/my1.py'],
-        sorted(self._import_callbacks_log))
+    self.assertEqual(['testpkg16/__init__.py', 'testpkg16/my1.py'],
+                     sorted(self._import_callbacks_log))
 
   def testCircularImportNoPrematureCallback(self):
     # Verifies that the callback is not invoked before the first module is fully
@@ -272,22 +252,16 @@ class ImportHookTest2(absltest.TestCase):
 
     self._CreateFile('testpkg17/__init__.py')
     self._Hook(
-        self._CreateFile(
-            'testpkg17/c1.py',
-            'import testpkg17.c2\nvalidate = 1', False),
-        CheckFullyLoaded)
+        self._CreateFile('testpkg17/c1.py', 'import testpkg17.c2\nvalidate = 1',
+                         False), CheckFullyLoaded)
     self._Hook(
-        self._CreateFile(
-            'testpkg17/c2.py',
-            'import testpkg17.c1\nvalidate = 1', False),
-        CheckFullyLoaded)
+        self._CreateFile('testpkg17/c2.py', 'import testpkg17.c1\nvalidate = 1',
+                         False), CheckFullyLoaded)
 
     import testpkg17.c1  # pylint: disable=g-import-not-at-top,unused-variable
 
-    self.assertEqual(
-        ['testpkg17/c1.py',
-         'testpkg17/c2.py'],
-        sorted(self._import_callbacks_log))
+    self.assertEqual(['testpkg17/c1.py', 'testpkg17/c2.py'],
+                     sorted(self._import_callbacks_log))
 
   def testImportException(self):
     # An exception is thrown by the builtin importer during import.
@@ -307,8 +281,9 @@ class ImportHookTest2(absltest.TestCase):
   def testImportNestedException(self):
     # An import exception is thrown and caught inside a module being imported.
     self._CreateFile('testpkg19/__init__.py')
-    self._Hook(self._CreateFile('testpkg19/m19.py',
-                                'try: import m19b\nexcept ImportError: pass'))
+    self._Hook(
+        self._CreateFile('testpkg19/m19.py',
+                         'try: import m19b\nexcept ImportError: pass'))
 
     import testpkg19.m19  # pylint: disable=g-import-not-at-top,unused-variable
 
@@ -343,13 +318,11 @@ class ImportHookTest2(absltest.TestCase):
   def testFromImportImportsFunction(self):
     self._CreateFile('testpkg21a/__init__.py')
     self._CreateFile('testpkg21a/testpkg21b/__init__.py')
-    self._CreateFile(
-        'testpkg21a/testpkg21b/mod.py',
-        ('def func1():\n'
-         '  return 5\n'
-         '\n'
-         'def func2():\n'
-         '  return 7\n'))
+    self._CreateFile('testpkg21a/testpkg21b/mod.py', ('def func1():\n'
+                                                      '  return 5\n'
+                                                      '\n'
+                                                      'def func2():\n'
+                                                      '  return 7\n'))
 
     self._Hook('mod.py')
     from testpkg21a.testpkg21b.mod import func1, func2  # pylint: disable=g-import-not-at-top,unused-variable,g-multiple-import
@@ -357,9 +330,7 @@ class ImportHookTest2(absltest.TestCase):
 
   def testImportSibling(self):
     self._CreateFile('testpkg22/__init__.py')
-    self._CreateFile(
-        'testpkg22/first.py',
-        'import second')
+    self._CreateFile('testpkg22/first.py', 'import second')
     self._CreateFile('testpkg22/second.py')
 
     self._Hook('testpkg22/second.py')
@@ -376,22 +347,20 @@ class ImportHookTest2(absltest.TestCase):
 
     self._Hook('testpkg23/testpkg23/second.py')
     import testpkg23.first  # pylint: disable=g-import-not-at-top,unused-variable
-    self.assertEqual(
-        ['testpkg23/testpkg23/second.py'],
-        self._import_callbacks_log)
+    self.assertEqual(['testpkg23/testpkg23/second.py'],
+                     self._import_callbacks_log)
 
   def testImportSiblingFromInit(self):
     self._Hook(self._CreateFile('testpkg23a/__init__.py', 'import testpkg23b'))
-    self._Hook(self._CreateFile(
-        'testpkg23a/testpkg23b/__init__.py',
-        'import testpkg23c'))
+    self._Hook(
+        self._CreateFile('testpkg23a/testpkg23b/__init__.py',
+                         'import testpkg23c'))
     self._Hook(self._CreateFile('testpkg23a/testpkg23b/testpkg23c/__init__.py'))
     import testpkg23a  # pylint: disable=g-import-not-at-top,unused-variable
-    self.assertEqual(
-        ['testpkg23a/__init__.py',
-         'testpkg23a/testpkg23b/__init__.py',
-         'testpkg23a/testpkg23b/testpkg23c/__init__.py'],
-        sorted(self._import_callbacks_log))
+    self.assertEqual([
+        'testpkg23a/__init__.py', 'testpkg23a/testpkg23b/__init__.py',
+        'testpkg23a/testpkg23b/testpkg23c/__init__.py'
+    ], sorted(self._import_callbacks_log))
 
   def testThreadLocalCleanup(self):
     self._CreateFile('testpkg24/__init__.py')
@@ -411,11 +380,10 @@ class ImportHookTest2(absltest.TestCase):
     self._CreateFile(
         'testpkg25/foo.py',
         'import bar\n'  # success.
-        'import baz')   # success.
+        'import baz')  # success.
     self._CreateFile('testpkg25/bar.py')
     self._CreateFile(
-        'testpkg25/baz.py',
-        'try:\n'
+        'testpkg25/baz.py', 'try:\n'
         '  import testpkg25b\n'
         'except ImportError:\n'
         '  pass')
@@ -434,7 +402,7 @@ class ImportHookTest2(absltest.TestCase):
     self._CreateFile(
         'testpkg26/foo.py',
         'import bar\n'  # success.
-        'import baz')   # fail.
+        'import baz')  # fail.
     self._CreateFile('testpkg26/bar.py')
 
     # Create a hook for any arbitrary module. Doesn't need to hit.
@@ -510,8 +478,8 @@ class ImportHookTest2(absltest.TestCase):
   # TODO: add test for the module param in the callback.
   def _Hook(self, path, callback=lambda m: None):
     cleanup = imphook2.AddImportCallbackBySuffix(
-        path,
-        lambda mod: (self._import_callbacks_log.append(path), callback(mod)))
+        path, lambda mod:
+        (self._import_callbacks_log.append(path), callback(mod)))
     self.assertTrue(cleanup, path)
     self._callback_cleanups.append(cleanup)
     return cleanup
