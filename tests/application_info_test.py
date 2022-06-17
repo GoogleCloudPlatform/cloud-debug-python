@@ -42,8 +42,7 @@ class ApplicationInfoTest(absltest.TestCase):
     """Returns correct region when the FUNCTION_REGION env variable is set."""
     try:
       os.environ['FUNCTION_REGION'] = 'function-region'
-      self.assertEqual('function-region',
-                       application_info.GetRegion())
+      self.assertEqual('function-region', application_info.GetRegion())
     finally:
       del os.environ['FUNCTION_REGION']
 
@@ -67,6 +66,7 @@ class ApplicationInfoTest(absltest.TestCase):
     mock_requests_get.return_value = failed_response
 
     self.assertIsNone(application_info.GetRegion())
+
 
 if __name__ == '__main__':
   absltest.main()

@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Provides utility functions for module path processing."""
 
 import os
@@ -29,9 +28,8 @@ def IsPathSuffix(mod_path, path):
   Returns:
     True if path is a full path suffix of mod_path. False otherwise.
   """
-  return (mod_path.endswith(path) and
-          (len(mod_path) == len(path) or
-           mod_path[:-len(path)].endswith(os.sep)))
+  return (mod_path.endswith(path) and (len(mod_path) == len(path) or
+                                       mod_path[:-len(path)].endswith(os.sep)))
 
 
 def GetLoadedModuleBySuffix(path):

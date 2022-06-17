@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Computes a unique identifier of the deployed application.
 
 When the application runs under AppEngine, the deployment is uniquely
@@ -27,7 +26,6 @@ breakpoints.
 
 import os
 import sys
-
 
 # Maximum recursion depth to follow when traversing the file system. This limit
 # will prevent stack overflow in case of a loop created by symbolic links.
@@ -93,8 +91,7 @@ def ComputeApplicationUniquifier(hash_obj):
         modules.add(file_name)
         ProcessApplicationFile(current_path, os.path.join(relative_path, name))
       elif IsPackage(current_path):
-        ProcessDirectory(current_path,
-                         os.path.join(relative_path, name),
+        ProcessDirectory(current_path, os.path.join(relative_path, name),
                          depth + 1)
 
   def IsPackage(path):

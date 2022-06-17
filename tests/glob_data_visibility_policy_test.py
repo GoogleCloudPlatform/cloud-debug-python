@@ -19,10 +19,7 @@ class GlobDataVisibilityPolicyTest(absltest.TestCase):
         '*.private2',
         '',
     )
-    whitelist_patterns = (
-        'wl1.*',
-        'wl2.*'
-    )
+    whitelist_patterns = ('wl1.*', 'wl2.*')
 
     policy = glob_data_visibility_policy.GlobDataVisibilityPolicy(
         blacklist_patterns, whitelist_patterns)

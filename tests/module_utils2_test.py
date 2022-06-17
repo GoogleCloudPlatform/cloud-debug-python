@@ -59,13 +59,9 @@ class ModuleUtilsTest(absltest.TestCase):
     # Lookup simple module.
     _AddSysModule('m1', '/a/b/p1/m1.pyc')
     for suffix in [
-        'm1.py',
-        'm1.pyc',
-        'm1.pyo',
-        'p1/m1.py',
-        'b/p1/m1.py',
-        'a/b/p1/m1.py',
-        '/a/b/p1/m1.py']:
+        'm1.py', 'm1.pyc', 'm1.pyo', 'p1/m1.py', 'b/p1/m1.py', 'a/b/p1/m1.py',
+        '/a/b/p1/m1.py'
+    ]:
       m1 = module_utils2.GetLoadedModuleBySuffix(suffix)
       self.assertTrue(m1, 'Module not found')
       self.assertEqual('/a/b/p1/m1.pyc', m1.__file__)
@@ -73,21 +69,17 @@ class ModuleUtilsTest(absltest.TestCase):
     # Lookup simple package, no ext.
     _AddSysModule('p1', '/a/b/p1/__init__.pyc')
     for suffix in [
-        'p1/__init__.py',
-        'b/p1/__init__.py',
-        'a/b/p1/__init__.py',
-        '/a/b/p1/__init__.py']:
+        'p1/__init__.py', 'b/p1/__init__.py', 'a/b/p1/__init__.py',
+        '/a/b/p1/__init__.py'
+    ]:
       p1 = module_utils2.GetLoadedModuleBySuffix(suffix)
       self.assertTrue(p1, 'Package not found')
       self.assertEqual('/a/b/p1/__init__.pyc', p1.__file__)
 
     # Lookup via bad suffix.
     for suffix in [
-        'm2.py',
-        'p2/m1.py',
-        'b2/p1/m1.py',
-        'a2/b/p1/m1.py',
-        '/a2/b/p1/m1.py']:
+        'm2.py', 'p2/m1.py', 'b2/p1/m1.py', 'a2/b/p1/m1.py', '/a2/b/p1/m1.py'
+    ]:
       m1 = module_utils2.GetLoadedModuleBySuffix(suffix)
       self.assertFalse(m1, 'Module found unexpectedly')
 
@@ -95,11 +87,8 @@ class ModuleUtilsTest(absltest.TestCase):
     # Lookup complex module.
     _AddSysModule('b.p1.m1', '/a/b/p1/m1.pyc')
     for suffix in [
-        'm1.py',
-        'p1/m1.py',
-        'b/p1/m1.py',
-        'a/b/p1/m1.py',
-        '/a/b/p1/m1.py']:
+        'm1.py', 'p1/m1.py', 'b/p1/m1.py', 'a/b/p1/m1.py', '/a/b/p1/m1.py'
+    ]:
       m1 = module_utils2.GetLoadedModuleBySuffix(suffix)
       self.assertTrue(m1, 'Module not found')
       self.assertEqual('/a/b/p1/m1.pyc', m1.__file__)
@@ -107,10 +96,9 @@ class ModuleUtilsTest(absltest.TestCase):
     # Lookup complex package, no ext.
     _AddSysModule('a.b.p1', '/a/b/p1/__init__.pyc')
     for suffix in [
-        'p1/__init__.py',
-        'b/p1/__init__.py',
-        'a/b/p1/__init__.py',
-        '/a/b/p1/__init__.py']:
+        'p1/__init__.py', 'b/p1/__init__.py', 'a/b/p1/__init__.py',
+        '/a/b/p1/__init__.py'
+    ]:
       p1 = module_utils2.GetLoadedModuleBySuffix(suffix)
       self.assertTrue(p1, 'Package not found')
       self.assertEqual('/a/b/p1/__init__.pyc', p1.__file__)
@@ -144,16 +132,12 @@ class ModuleUtilsTest(absltest.TestCase):
     # Ambiguous request, multiple modules might have matched.
     m1 = module_utils2.GetLoadedModuleBySuffix('/m1/__init__.py')
     self.assertTrue(m1, 'Package not found')
-    self.assertIn(
-        m1.__file__,
-        ['/m1/__init__.pyc', '/m1/m1/m1/__init__.pyc'])
+    self.assertIn(m1.__file__, ['/m1/__init__.pyc', '/m1/m1/m1/__init__.pyc'])
 
     # Ambiguous request, multiple modules might have matched.
     m1m1 = module_utils2.GetLoadedModuleBySuffix('/m1/m1.py')
     self.assertTrue(m1m1, 'Module not found')
-    self.assertIn(
-        m1m1.__file__,
-        ['/m1/m1.pyc', '/m1/m1/m1/m1.pyc'])
+    self.assertIn(m1m1.__file__, ['/m1/m1.pyc', '/m1/m1/m1/m1.pyc'])
 
     # Not ambiguous. Only 1 match possible.
     m1m1m1 = module_utils2.GetLoadedModuleBySuffix('/m1/m1/m1/__init__.py')

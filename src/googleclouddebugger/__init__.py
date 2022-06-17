@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Main module for Python Cloud Debugger.
 
 The debugger is enabled in a very similar way to enabling pdb.
@@ -49,15 +48,14 @@ def _StartDebugger():
   global _breakpoints_manager
 
   cdbg_native.InitializeModule(_flags)
-  cdbg_native.LogInfo('Initializing Cloud Debugger Python agent version: %s' %
-                      __version__)
+  cdbg_native.LogInfo(
+      f'Initializing Cloud Debugger Python agent version: {__version__}')
 
   _hub_client = gcp_hub_client.GcpHubClient()
   visibility_policy = _GetVisibilityPolicy()
 
   _breakpoints_manager = breakpoints_manager.BreakpointsManager(
-      _hub_client,
-      visibility_policy)
+      _hub_client, visibility_policy)
 
   # Set up loggers for logpoints.
   capture_collector.SetLogger(logging.getLogger())
@@ -69,8 +67,7 @@ def _StartDebugger():
       _breakpoints_manager.SetActiveBreakpoints)
   _hub_client.on_idle = _breakpoints_manager.CheckBreakpointsExpiration
   _hub_client.SetupAuth(
-      _flags.get('project_id'),
-      _flags.get('project_number'),
+      _flags.get('project_id'), _flags.get('project_number'),
       _flags.get('service_account_json_file'))
   _hub_client.SetupCanaryMode(
       _flags.get('breakpoint_enable_canary'),
@@ -85,7 +82,7 @@ def _GetVisibilityPolicy():
     visibility_config = yaml_data_visibility_config_reader.OpenAndRead()
   except yaml_data_visibility_config_reader.Error as err:
     return error_data_visibility_policy.ErrorDataVisibilityPolicy(
-        'Could not process debugger config: %s' % err)
+        f'Could not process debugger config: {err}')
 
   if visibility_config:
     return glob_data_visibility_policy.GlobDataVisibilityPolicy(
@@ -121,16 +118,18 @@ def _DebuggerMain():
 
   sys.path[0] = os.path.dirname(app_path)
 
-  import __main__  # pylint: disable=g-import-not-at-top
+  import __main__  # pylint: disable=import-outside-toplevel
   __main__.__dict__.clear()
-  __main__.__dict__.update({'__name__': '__main__',
-                            '__file__': app_path,
-                            '__builtins__': __builtins__})
+  __main__.__dict__.update({
+      '__name__': '__main__',
+      '__file__': app_path,
+      '__builtins__': __builtins__
+  })
   locals = globals = __main__.__dict__  # pylint: disable=redefined-builtin
 
   sys.modules['__main__'] = __main__
 
-  with open(app_path) as f:
+  with open(app_path, encoding='utf-8') as f:
     code = compile(f.read(), app_path, 'exec')
     exec(code, globals, locals)  # pylint: disable=exec-used
 

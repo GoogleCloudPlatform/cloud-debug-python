@@ -35,18 +35,21 @@ class YamlDataVisibilityConfigReaderTest(absltest.TestCase):
         - bl1
     """
     path_prefix = 'googleclouddebugger.'
-    with mock.patch(path_prefix + 'yaml_data_visibility_config_reader.open',
-                    create=True) as m:
+    with mock.patch(
+        path_prefix + 'yaml_data_visibility_config_reader.open',
+        create=True) as m:
       m.return_value = StringIOOpen(data)
       config = yaml_data_visibility_config_reader.OpenAndRead()
-      m.assert_called_with(os.path.join(sys.path[0], 'debugger-blacklist.yaml'),
-                           'r')
+      m.assert_called_with(
+          os.path.join(sys.path[0], 'debugger-blacklist.yaml'), 'r')
       self.assertEqual(config.blacklist_patterns, ['bl1'])
 
   def testOpenAndReadFileNotFound(self):
     path_prefix = 'googleclouddebugger.'
-    with mock.patch(path_prefix + 'yaml_data_visibility_config_reader.open',
-                    create=True, side_effect=IOError('IO Error')):
+    with mock.patch(
+        path_prefix + 'yaml_data_visibility_config_reader.open',
+        create=True,
+        side_effect=IOError('IO Error')):
       f = yaml_data_visibility_config_reader.OpenAndRead()
       self.assertIsNone(f)
 
@@ -65,6 +68,7 @@ class YamlDataVisibilityConfigReaderTest(absltest.TestCase):
     self.assertItemsEqual(config.whitelist_patterns, ('wl1', 'wl2.*'))
 
   def testYAMLLoadError(self):
+
     class ErrorIO(object):
 
       def read(self, size):

@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Manages lifetime of individual breakpoint objects."""
 
 from datetime import datetime
@@ -40,9 +39,7 @@ class BreakpointsManager(object):
         of a captured variable.  May be None if no policy is available.
   """
 
-  def __init__(self,
-               hub_client,
-               data_visibility_policy):
+  def __init__(self, hub_client, data_visibility_policy):
     self._hub_client = hub_client
     self.data_visibility_policy = data_visibility_policy
 
@@ -78,13 +75,11 @@ class BreakpointsManager(object):
       # Create new breakpoints.
       self._active.update([
           (x['id'],
-           python_breakpoint.PythonBreakpoint(
-               x,
-               self._hub_client,
-               self,
-               self.data_visibility_policy))
+           python_breakpoint.PythonBreakpoint(x, self._hub_client, self,
+                                              self.data_visibility_policy))
           for x in breakpoints_data
-          if x['id'] in ids - six.viewkeys(self._active) - self._completed])
+          if x['id'] in ids - six.viewkeys(self._active) - self._completed
+      ])
 
       # Remove entries from completed_breakpoints_ that weren't listed in
       # breakpoints_data vector. These are confirmed to have been removed by the

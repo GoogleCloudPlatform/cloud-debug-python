@@ -23,8 +23,7 @@ class SearchModulesTest(absltest.TestCase):
   def testSearchValidSourcePath(self):
     # These modules are on the sys.path.
     self.assertEndsWith(
-        module_search2.Search(
-            'googleclouddebugger/module_search2.py'),
+        module_search2.Search('googleclouddebugger/module_search2.py'),
         '/site-packages/googleclouddebugger/module_search2.py')
 
     # inspect and dis are <embedded stdlib> libraries with no real file. So, we
@@ -36,9 +35,7 @@ class SearchModulesTest(absltest.TestCase):
 
     # This module exists, but the search input is missing the outer package
     # name.
-    self.assertEqual(
-        module_search2.Search('absltest.py'),
-        'absltest.py')
+    self.assertEqual(module_search2.Search('absltest.py'), 'absltest.py')
 
   def testSearchInvalidExtension(self):
     # Test that the module rejects invalid extension in the input.
@@ -87,8 +84,7 @@ class SearchModulesTest(absltest.TestCase):
       # Returned result should have a successful file match and symbolic
       # links should be kept.
       self.assertEndsWith(
-          module_search2.Search('b/first.py'),
-          'link/b/first.py')
+          module_search2.Search('b/first.py'), 'link/b/first.py')
     finally:
       sys.path.remove(os.path.join(self._test_package_dir, 'link'))
 

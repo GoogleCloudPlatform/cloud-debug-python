@@ -73,14 +73,20 @@ class IntegrationTest(absltest.TestCase):
 
       # Simulate a time delay for calls to the mock API.
       def ReturnWithDelay(val):
+
         def GetVal():
           time.sleep(_REQUEST_DELAY_SECS)
           return val
+
         return GetVal
 
       self._register_execute = debuggees.register.return_value.execute
-      self._register_execute.side_effect = ReturnWithDelay(
-          {'debuggee': {'id': _TEST_DEBUGGEE_ID}, 'agentId': _TEST_AGENT_ID})
+      self._register_execute.side_effect = ReturnWithDelay({
+          'debuggee': {
+              'id': _TEST_DEBUGGEE_ID
+          },
+          'agentId': _TEST_AGENT_ID
+      })
 
       self._active_breakpoints = {'breakpoints': []}
       self._list_execute = breakpoints.list.return_value.execute
@@ -142,9 +148,12 @@ class IntegrationTest(absltest.TestCase):
       """Sets a new breakpoint at path:line."""
       breakpoint = {
           'id': 'BP_%d' % next(self._id_counter),
-          'createTime':
-              python_test_util.DateTimeToTimestamp(datetime.utcnow()),
-          'location': {'path': path, 'line': line}}
+          'createTime': python_test_util.DateTimeToTimestamp(datetime.utcnow()),
+          'location': {
+              'path': path,
+              'line': line
+          }
+      }
       breakpoint.update(template or {})
 
       self.SetActiveBreakpoints(self.GetActiveBreakpoints() + [breakpoint])
@@ -205,8 +214,10 @@ class IntegrationTest(absltest.TestCase):
 
       return FakeBreakpointUpdateCommand(self._incoming_breakpoint_updates)
 
+
 # We only need to attach the debugger exactly once. The IntegrationTest class
-  # is created for each test case, so we need to keep this state global.
+# is created for each test case, so we need to keep this state global.
+
   _hub = FakeHub()
 
   def _FakeLog(self, message, extra=None):
@@ -231,6 +242,7 @@ class IntegrationTest(absltest.TestCase):
     self.assertEqual(cdbg.enable, cdbg.AttachDebugger)
 
   def testBasic(self):
+
     def Trigger():
       print('Breakpoint trigger')  # BPTAG: BASIC
 
@@ -244,12 +256,16 @@ class IntegrationTest(absltest.TestCase):
   # Verify that any pre existing labels present in the breakpoint are preserved
   # by the agent.
   def testExistingLabelsSurvive(self):
+
     def Trigger():
       print('Breakpoint trigger with labels')  # BPTAG: EXISTING_LABELS_SURVIVE
 
     IntegrationTest._hub.SetBreakpoint(
         'EXISTING_LABELS_SURVIVE',
-        {'labels': {'label_1': 'value_1', 'label_2': 'value_2'}})
+        {'labels': {
+            'label_1': 'value_1',
+            'label_2': 'value_2'
+        }})
     Trigger()
     result = IntegrationTest._hub.GetNextResult()
     self.assertIn('labels', result.keys())
@@ -261,6 +277,7 @@ class IntegrationTest(absltest.TestCase):
   # Verify that any pre existing labels present in the breakpoint have priority
   # if they 'collide' with labels in the agent.
   def testExistingLabelsPriority(self):
+
     def Trigger():
       print('Breakpoint trigger with labels')  # BPTAG: EXISTING_LABELS_PRIORITY
 
@@ -270,7 +287,10 @@ class IntegrationTest(absltest.TestCase):
 
     IntegrationTest._hub.SetBreakpoint(
         'EXISTING_LABELS_PRIORITY',
-        {'labels': {'label_1': 'value_foobar', 'label_3': 'value_3'}})
+        {'labels': {
+            'label_1': 'value_foobar',
+            'label_3': 'value_3'
+        }})
 
     Trigger()
 
@@ -288,6 +308,7 @@ class IntegrationTest(absltest.TestCase):
     self.assertEqual('value_3', result['labels']['label_3'])
 
   def testRequestLogIdLabel(self):
+
     def Trigger():
       print('Breakpoint trigger req id label')  # BPTAG: REQUEST_LOG_ID_LABEL
 
@@ -305,11 +326,12 @@ class IntegrationTest(absltest.TestCase):
     result = IntegrationTest._hub.GetNextResult()
     self.assertIn('labels', result.keys())
     self.assertIn(labels.Breakpoint.REQUEST_LOG_ID, result['labels'])
-    self.assertEqual(
-        'foo_bar_id', result['labels'][labels.Breakpoint.REQUEST_LOG_ID])
+    self.assertEqual('foo_bar_id',
+                     result['labels'][labels.Breakpoint.REQUEST_LOG_ID])
 
   # Tests the issue in b/30876465
   def testSameLine(self):
+
     def Trigger():
       print('Breakpoint trigger same line')  # BPTAG: SAME_LINE
 
@@ -325,6 +347,7 @@ class IntegrationTest(absltest.TestCase):
     self.assertListEqual(lines, [line] * num_breakpoints)
 
   def testCallStack(self):
+
     def Method1():
       Method2()
 
@@ -343,21 +366,22 @@ class IntegrationTest(absltest.TestCase):
     IntegrationTest._hub.SetBreakpoint('CALL_STACK')
     Method1()
     result = IntegrationTest._hub.GetNextResult()
-    self.assertEqual(
-        ['Method5',
-         'Method4',
-         'Method3',
-         'Method2',
-         'Method1',
-         'IntegrationTest.testCallStack'],
-        [frame['function'] for frame in result['stackFrames']][:6])
+    self.assertEqual([
+        'Method5', 'Method4', 'Method3', 'Method2', 'Method1',
+        'IntegrationTest.testCallStack'
+    ], [frame['function'] for frame in result['stackFrames']][:6])
 
   def testInnerMethod(self):
+
     def Inner1():
+
       def Inner2():
+
         def Inner3():
           print('Inner3')  # BPTAG: INNER3
+
         Inner3()
+
       Inner2()
 
     IntegrationTest._hub.SetBreakpoint('INNER3')
@@ -390,14 +414,22 @@ class IntegrationTest(absltest.TestCase):
     self.assertEqual('MyClass.Get', result['stackFrames'][0]['function'])
     self.assertEqual('MyClass.Caller', result['stackFrames'][1]['function'])
     self.assertEqual(
-        {'name': 'self',
-         'type': __name__ + '.MyClass',
-         'members': [
-             {'status': {
-                 'refersTo': 'VARIABLE_NAME',
-                 'description': {'format': 'Object has no fields'}}}]},
-        python_test_util.PackFrameVariable(result, 'self',
-                                           collection='arguments'))
+        {
+            'name':
+                'self',
+            'type':
+                __name__ + '.MyClass',
+            'members': [{
+                'status': {
+                    'refersTo': 'VARIABLE_NAME',
+                    'description': {
+                        'format': 'Object has no fields'
+                    }
+                }
+            }]
+        },
+        python_test_util.PackFrameVariable(
+            result, 'self', collection='arguments'))
 
   def testGlobalDecorator(self):
     IntegrationTest._hub.SetBreakpoint('WRAPPED_GLOBAL_METHOD')
@@ -407,6 +439,7 @@ class IntegrationTest(absltest.TestCase):
     self.assertNotIn('status', result)
 
   def testNoLambdaExpression(self):
+
     def Trigger():
       cube = lambda x: x**3  # BPTAG: LAMBDA
       cube(18)
@@ -422,6 +455,7 @@ class IntegrationTest(absltest.TestCase):
     self.assertListEqual(functions, ['Trigger'] * num_breakpoints)
 
   def testNoGeneratorExpression(self):
+
     def Trigger():
       gen = (i for i in range(0, 5))  # BPTAG: GENEXPR
       next(gen)
@@ -441,6 +475,7 @@ class IntegrationTest(absltest.TestCase):
     self.assertListEqual(functions, ['Trigger'] * num_breakpoints)
 
   def testTryBlock(self):
+
     def Method(a):
       try:
         return a * a  # BPTAG: TRY_BLOCK
@@ -451,55 +486,81 @@ class IntegrationTest(absltest.TestCase):
     Method(11)
     result = IntegrationTest._hub.GetNextResult()
     self.assertEqual('Method', result['stackFrames'][0]['function'])
-    self.assertEqual(
-        [{'name': 'a', 'value': '11', 'type': 'int'}],
-        result['stackFrames'][0]['arguments'])
+    self.assertEqual([{
+        'name': 'a',
+        'value': '11',
+        'type': 'int'
+    }], result['stackFrames'][0]['arguments'])
 
   def testFrameArguments(self):
+
     def Method(a, b):
       return a + str(b)  # BPTAG: FRAME_ARGUMENTS
+
     IntegrationTest._hub.SetBreakpoint('FRAME_ARGUMENTS')
     Method('hello', 87)
     result = IntegrationTest._hub.GetNextResult()
-    self.assertEqual(
-        [{'name': 'a', 'value': "'hello'", 'type': 'str'},
-         {'name': 'b', 'value': '87', 'type': 'int'}],
-        result['stackFrames'][0]['arguments'])
+    self.assertEqual([{
+        'name': 'a',
+        'value': "'hello'",
+        'type': 'str'
+    }, {
+        'name': 'b',
+        'value': '87',
+        'type': 'int'
+    }], result['stackFrames'][0]['arguments'])
     self.assertEqual('self', result['stackFrames'][1]['arguments'][0]['name'])
 
   def testFrameLocals(self):
+
     class Number(object):
 
       def __init__(self):
         self.n = 57
 
     def Method(a):
-      b = a ** 2
+      b = a**2
       c = str(a) * 3
       return c + str(b)  # BPTAG: FRAME_LOCALS
+
     IntegrationTest._hub.SetBreakpoint('FRAME_LOCALS')
     x = {'a': 1, 'b': Number()}
     Method(8)
     result = IntegrationTest._hub.GetNextResult()
+    self.assertEqual({
+        'name': 'b',
+        'value': '64',
+        'type': 'int'
+    }, python_test_util.PackFrameVariable(result, 'b'))
+    self.assertEqual({
+        'name': 'c',
+        'value': "'888'",
+        'type': 'str'
+    }, python_test_util.PackFrameVariable(result, 'c'))
     self.assertEqual(
-        {'name': 'b', 'value': '64', 'type': 'int'},
-        python_test_util.PackFrameVariable(result, 'b'))
-    self.assertEqual(
-        {'name': 'c', 'value': "'888'", 'type': 'str'},
-        python_test_util.PackFrameVariable(result, 'c'))
-    self.assertEqual(
-        {'name': 'x',
-         'type': 'dict',
-         'members': [{'name': "'a'", 'value': '1', 'type': 'int'},
-                     {'name': "'b'",
-                      'type': __name__ + '.Number',
-                      'members': [{'name': 'n',
-                                   'value': '57',
-                                   'type': 'int'}]}]},
-        python_test_util.PackFrameVariable(result, 'x', frame=1))
+        {
+            'name':
+                'x',
+            'type':
+                'dict',
+            'members': [{
+                'name': "'a'",
+                'value': '1',
+                'type': 'int'
+            }, {
+                'name': "'b'",
+                'type': __name__ + '.Number',
+                'members': [{
+                    'name': 'n',
+                    'value': '57',
+                    'type': 'int'
+                }]
+            }]
+        }, python_test_util.PackFrameVariable(result, 'x', frame=1))
     return x
 
   def testRecursion(self):
+
     def RecursiveMethod(i):
       if i == 0:
         return 0  # BPTAG: RECURSION
@@ -510,11 +571,14 @@ class IntegrationTest(absltest.TestCase):
     result = IntegrationTest._hub.GetNextResult()
 
     for frame in range(5):
-      self.assertEqual(
-          {'name': 'i', 'value': str(frame), 'type': 'int'},
-          python_test_util.PackFrameVariable(result, 'i', frame, 'arguments'))
+      self.assertEqual({
+          'name': 'i',
+          'value': str(frame),
+          'type': 'int'
+      }, python_test_util.PackFrameVariable(result, 'i', frame, 'arguments'))
 
   def testWatchedExpressions(self):
+
     def Trigger():
 
       class MyClass(object):
@@ -526,18 +590,27 @@ class IntegrationTest(absltest.TestCase):
       unused_my = MyClass()
       print('Breakpoint trigger')  # BPTAG: WATCHED_EXPRESSION
 
-    IntegrationTest._hub.SetBreakpoint(
-        'WATCHED_EXPRESSION',
-        {'expressions': ['unused_my']})
+    IntegrationTest._hub.SetBreakpoint('WATCHED_EXPRESSION',
+                                       {'expressions': ['unused_my']})
     Trigger()
     result = IntegrationTest._hub.GetNextResult()
 
     self.assertEqual(
-        {'name': 'unused_my',
-         'type': __name__ + '.MyClass',
-         'members': [{'name': 'a', 'value': '1', 'type': 'int'},
-                     {'name': 'b', 'value': "'bbb'", 'type': 'str'}]},
-        python_test_util.PackWatchedExpression(result, 0))
+        {
+            'name':
+                'unused_my',
+            'type':
+                __name__ + '.MyClass',
+            'members': [{
+                'name': 'a',
+                'value': '1',
+                'type': 'int'
+            }, {
+                'name': 'b',
+                'value': "'bbb'",
+                'type': 'str'
+            }]
+        }, python_test_util.PackWatchedExpression(result, 0))
 
   def testBreakpointExpiration(self):  # BPTAG: BREAKPOINT_EXPIRATION
     created_time = datetime.utcnow() - timedelta(hours=25)
@@ -549,28 +622,31 @@ class IntegrationTest(absltest.TestCase):
     self.assertTrue(result['status']['isError'])
 
   def testLogAction(self):
+
     def Trigger():
       for i in range(3):
         print('Log me %d' % i)  # BPTAG: LOG
 
     IntegrationTest._hub.SetBreakpoint(
-        'LOG',
-        {'action': 'LOG',
-         'logLevel': 'INFO',
-         'logMessageFormat': 'hello $0',
-         'expressions': ['i']})
+        'LOG', {
+            'action': 'LOG',
+            'logLevel': 'INFO',
+            'logMessageFormat': 'hello $0',
+            'expressions': ['i']
+        })
     Trigger()
-    self.assertListEqual(['LOGPOINT: hello 0', 'LOGPOINT: hello 1',
-                          'LOGPOINT: hello 2'], self._info_log)
+    self.assertListEqual(
+        ['LOGPOINT: hello 0', 'LOGPOINT: hello 1', 'LOGPOINT: hello 2'],
+        self._info_log)
 
   def testDeferred(self):
+
     def Trigger():
       import integration_test_helper  # pylint: disable=g-import-not-at-top
       integration_test_helper.Trigger()
 
-    IntegrationTest._hub.SetBreakpointAtFile(
-        'integration_test_helper.py',
-        'DEFERRED')
+    IntegrationTest._hub.SetBreakpointAtFile('integration_test_helper.py',
+                                             'DEFERRED')
 
     Trigger()
     result = IntegrationTest._hub.GetNextResult()
@@ -581,9 +657,11 @@ class IntegrationTest(absltest.TestCase):
 
 
 def MyGlobalDecorator(fn):
+
   @functools.wraps(fn)
   def Wrapper(*args, **kwargs):
     return fn(*args, **kwargs)
+
   return Wrapper
 
 

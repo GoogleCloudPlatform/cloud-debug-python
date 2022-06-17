@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Defines the keys of the well known labels used by the cloud debugger.
 
 TODO:  Define these strings in a common format for all agents to
