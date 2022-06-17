@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Main module for Python Cloud Debugger.
 
 The debugger is enabled in a very similar way to enabling pdb.
@@ -56,8 +55,7 @@ def _StartDebugger():
   visibility_policy = _GetVisibilityPolicy()
 
   _breakpoints_manager = breakpoints_manager.BreakpointsManager(
-      _hub_client,
-      visibility_policy)
+      _hub_client, visibility_policy)
 
   # Set up loggers for logpoints.
   capture_collector.SetLogger(logging.getLogger())
@@ -69,8 +67,7 @@ def _StartDebugger():
       _breakpoints_manager.SetActiveBreakpoints)
   _hub_client.on_idle = _breakpoints_manager.CheckBreakpointsExpiration
   _hub_client.SetupAuth(
-      _flags.get('project_id'),
-      _flags.get('project_number'),
+      _flags.get('project_id'), _flags.get('project_number'),
       _flags.get('service_account_json_file'))
   _hub_client.SetupCanaryMode(
       _flags.get('breakpoint_enable_canary'),
@@ -123,9 +120,11 @@ def _DebuggerMain():
 
   import __main__  # pylint: disable=g-import-not-at-top
   __main__.__dict__.clear()
-  __main__.__dict__.update({'__name__': '__main__',
-                            '__file__': app_path,
-                            '__builtins__': __builtins__})
+  __main__.__dict__.update({
+      '__name__': '__main__',
+      '__file__': app_path,
+      '__builtins__': __builtins__
+  })
   locals = globals = __main__.__dict__  # pylint: disable=redefined-builtin
 
   sys.modules['__main__'] = __main__

@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Support for breakpoints on modules that haven't been loaded yet.
 
 This is the new module import hook which:
@@ -168,8 +167,11 @@ def _ProcessImportBySuffix(name, fromlist, globals):
 
 
 # pylint: disable=redefined-builtin, g-doc-args, g-doc-return-or-yield
-def _ImportHookBySuffix(
-    name, globals=None, locals=None, fromlist=None, level=None):
+def _ImportHookBySuffix(name,
+                        globals=None,
+                        locals=None,
+                        fromlist=None,
+                        level=None):
   """Callback when an import statement is executed by the Python interpreter.
 
   Argument names have to exactly match those of __import__. Otherwise calls
@@ -272,6 +274,7 @@ def _GenerateNames(name, fromlist, globals):
     the execution of this import statement.
     The returned set may contain names that are not real modules.
   """
+
   def GetCurrentPackage(globals):
     """Finds the name of the package for the currently executing module."""
     if not globals:
@@ -375,6 +378,7 @@ def _InvokeImportCallbackBySuffix(names):
            to a module. The list is expected to be much smaller than the exact
            sys.modules so that a linear search is not as costly.
   """
+
   def GetModuleFromName(name, path):
     """Returns the loaded module for this name/path, or None if not found.
 

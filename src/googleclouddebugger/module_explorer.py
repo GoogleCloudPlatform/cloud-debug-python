@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Finds all the code objects defined by a module."""
 
 import gc
@@ -154,6 +153,7 @@ def _FindCodeObjectsReferents(module, start_objects, visit_recorder):
   Returns:
     List of code objects.
   """
+
   def CheckIgnoreCodeObject(code_object):
     """Checks if the code object can be ignored.
 
@@ -188,9 +188,8 @@ def _FindCodeObjectsReferents(module, start_objects, visit_recorder):
     if not cls_module:
       return False  # We can't tell for sure, so explore this class.
 
-    return (
-        cls_module is not module and
-        getattr(cls_module, '__file__', None) != module.__file__)
+    return (cls_module is not module and
+            getattr(cls_module, '__file__', None) != module.__file__)
 
   code_objects = set()
   current = start_objects
