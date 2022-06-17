@@ -48,8 +48,8 @@ def _StartDebugger():
   global _breakpoints_manager
 
   cdbg_native.InitializeModule(_flags)
-  cdbg_native.LogInfo('Initializing Cloud Debugger Python agent version: %s' %
-                      __version__)
+  cdbg_native.LogInfo(
+      f'Initializing Cloud Debugger Python agent version: {__version__}')
 
   _hub_client = gcp_hub_client.GcpHubClient()
   visibility_policy = _GetVisibilityPolicy()
@@ -82,7 +82,7 @@ def _GetVisibilityPolicy():
     visibility_config = yaml_data_visibility_config_reader.OpenAndRead()
   except yaml_data_visibility_config_reader.Error as err:
     return error_data_visibility_policy.ErrorDataVisibilityPolicy(
-        'Could not process debugger config: %s' % err)
+        f'Could not process debugger config: {err}')
 
   if visibility_config:
     return glob_data_visibility_policy.GlobDataVisibilityPolicy(
@@ -118,7 +118,7 @@ def _DebuggerMain():
 
   sys.path[0] = os.path.dirname(app_path)
 
-  import __main__  # pylint: disable=g-import-not-at-top
+  import __main__  # pylint: disable=import-outside-toplevel
   __main__.__dict__.clear()
   __main__.__dict__.update({
       '__name__': '__main__',
@@ -129,7 +129,7 @@ def _DebuggerMain():
 
   sys.modules['__main__'] = __main__
 
-  with open(app_path) as f:
+  with open(app_path, encoding='utf-8') as f:
     code = compile(f.read(), app_path, 'exec')
     exec(code, globals, locals)  # pylint: disable=exec-used
 
