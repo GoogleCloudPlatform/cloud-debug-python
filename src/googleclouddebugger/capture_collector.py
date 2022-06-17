@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Captures application state on a breakpoint hit."""
 
 # TODO: rename this file to collector.py.
@@ -45,8 +44,8 @@ user_id_collector = lambda: (None, None)
 # Externally defined function to collect the end user id.
 breakpoint_labels_collector = lambda: {}
 
-_PRIMITIVE_TYPES = (type(None), float, complex, bool, slice, bytearray,
-                    str, bytes, int)
+_PRIMITIVE_TYPES = (type(None), float, complex, bool, slice, bytearray, str,
+                    bytes, int)
 _DATE_TYPES = (datetime.date, datetime.time, datetime.timedelta)
 _VECTOR_TYPES = (tuple, list, set)
 
@@ -277,8 +276,8 @@ class CaptureCollector(object):
     # because in the case where the user has not indicated a preference, we
     # don't want a single large object on the stack to use the entire max_size
     # quota and hide the rest of the data.
-    self.expression_capture_limits = _CaptureLimits(max_value_len=32768,
-                                                    max_list_items=32768)
+    self.expression_capture_limits = _CaptureLimits(
+        max_value_len=32768, max_list_items=32768)
 
   def Collect(self, top_frame):
     """Collects call stack, local variables and objects.
@@ -298,8 +297,9 @@ class CaptureCollector(object):
       # Evaluate watched expressions.
       if 'expressions' in self.breakpoint:
         self.breakpoint['evaluatedExpressions'] = [
-            self._CaptureExpression(top_frame, expression) for expression
-            in self.breakpoint['expressions']]
+            self._CaptureExpression(top_frame, expression)
+            for expression in self.breakpoint['expressions']
+        ]
 
       while frame and (len(breakpoint_frames) < self.max_frames):
         line = top_line if frame == top_frame else frame.f_lineno
@@ -329,7 +329,10 @@ class CaptureCollector(object):
           'description': {
               'format': ('INTERNAL ERROR: Failed while capturing locals '
                          'of frame $0: $1'),
-              'parameters': [str(len(breakpoint_frames)), str(e)]}}
+              'parameters': [str(len(breakpoint_frames)),
+                             str(e)]
+          }
+      }
 
     # Number of entries in _var_table. Starts at 1 (index 0 is the 'buffer full'
     # status value).
@@ -337,10 +340,12 @@ class CaptureCollector(object):
 
     # Explore variables table in BFS fashion. The variables table will grow
     # inside CaptureVariable as we encounter new references.
-    while (num_vars < len(self._var_table)) and (
-        self._total_size < self.max_size):
+    while (num_vars < len(self._var_table)) and (self._total_size <
+                                                 self.max_size):
       self._var_table[num_vars] = self.CaptureVariable(
-          self._var_table[num_vars], 0, self.default_capture_limits,
+          self._var_table[num_vars],
+          0,
+          self.default_capture_limits,
           can_enqueue=False)
 
       # Move on to the next entry in the variable table.
@@ -364,18 +369,22 @@ class CaptureCollector(object):
       (arguments, locals) tuple.
     """
     # Capture all local variables (including method arguments).
-    variables = {n: self.CaptureNamedVariable(n, v, 1,
-                                              self.default_capture_limits)
-                 for n, v in frame.f_locals.items()}
+    variables = {
+        n: self.CaptureNamedVariable(n, v, 1, self.default_capture_limits)
+        for n, v in six.viewitems(frame.f_locals)
+    }
 
     # Split between locals and arguments (keeping arguments in the right order).
     nargs = frame.f_code.co_argcount
-    if frame.f_code.co_flags & inspect.CO_VARARGS: nargs += 1
-    if frame.f_code.co_flags & inspect.CO_VARKEYWORDS: nargs += 1
+    if frame.f_code.co_flags & inspect.CO_VARARGS:
+      nargs += 1
+    if frame.f_code.co_flags & inspect.CO_VARKEYWORDS:
+      nargs += 1
 
     frame_arguments = []
     for argname in frame.f_code.co_varnames[:nargs]:
-      if argname in variables: frame_arguments.append(variables.pop(argname))
+      if argname in variables:
+        frame_arguments.append(variables.pop(argname))
 
     return (frame_arguments, list(variables.values()))
 
@@ -397,8 +406,9 @@ class CaptureCollector(object):
       name = str(id(name))
     self._total_size += len(name)
 
-    v = (self.CheckDataVisibility(value) or
-         self.CaptureVariable(value, depth, limits))
+    v = (
+        self.CheckDataVisibility(value) or
+        self.CaptureVariable(value, depth, limits))
     v['name'] = name
     return v
 
@@ -446,23 +456,30 @@ class CaptureCollector(object):
     """
     v = []
     for name, value in items:
-      if (self._total_size >= self.max_size) or (
-          len(v) >= limits.max_list_items):
+      if (self._total_size >= self.max_size) or (len(v) >=
+                                                 limits.max_list_items):
         v.append({
             'status': {
                 'refersTo': 'VARIABLE_VALUE',
                 'description': {
-                    'format':
-                        ('Only first $0 items were captured. Use in an '
-                         'expression to see all items.'),
-                    'parameters': [str(len(v))]}}})
+                    'format': ('Only first $0 items were captured. Use in an '
+                               'expression to see all items.'),
+                    'parameters': [str(len(v))]
+                }
+            }
+        })
         break
       v.append(self.CaptureNamedVariable(name, value, depth, limits))
 
     if not v:
-      return [{'status': {
-          'refersTo': 'VARIABLE_NAME',
-          'description': {'format': empty_message}}}]
+      return [{
+          'status': {
+              'refersTo': 'VARIABLE_NAME',
+              'description': {
+                  'format': empty_message
+              }
+          }
+      }]
 
     return v
 
@@ -505,31 +522,34 @@ class CaptureCollector(object):
       return {'value': 'None'}
 
     if isinstance(value, _PRIMITIVE_TYPES):
-      r = _TrimString(repr(value),  # Primitive type, always immutable.
-                      min(limits.max_value_len,
-                          self.max_size - self._total_size))
+      r = _TrimString(
+          repr(value),  # Primitive type, always immutable.
+          min(limits.max_value_len, self.max_size - self._total_size))
       self._total_size += len(r)
       return {'value': r, 'type': type(value).__name__}
 
     if isinstance(value, _DATE_TYPES):
       r = str(value)  # Safe to call str().
       self._total_size += len(r)
-      return {'value': r, 'type': 'datetime.'+ type(value).__name__}
+      return {'value': r, 'type': 'datetime.' + type(value).__name__}
 
     if isinstance(value, dict):
       # Do not use iteritems() here. If GC happens during iteration (which it
       # often can for dictionaries containing large variables), you will get a
       # RunTimeError exception.
       items = [(repr(k), v) for (k, v) in value.items()]
-      return {'members':
-              self.CaptureVariablesList(items, depth + 1,
-                                        EMPTY_DICTIONARY, limits),
-              'type': 'dict'}
+      return {
+          'members':
+              self.CaptureVariablesList(items, depth + 1, EMPTY_DICTIONARY,
+                                        limits),
+          'type':
+              'dict'
+      }
 
     if isinstance(value, _VECTOR_TYPES):
       fields = self.CaptureVariablesList(
-          (('[%d]' % i, x) for i, x in enumerate(value)),
-          depth + 1, EMPTY_COLLECTION, limits)
+          (('[%d]' % i, x) for i, x in enumerate(value)), depth + 1,
+          EMPTY_COLLECTION, limits)
       return {'members': fields, 'type': type(value).__name__}
 
     if isinstance(value, types.FunctionType):
@@ -539,8 +559,8 @@ class CaptureCollector(object):
 
     if isinstance(value, Exception):
       fields = self.CaptureVariablesList(
-          (('[%d]' % i, x) for i, x in enumerate(value.args)),
-          depth + 1, EMPTY_COLLECTION, limits)
+          (('[%d]' % i, x) for i, x in enumerate(value.args)), depth + 1,
+          EMPTY_COLLECTION, limits)
       return {'members': fields, 'type': type(value).__name__}
 
     if can_enqueue:
@@ -558,10 +578,13 @@ class CaptureCollector(object):
         continue
 
       fields, object_type = pretty_value
-      return {'members':
+      return {
+          'members':
               self.CaptureVariablesList(fields, depth + 1, OBJECT_HAS_NO_FIELDS,
                                         limits),
-              'type': object_type}
+          'type':
+              object_type
+      }
 
     if not hasattr(value, '__dict__'):
       # TODO: keep "value" empty and populate the "type" field instead.
@@ -576,8 +599,8 @@ class CaptureCollector(object):
     # Only limits.max_list_items + 1 items are copied, anything past that will
     # get ignored by CaptureVariablesList().
     items = list(itertools.islice(items, limits.max_list_items + 1))
-    members = self.CaptureVariablesList(items, depth + 2,
-                                        OBJECT_HAS_NO_FIELDS, limits)
+    members = self.CaptureVariablesList(items, depth + 2, OBJECT_HAS_NO_FIELDS,
+                                        limits)
     v = {'members': members}
 
     type_string = DetermineType(value)
@@ -732,8 +755,12 @@ class LogCollector(object):
     """
     # Return error if log methods were not configured globally.
     if not self._log_message:
-      return {'isError': True,
-              'description': {'format': LOG_ACTION_NOT_SUPPORTED}}
+      return {
+          'isError': True,
+          'description': {
+              'format': LOG_ACTION_NOT_SUPPORTED
+          }
+      }
 
     if self._quota_recovery_start_time:
       ms_elapsed = (time.time() - self._quota_recovery_start_time) * 1000
@@ -774,8 +801,10 @@ class LogCollector(object):
       Array of strings where each string corresponds to the breakpoint
       expression with the same index.
     """
-    return [self._FormatExpression(frame, expression) for expression in
-            self._definition.get('expressions') or []]
+    return [
+        self._FormatExpression(frame, expression)
+        for expression in self._definition.get('expressions') or []
+    ]
 
   def _FormatExpression(self, frame, expression):
     """Evaluates a single watched expression and formats it into a string form.
@@ -815,8 +844,7 @@ class LogCollector(object):
     def FormatDictItem(key_value):
       """Formats single dictionary item."""
       key, value = key_value
-      return (self._FormatValue(key, level + 1) +
-              ': ' +
+      return (self._FormatValue(key, level + 1) + ': ' +
               self._FormatValue(value, level + 1))
 
     def LimitedEnumerate(items, formatter, level=0):
@@ -836,8 +864,9 @@ class LogCollector(object):
       return ', '.join(LimitedEnumerate(items, formatter, level=level))
 
     if isinstance(value, _PRIMITIVE_TYPES):
-      return _TrimString(repr(value),  # Primitive type, always immutable.
-                         self.max_value_len)
+      return _TrimString(
+          repr(value),  # Primitive type, always immutable.
+          self.max_value_len)
 
     if isinstance(value, _DATE_TYPES):
       return str(value)
@@ -849,8 +878,11 @@ class LogCollector(object):
       return '{' + FormatList(value.items(), FormatDictItem) + '}'
 
     if isinstance(value, _VECTOR_TYPES):
-      return _ListTypeFormatString(value).format(FormatList(
-          value, lambda item: self._FormatValue(item, level + 1), level=level))
+      return _ListTypeFormatString(value).format(
+          FormatList(
+              value,
+              lambda item: self._FormatValue(item, level + 1),
+              level=level))
 
     if isinstance(value, types.FunctionType):
       return 'function ' + value.__name__
@@ -880,14 +912,18 @@ def _EvaluateExpression(frame, expression):
         'refersTo': 'VARIABLE_NAME',
         'description': {
             'format': 'Invalid expression',
-            'parameters': [str(e)]}})
+            'parameters': [str(e)]
+        }
+    })
   except SyntaxError as e:
     return (False, {
         'isError': True,
         'refersTo': 'VARIABLE_NAME',
         'description': {
             'format': 'Expression could not be compiled: $0',
-            'parameters': [e.msg]}})
+            'parameters': [e.msg]
+        }
+    })
 
   try:
     return (True, native.CallImmutable(frame, code))
@@ -897,7 +933,9 @@ def _EvaluateExpression(frame, expression):
         'refersTo': 'VARIABLE_VALUE',
         'description': {
             'format': 'Exception occurred: $0',
-            'parameters': [str(e)]}})
+            'parameters': [str(e)]
+        }
+    })
 
 
 def _GetFrameCodeObjectName(frame):
@@ -913,8 +951,8 @@ def _GetFrameCodeObjectName(frame):
   # This functions under the assumption that member functions will name their
   # first parameter argument 'self' but has some edge-cases.
   if frame.f_code.co_argcount >= 1 and 'self' == frame.f_code.co_varnames[0]:
-    return (frame.f_locals['self'].__class__.__name__ +
-            '.' + frame.f_code.co_name)
+    return (frame.f_locals['self'].__class__.__name__ + '.' +
+            frame.f_code.co_name)
   else:
     return frame.f_code.co_name
 
@@ -929,6 +967,7 @@ def _FormatMessage(template, parameters):
   Returns:
     Formatted message with parameters embedded in template placeholders.
   """
+
   def GetParameter(m):
     try:
       return parameters[int(m.group(0)[1:])]
@@ -943,4 +982,4 @@ def _TrimString(s, max_len):
   """Trims the string if it exceeds max_len."""
   if len(s) <= max_len:
     return s
-  return s[:max_len+1] + '...'
+  return s[:max_len + 1] + '...'

@@ -129,8 +129,8 @@ def PackFrameVariable(breakpoint, name, frame=0, collection='locals'):
     if variable['name'] == name:
       return _Pack(variable, breakpoint)
 
-  raise AssertionError('Variable %s not found in frame %d collection %s' % (
-      name, frame, collection))
+  raise AssertionError('Variable %s not found in frame %d collection %s' %
+                       (name, frame, collection))
 
 
 def PackWatchedExpression(breakpoint, expression):
@@ -183,4 +183,3 @@ def _Pack(variable, breakpoint):
         key=lambda m: m.get('name', ''))
 
   return packed
-

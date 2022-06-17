@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Determines the visibility of python data and symbols.
 
 Example Usage:
@@ -32,7 +31,6 @@ Example Usage:
 """
 
 import fnmatch
-
 
 # Possible visibility responses
 RESPONSES = {
@@ -86,4 +84,3 @@ def _Matches(path, pattern_list):
   """
   # Note: This code does not scale to large pattern_list sizes.
   return any(fnmatch.fnmatchcase(path, pattern) for pattern in pattern_list)
-

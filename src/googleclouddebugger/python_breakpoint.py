@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Handles a single Python breakpoint."""
 
 from datetime import datetime
@@ -36,8 +35,7 @@ ERROR_LOCATION_MODULE_NOT_FOUND_0 = (
     'version of the service you are trying to debug.')
 ERROR_LOCATION_MULTIPLE_MODULES_1 = (
     'Multiple modules matching $0. Please specify the module path.')
-ERROR_LOCATION_MULTIPLE_MODULES_3 = (
-    'Multiple modules matching $0 ($1, $2)')
+ERROR_LOCATION_MULTIPLE_MODULES_3 = ('Multiple modules matching $0 ($1, $2)')
 ERROR_LOCATION_MULTIPLE_MODULES_4 = (
     'Multiple modules matching $0 ($1, $2, and $3 more)')
 ERROR_LOCATION_NO_CODE_FOUND_AT_LINE_2 = 'No code found at line $0 in $1'
@@ -54,30 +52,40 @@ ERROR_CONDITION_BREAKPOINT_QUOTA_EXCEEDED_0 = (
     'the snapshot to a less frequently called statement.')
 ERROR_CONDITION_MUTABLE_0 = (
     'Only immutable expressions can be used in snapshot conditions')
-ERROR_AGE_SNAPSHOT_EXPIRED_0 = (
-    'The snapshot has expired')
-ERROR_AGE_LOGPOINT_EXPIRED_0 = (
-    'The logpoint has expired')
-ERROR_UNSPECIFIED_INTERNAL_ERROR = (
-    'Internal error occurred')
+ERROR_AGE_SNAPSHOT_EXPIRED_0 = ('The snapshot has expired')
+ERROR_AGE_LOGPOINT_EXPIRED_0 = ('The logpoint has expired')
+ERROR_UNSPECIFIED_INTERNAL_ERROR = ('Internal error occurred')
 
 # Status messages for different breakpoint events (except of "hit").
-_BREAKPOINT_EVENT_STATUS = dict(
-    [(native.BREAKPOINT_EVENT_ERROR,
-      {'isError': True,
-       'description': {'format': ERROR_UNSPECIFIED_INTERNAL_ERROR}}),
-     (native.BREAKPOINT_EVENT_GLOBAL_CONDITION_QUOTA_EXCEEDED,
-      {'isError': True,
-       'refersTo': 'BREAKPOINT_CONDITION',
-       'description': {'format': ERROR_CONDITION_GLOBAL_QUOTA_EXCEEDED_0}}),
-     (native.BREAKPOINT_EVENT_BREAKPOINT_CONDITION_QUOTA_EXCEEDED,
-      {'isError': True,
-       'refersTo': 'BREAKPOINT_CONDITION',
-       'description': {'format': ERROR_CONDITION_BREAKPOINT_QUOTA_EXCEEDED_0}}),
-     (native.BREAKPOINT_EVENT_CONDITION_EXPRESSION_MUTABLE,
-      {'isError': True,
-       'refersTo': 'BREAKPOINT_CONDITION',
-       'description': {'format': ERROR_CONDITION_MUTABLE_0}})])
+_BREAKPOINT_EVENT_STATUS = dict([
+    (native.BREAKPOINT_EVENT_ERROR, {
+        'isError': True,
+        'description': {
+            'format': ERROR_UNSPECIFIED_INTERNAL_ERROR
+        }
+    }),
+    (native.BREAKPOINT_EVENT_GLOBAL_CONDITION_QUOTA_EXCEEDED, {
+        'isError': True,
+        'refersTo': 'BREAKPOINT_CONDITION',
+        'description': {
+            'format': ERROR_CONDITION_GLOBAL_QUOTA_EXCEEDED_0
+        }
+    }),
+    (native.BREAKPOINT_EVENT_BREAKPOINT_CONDITION_QUOTA_EXCEEDED, {
+        'isError': True,
+        'refersTo': 'BREAKPOINT_CONDITION',
+        'description': {
+            'format': ERROR_CONDITION_BREAKPOINT_QUOTA_EXCEEDED_0
+        }
+    }),
+    (native.BREAKPOINT_EVENT_CONDITION_EXPRESSION_MUTABLE, {
+        'isError': True,
+        'refersTo': 'BREAKPOINT_CONDITION',
+        'description': {
+            'format': ERROR_CONDITION_MUTABLE_0
+        }
+    })
+])
 
 # The implementation of datetime.strptime imports an undocumented module called
 # _strptime. If it happens at the wrong time, we can get an exception about
@@ -196,7 +204,11 @@ class PythonBreakpoint(object):
           'status': {
               'isError': True,
               'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
-              'description': {'format': ERROR_LOCATION_FILE_EXTENSION_0}}})
+              'description': {
+                  'format': ERROR_LOCATION_FILE_EXTENSION_0
+              }
+          }
+      })
       return
 
     # A flat init file is too generic; path must include package name.
@@ -207,7 +219,10 @@ class PythonBreakpoint(object):
               'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
               'description': {
                   'format': ERROR_LOCATION_MULTIPLE_MODULES_1,
-                  'parameters': [path]}}})
+                  'parameters': [path]
+              }
+          }
+      })
       return
 
     new_path = module_search2.Search(path)
@@ -217,8 +232,7 @@ class PythonBreakpoint(object):
       self._ActivateBreakpoint(new_module)
     else:
       self._import_hook_cleanup = imphook2.AddImportCallbackBySuffix(
-          new_path,
-          self._ActivateBreakpoint)
+          new_path, self._ActivateBreakpoint)
 
   def Clear(self):
     """Clears the breakpoint and releases all breakpoint resources.
@@ -263,7 +277,11 @@ class PythonBreakpoint(object):
         'status': {
             'isError': True,
             'refersTo': 'BREAKPOINT_AGE',
-            'description': {'format': message}}})
+            'description': {
+                'format': message
+            }
+        }
+    })
 
   def _ActivateBreakpoint(self, module):
     """Sets the breakpoint in the loaded module, or complete with error."""
@@ -300,16 +318,18 @@ class PythonBreakpoint(object):
               'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
               'description': {
                   'format': fmt,
-                  'parameters': params}}})
+                  'parameters': params
+              }
+          }
+      })
       return
 
     # Compile the breakpoint condition.
     condition = None
     if self.definition.get('condition'):
       try:
-        condition = compile(self.definition.get('condition'),
-                            '<condition_expression>',
-                            'eval')
+        condition = compile(
+            self.definition.get('condition'), '<condition_expression>', 'eval')
       except (TypeError, ValueError) as e:
         # condition string contains null bytes.
         self._CompleteBreakpoint({
@@ -318,7 +338,10 @@ class PythonBreakpoint(object):
                 'refersTo': 'BREAKPOINT_CONDITION',
                 'description': {
                     'format': 'Invalid expression',
-                    'parameters': [str(e)]}}})
+                    'parameters': [str(e)]
+                }
+            }
+        })
         return
 
       except SyntaxError as e:
@@ -328,17 +351,17 @@ class PythonBreakpoint(object):
                 'refersTo': 'BREAKPOINT_CONDITION',
                 'description': {
                     'format': 'Expression could not be compiled: $0',
-                    'parameters': [e.msg]}}})
+                    'parameters': [e.msg]
+                }
+            }
+        })
         return
 
-    native.LogInfo('Creating new Python breakpoint %s in %s, line %d' % (
-        self.GetBreakpointId(), codeobj, line))
+    native.LogInfo('Creating new Python breakpoint %s in %s, line %d' %
+                   (self.GetBreakpointId(), codeobj, line))
 
-    self._cookie = native.CreateConditionalBreakpoint(
-        codeobj,
-        line,
-        condition,
-        self._BreakpointEvent)
+    self._cookie = native.CreateConditionalBreakpoint(codeobj, line, condition,
+                                                      self._BreakpointEvent)
 
     native.ActivateConditionalBreakpoint(self._cookie)
 
@@ -397,8 +420,8 @@ class PythonBreakpoint(object):
       self._CompleteBreakpoint({'status': error_status})
       return
 
-    collector = capture_collector.CaptureCollector(
-        self.definition, self.data_visibility_policy)
+    collector = capture_collector.CaptureCollector(self.definition,
+                                                   self.data_visibility_policy)
 
     # TODO: This is a temporary try/except. All exceptions should be
     # caught inside Collect and converted into breakpoint error messages.
@@ -406,17 +429,22 @@ class PythonBreakpoint(object):
       collector.Collect(frame)
     except BaseException as e:  # pylint: disable=broad-except
       native.LogInfo('Internal error during data capture: %s' % repr(e))
-      error_status = {'isError': True,
-                      'description': {
-                          'format': ('Internal error while capturing data: %s' %
-                                     repr(e))}}
+      error_status = {
+          'isError': True,
+          'description': {
+              'format': ('Internal error while capturing data: %s' % repr(e))
+          }
+      }
       self._CompleteBreakpoint({'status': error_status})
       return
     except:  # pylint: disable=bare-except
       native.LogInfo('Unknown exception raised')
-      error_status = {'isError': True,
-                      'description': {
-                          'format': 'Unknown internal error'}}
+      error_status = {
+          'isError': True,
+          'description': {
+              'format': 'Unknown internal error'
+          }
+      }
       self._CompleteBreakpoint({'status': error_status})
       return
 

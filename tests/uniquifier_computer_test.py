@@ -51,75 +51,71 @@ class UniquifierComputerTest(absltest.TestCase):
       del sys.path[0]
 
   def testEmpty(self):
-    self.assertListEqual(
-        [],
-        self._Compute({}))
+    self.assertListEqual([], self._Compute({}))
 
   def testBundle(self):
-    self.assertListEqual(
-        ['first.py:1',
-         'in1/__init__.py:6',
-         'in1/a.py:3',
-         'in1/b.py:4',
-         'in1/in2/__init__.py:7',
-         'in1/in2/c.py:5',
-         'second.py:2'],
-        self._Compute({
-            'db.app': 'abc',
-            'first.py': 'a',
-            'second.py': 'bb',
-            'in1/a.py': 'ccc',
-            'in1/b.py': 'dddd',
-            'in1/in2/c.py': 'eeeee',
-            'in1/__init__.py': 'ffffff',
-            'in1/in2/__init__.py': 'ggggggg'}))
+    self.assertListEqual([
+        'first.py:1', 'in1/__init__.py:6', 'in1/a.py:3', 'in1/b.py:4',
+        'in1/in2/__init__.py:7', 'in1/in2/c.py:5', 'second.py:2'
+    ],
+                         self._Compute({
+                             'db.app': 'abc',
+                             'first.py': 'a',
+                             'second.py': 'bb',
+                             'in1/a.py': 'ccc',
+                             'in1/b.py': 'dddd',
+                             'in1/in2/c.py': 'eeeee',
+                             'in1/__init__.py': 'ffffff',
+                             'in1/in2/__init__.py': 'ggggggg'
+                         }))
 
   def testEmptyFile(self):
-    self.assertListEqual(
-        ['empty.py:0'],
-        self._Compute({
-            'empty.py': ''}))
+    self.assertListEqual(['empty.py:0'], self._Compute({'empty.py': ''}))
 
   def testNonPythonFilesIgnored(self):
-    self.assertListEqual(
-        ['real.py:1'],
-        self._Compute({
-            'file.p': '',
-            'file.pya': '',
-            'real.py': '1'}))
+    self.assertListEqual(['real.py:1'],
+                         self._Compute({
+                             'file.p': '',
+                             'file.pya': '',
+                             'real.py': '1'
+                         }))
 
   def testNonPackageDirectoriesIgnored(self):
-    self.assertListEqual(
-        ['dir2/__init__.py:1'],
-        self._Compute({
-            'dir1/file.py': '',
-            'dir2/__init__.py': 'a',
-            'dir2/image.gif': ''}))
+    self.assertListEqual(['dir2/__init__.py:1'],
+                         self._Compute({
+                             'dir1/file.py': '',
+                             'dir2/__init__.py': 'a',
+                             'dir2/image.gif': ''
+                         }))
 
   def testDepthLimit(self):
-    self.assertListEqual(
-        [''.join(str(n) + '/' for n in range(1, m + 1)) + '__init__.py:%d' % m
-         for m in range(9, 0, -1)],
-        self._Compute({
-            '1/__init__.py': '1',
-            '1/2/__init__.py': '2' * 2,
-            '1/2/3/__init__.py': '3' * 3,
-            '1/2/3/4/__init__.py': '4' * 4,
-            '1/2/3/4/5/__init__.py': '5' * 5,
-            '1/2/3/4/5/6/__init__.py': '6' * 6,
-            '1/2/3/4/5/6/7/__init__.py': '7' * 7,
-            '1/2/3/4/5/6/7/8/__init__.py': '8' * 8,
-            '1/2/3/4/5/6/7/8/9/__init__.py': '9' * 9,
-            '1/2/3/4/5/6/7/8/9/10/__init__.py': 'a' * 10,
-            '1/2/3/4/5/6/7/8/9/10/11/__init__.py': 'b' * 11}))
+    self.assertListEqual([
+        ''.join(str(n) + '/'
+                for n in range(1, m + 1)) + '__init__.py:%d' % m
+        for m in range(9, 0, -1)
+    ],
+                         self._Compute({
+                             '1/__init__.py': '1',
+                             '1/2/__init__.py': '2' * 2,
+                             '1/2/3/__init__.py': '3' * 3,
+                             '1/2/3/4/__init__.py': '4' * 4,
+                             '1/2/3/4/5/__init__.py': '5' * 5,
+                             '1/2/3/4/5/6/__init__.py': '6' * 6,
+                             '1/2/3/4/5/6/7/__init__.py': '7' * 7,
+                             '1/2/3/4/5/6/7/8/__init__.py': '8' * 8,
+                             '1/2/3/4/5/6/7/8/9/__init__.py': '9' * 9,
+                             '1/2/3/4/5/6/7/8/9/10/__init__.py': 'a' * 10,
+                             '1/2/3/4/5/6/7/8/9/10/11/__init__.py': 'b' * 11
+                         }))
 
   def testPrecedence(self):
-    self.assertListEqual(
-        ['my.py:3'],
-        self._Compute({
-            'my.pyo': 'a',
-            'my.pyc': 'aa',
-            'my.py': 'aaa'}))
+    self.assertListEqual(['my.py:3'],
+                         self._Compute({
+                             'my.pyo': 'a',
+                             'my.pyc': 'aa',
+                             'my.py': 'aaa'
+                         }))
+
 
 if __name__ == '__main__':
   absltest.main()

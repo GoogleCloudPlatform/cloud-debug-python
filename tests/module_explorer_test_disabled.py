@@ -36,7 +36,7 @@ class ModuleExplorerTest(absltest.TestCase):
 
   def testInstanceClassMethod(self):
     """Verify that instance class method is found."""
-    self.assertIn( self.testInstanceClassMethod.__code__, self._code_objects)
+    self.assertIn(self.testInstanceClassMethod.__code__, self._code_objects)
 
   def testInnerMethodOfInstanceClassMethod(self):
     """Verify that inner method defined in a class instance method is found."""
@@ -60,15 +60,24 @@ class ModuleExplorerTest(absltest.TestCase):
 
   def testDeepInnerMethod(self):
     """Verify that inner of inner of inner, etc. method is found."""
+
     def Inner1():
+
       def Inner2():
+
         def Inner3():
+
           def Inner4():
+
             def Inner5():
               pass
+
             return Inner5.__code__
+
           return Inner4()
+
         return Inner3()
+
       return Inner2()
 
     self.assertIn(Inner1(), self._code_objects)
@@ -91,9 +100,7 @@ class ModuleExplorerTest(absltest.TestCase):
       def InnerClassMethod(self):
         pass
 
-    self.assertIn(
-        InnerClass().InnerClassMethod.__code__,
-        self._code_objects)
+    self.assertIn(InnerClass().InnerClassMethod.__code__, self._code_objects)
 
   def testMethodOfInnerOldStyleClass(self):
     """Verify that method of inner old style class is found."""
@@ -103,9 +110,7 @@ class ModuleExplorerTest(absltest.TestCase):
       def InnerClassMethod(self):
         pass
 
-    self.assertIn(
-        InnerClass().InnerClassMethod.__code__,
-        self._code_objects)
+    self.assertIn(InnerClass().InnerClassMethod.__code__, self._code_objects)
 
   def testGlobalMethodWithClosureDecorator(self):
     co = self._GetCodeObjectAtLine(self._module,
@@ -114,8 +119,8 @@ class ModuleExplorerTest(absltest.TestCase):
     self.assertEqual('GlobalMethodWithClosureDecorator', co.co_name)
 
   def testClassMethodWithClosureDecorator(self):
-    co = self._GetCodeObjectAtLine(self._module,
-                                   'GLOBAL_CLASS_METHOD_WITH_CLOSURE_DECORATOR')
+    co = self._GetCodeObjectAtLine(
+        self._module, 'GLOBAL_CLASS_METHOD_WITH_CLOSURE_DECORATOR')
     self.assertTrue(co)
     self.assertEqual('FnWithClosureDecorator', co.co_name)
 
@@ -144,12 +149,12 @@ class ModuleExplorerTest(absltest.TestCase):
     test_cases = [
         (self.testCodeObjectAtLine.__code__, 'TEST_CODE_OBJECT_AT_ASSERT'),
         (ModuleExplorerTest._StaticMethod(), 'INNER_OF_STATIC_METHOD'),
-        (_GlobalMethod(), 'INNER_OF_GLOBAL_METHOD')]
+        (_GlobalMethod(), 'INNER_OF_GLOBAL_METHOD')
+    ]
 
     for code_object, tag in test_cases:
       self.assertEqual(  # BPTAG: TEST_CODE_OBJECT_AT_ASSERT
-          code_object,
-          self._GetCodeObjectAtLine(code_object, tag))
+          code_object, self._GetCodeObjectAtLine(code_object, tag))
 
   def testCodeObjectWithoutModule(self):
     """Verify no crash/hang when module has no file name."""
@@ -158,6 +163,7 @@ class ModuleExplorerTest(absltest.TestCase):
 
     self.assertFalse(
         module_explorer.GetCodeObjectAtLine(self._module, 111111)[0])
+
 
 # TODO: Re-enable this test, without hardcoding a python version into it.
 #  def testCodeExtensionMismatch(self):
@@ -210,6 +216,7 @@ class ModuleExplorerTest(absltest.TestCase):
       module_explorer._MAX_REFERENTS_BFS_DEPTH = default_quota
 
   def testMaxObjectReferents(self):
+
     class A(object):
       pass
 
@@ -242,6 +249,7 @@ class ModuleExplorerTest(absltest.TestCase):
 
   @staticmethod
   def _StaticMethod():
+
     def InnerMethod():
       pass  # BPTAG: INNER_OF_STATIC_METHOD
 
@@ -254,6 +262,7 @@ class ModuleExplorerTest(absltest.TestCase):
 
 
 def _GlobalMethod():
+
   def InnerMethod():
     pass  # BPTAG: INNER_OF_GLOBAL_METHOD
 
@@ -261,6 +270,7 @@ def _GlobalMethod():
 
 
 def ClosureDecorator(handler):
+
   def Caller(*args):
     return handler(*args)
 
@@ -303,6 +313,7 @@ def _MethodWithLambdaExpression():
 
 def _MethodWithGeneratorExpression():
   return (i for i in range(0, 2)).gi_code
+
 
 # Used for testMaxObjectReferents, need to be in global scope or else the module
 # explorer would not explore this

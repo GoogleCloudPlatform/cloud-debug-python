@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Inclusive search for module files."""
 
 import os
@@ -68,6 +67,7 @@ def Search(path):
     AssertionError: if the provided path is an absolute path, or if it does not
       have a .py extension.
   """
+
   def SearchCandidates(p):
     """Generates all candidates for the fuzzy search of p."""
     while p:
@@ -103,4 +103,3 @@ def Search(path):
 
   # A matching file was not found in sys.path directories.
   return path
-

@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Communicates with Cloud Debugger backend over HTTP."""
 
 from collections import deque
@@ -27,8 +26,6 @@ import sys
 import threading
 import time
 import traceback
-
-
 
 import google_auth_httplib2
 import googleapiclient
@@ -142,6 +139,7 @@ class GcpHubClient(object):
           if os.path.splitext(f[1])[0] == self._my_filename:
             return False
         return True
+
     self._log_filter = _ChildLogFilter({logging.INFO})
     googleapiclient.discovery.logger.addFilter(self._log_filter)
 
@@ -195,9 +193,11 @@ class GcpHubClient(object):
       self._debuggee_labels[labels.Debuggee.VERSION] = 'unversioned'
 
     if flags:
-      self._debuggee_labels.update(
-          {name: value for (name, value) in flags.items()
-           if name in _DEBUGGEE_LABELS})
+      self._debuggee_labels.update({
+          name: value
+          for (name, value) in flags.items()
+          if name in _DEBUGGEE_LABELS
+      })
 
     self._debuggee_labels[labels.Debuggee.PROJECT_ID] = self._project_id
 
@@ -413,9 +413,8 @@ class GcpHubClient(object):
         breakpoints = response.get('breakpoints') or []
         if self._breakpoints != breakpoints:
           self._breakpoints = breakpoints
-          native.LogInfo(
-              'Breakpoints list changed, %d active, wait token: %s' % (
-                  len(self._breakpoints), self._wait_token))
+          native.LogInfo('Breakpoints list changed, %d active, wait token: %s' %
+                         (len(self._breakpoints), self._wait_token))
           self.on_active_breakpoints_changed(copy.deepcopy(self._breakpoints))
     except BaseException:
       native.LogInfo('Failed to query active breakpoints: ' +
@@ -460,11 +459,14 @@ class GcpHubClient(object):
 
       try:
         service.debuggees().breakpoints().update(
-            debuggeeId=self._debuggee_id, id=breakpoint['id'],
-            body={'breakpoint': breakpoint}).execute()
+            debuggeeId=self._debuggee_id,
+            id=breakpoint['id'],
+            body={
+                'breakpoint': breakpoint
+            }).execute()
 
-        native.LogInfo('Breakpoint %s update transmitted successfully' % (
-            breakpoint['id']))
+        native.LogInfo('Breakpoint %s update transmitted successfully' %
+                       (breakpoint['id']))
       except googleapiclient.errors.HttpError as err:
         # Treat 400 error codes (except timeout) as application error that will
         # not be retried. All other errors are assumed to be transient.
@@ -494,9 +496,8 @@ class GcpHubClient(object):
           # Socket errors shouldn't persist like this; reconnect.
           reconnect = True
       except BaseException:
-        native.LogWarning(
-            'Fatal error sending breakpoint %s update: %s' % (
-                breakpoint['id'], traceback.format_exc()))
+        native.LogWarning('Fatal error sending breakpoint %s update: %s' %
+                          (breakpoint['id'], traceback.format_exc()))
         reconnect = True
 
     self._transmission_queue.extend(retry_list)
@@ -512,8 +513,8 @@ class GcpHubClient(object):
     """Builds the debuggee structure."""
     major_version = 'v' + version.__version__.split('.')[0]
     python_version = ''.join(platform.python_version().split('.')[:2])
-    agent_version = ('google.com/python%s-gcp/%s' % (python_version,
-                                                     major_version))
+    agent_version = ('google.com/python%s-gcp/%s' %
+                     (python_version, major_version))
 
     debuggee = {
         'project': self._project_number,

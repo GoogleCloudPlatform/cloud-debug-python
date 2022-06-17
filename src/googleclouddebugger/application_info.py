@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Module to fetch information regarding the current application.
 
 Some examples of the information the methods in this module fetch are platform
@@ -65,8 +64,8 @@ def GetRegion():
 
   # Otherwise try fetching it from the metadata server.
   try:
-    response = requests.get(_GCP_METADATA_REGION_URL,
-                            headers=_GCP_METADATA_HEADER)
+    response = requests.get(
+        _GCP_METADATA_REGION_URL, headers=_GCP_METADATA_HEADER)
     response.raise_for_status()
     # Example of response text: projects/id/regions/us-central1. So we strip
     # everything before the last /.

@@ -42,6 +42,7 @@ class NativeModuleTest(absltest.TestCase):
     self._ClearAllBreakpoints()
 
   def testUnconditionalBreakpoint(self):
+
     def Trigger():
       unused_lock = threading.Lock()
       print('Breakpoint trigger')  # BPTAG: UNCONDITIONAL_BREAKPOINT
@@ -51,6 +52,7 @@ class NativeModuleTest(absltest.TestCase):
     self.assertEqual(1, self._breakpoint_counter)
 
   def testConditionalBreakpoint(self):
+
     def Trigger():
       d = {}
       for i in range(1, 10):
@@ -73,6 +75,7 @@ class NativeModuleTest(absltest.TestCase):
     self.assertEqual(1, self._breakpoint_counter)
 
   def testMissingModule(self):
+
     def Test():
       native.CreateConditionalBreakpoint(None, 123123, None,
                                          self._BreakpointEvent)
@@ -80,6 +83,7 @@ class NativeModuleTest(absltest.TestCase):
     self.assertRaises(TypeError, Test)
 
   def testBadModule(self):
+
     def Test():
       native.CreateConditionalBreakpoint('str', 123123, None,
                                          self._BreakpointEvent)
@@ -87,6 +91,7 @@ class NativeModuleTest(absltest.TestCase):
     self.assertRaises(TypeError, Test)
 
   def testInvalidCondition(self):
+
     def Test():
       native.CreateConditionalBreakpoint(sys.modules[__name__], 123123, '2+2',
                                          self._BreakpointEvent)
@@ -94,39 +99,43 @@ class NativeModuleTest(absltest.TestCase):
     self.assertRaises(TypeError, Test)
 
   def testMissingCallback(self):
+
     def Test():
       native.CreateConditionalBreakpoint('code.py', 123123, None, None)
 
     self.assertRaises(TypeError, Test)
 
   def testInvalidCallback(self):
+
     def Test():
       native.CreateConditionalBreakpoint('code.py', 123123, None, {})
 
     self.assertRaises(TypeError, Test)
 
   def testMissingCookie(self):
-    self.assertRaises(
-        TypeError,
-        lambda: native.ClearConditionalBreakpoint(None))
+    self.assertRaises(TypeError,
+                      lambda: native.ClearConditionalBreakpoint(None))
 
   def testInvalidCookie(self):
     native.ClearConditionalBreakpoint(387873457)
 
   def testMutableCondition(self):
+
     def Trigger():
+
       def MutableMethod():
         self._evil = True
         return True
+
       print('MutableMethod = %s' % MutableMethod)  # BPTAG: MUTABLE_CONDITION
 
     self._SetBreakpoint(Trigger, 'MUTABLE_CONDITION', 'MutableMethod()')
     Trigger()
-    self.assertEqual(
-        [native.BREAKPOINT_EVENT_CONDITION_EXPRESSION_MUTABLE],
-        self._PopBreakpointEvents())
+    self.assertEqual([native.BREAKPOINT_EVENT_CONDITION_EXPRESSION_MUTABLE],
+                     self._PopBreakpointEvents())
 
   def testGlobalConditionQuotaExceeded(self):
+
     def Trigger():
       print('Breakpoint trigger')  # BPTAG: GLOBAL_CONDITION_QUOTA
 
@@ -142,6 +151,7 @@ class NativeModuleTest(absltest.TestCase):
     time.sleep(0.1)
 
   def testBreakpointConditionQuotaExceeded(self):
+
     def Trigger():
       print('Breakpoint trigger')  # BPTAG: PER_BREAKPOINT_CONDITION_QUOTA
 
@@ -151,10 +161,8 @@ class NativeModuleTest(absltest.TestCase):
     # increase the complexity of a condition until we hit it.
     base = 100
     while True:
-      self._SetBreakpoint(
-          Trigger,
-          'PER_BREAKPOINT_CONDITION_QUOTA',
-          '_DoHardWork(%d)' % base)
+      self._SetBreakpoint(Trigger, 'PER_BREAKPOINT_CONDITION_QUOTA',
+                          '_DoHardWork(%d)' % base)
       Trigger()
       self._ClearAllBreakpoints()
 
@@ -172,61 +180,54 @@ class NativeModuleTest(absltest.TestCase):
     time.sleep(0.1)
 
   def testImmutableCallSuccess(self):
+
     def Add(a, b, c):
       return a + b + c
 
     def Magic():
       return 'cake'
 
-    self.assertEqual(
-        '643535',
-        self._CallImmutable(inspect.currentframe(), 'str(643535)'))
+    self.assertEqual('643535',
+                     self._CallImmutable(inspect.currentframe(), 'str(643535)'))
     self.assertEqual(
         786 + 23 + 891,
         self._CallImmutable(inspect.currentframe(), 'Add(786, 23, 891)'))
-    self.assertEqual(
-        'cake',
-        self._CallImmutable(inspect.currentframe(), 'Magic()'))
+    self.assertEqual('cake',
+                     self._CallImmutable(inspect.currentframe(), 'Magic()'))
     return Add or Magic
 
   def testImmutableCallMutable(self):
+
     def Change():
       dictionary['bad'] = True
 
     dictionary = {}
     frame = inspect.currentframe()
-    self.assertRaises(
-        SystemError,
-        lambda: self._CallImmutable(frame, 'Change()'))
+    self.assertRaises(SystemError,
+                      lambda: self._CallImmutable(frame, 'Change()'))
     self.assertEqual({}, dictionary)
     return Change
 
   def testImmutableCallExceptionPropagation(self):
+
     def Divide(a, b):
       return a / b
 
     frame = inspect.currentframe()
-    self.assertRaises(
-        ZeroDivisionError,
-        lambda: self._CallImmutable(frame, 'Divide(1, 0)'))
+    self.assertRaises(ZeroDivisionError,
+                      lambda: self._CallImmutable(frame, 'Divide(1, 0)'))
     return Divide
 
   def testImmutableCallInvalidFrame(self):
-    self.assertRaises(
-        TypeError,
-        lambda: native.CallImmutable(None, lambda: 1))
-    self.assertRaises(
-        TypeError,
-        lambda: native.CallImmutable('not a frame', lambda: 1))
+    self.assertRaises(TypeError, lambda: native.CallImmutable(None, lambda: 1))
+    self.assertRaises(TypeError,
+                      lambda: native.CallImmutable('not a frame', lambda: 1))
 
   def testImmutableCallInvalidCallable(self):
     frame = inspect.currentframe()
-    self.assertRaises(
-        TypeError,
-        lambda: native.CallImmutable(frame, None))
-    self.assertRaises(
-        TypeError,
-        lambda: native.CallImmutable(frame, 'not a callable'))
+    self.assertRaises(TypeError, lambda: native.CallImmutable(frame, None))
+    self.assertRaises(TypeError,
+                      lambda: native.CallImmutable(frame, 'not a callable'))
 
   def _SetBreakpoint(self, method, tag, condition=None):
     """Sets a breakpoint in this source file.
@@ -247,9 +248,9 @@ class NativeModuleTest(absltest.TestCase):
     if condition is not None:
       compiled_condition = compile(condition, '<string>', 'eval')
 
-    cookie = native.CreateConditionalBreakpoint(
-        method.__code__, line, compiled_condition,
-        self._BreakpointEvent)
+    cookie = native.CreateConditionalBreakpoint(method.__code__, line,
+                                                compiled_condition,
+                                                self._BreakpointEvent)
 
     self._cookies.append(cookie)
     native.ActivateConditionalBreakpoint(cookie)
@@ -261,9 +262,8 @@ class NativeModuleTest(absltest.TestCase):
 
   def _CallImmutable(self, frame, expression):
     """Wrapper over native.ImmutableCall for callable."""
-    return native.CallImmutable(
-        frame,
-        compile(expression, '<expression>', 'eval'))
+    return native.CallImmutable(frame,
+                                compile(expression, '<expression>', 'eval'))
 
   def _BreakpointEvent(self, event, frame):
     """Callback on breakpoint event.

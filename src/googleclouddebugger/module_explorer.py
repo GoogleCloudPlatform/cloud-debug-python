@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Finds all the code objects defined by a module."""
 
 import gc
@@ -33,9 +32,8 @@ _MAX_VISIT_OBJECTS = 100000
 _MAX_OBJECT_REFERENTS = 1000
 
 # Object types to ignore when looking for the code objects.
-_BFS_IGNORE_TYPES = (types.ModuleType, type(None), bool, float, bytes,
-                     str, int, types.BuiltinFunctionType,
-                     types.BuiltinMethodType, list)
+_BFS_IGNORE_TYPES = (types.ModuleType, type(None), bool, float, bytes, str, int,
+                     types.BuiltinFunctionType, types.BuiltinMethodType, list)
 
 
 def GetCodeObjectAtLine(module, line):
@@ -148,6 +146,7 @@ def _FindCodeObjectsReferents(module, start_objects, visit_recorder):
   Returns:
     List of code objects.
   """
+
   def CheckIgnoreCodeObject(code_object):
     """Checks if the code object can be ignored.
 
@@ -182,9 +181,8 @@ def _FindCodeObjectsReferents(module, start_objects, visit_recorder):
     if not cls_module:
       return False  # We can't tell for sure, so explore this class.
 
-    return (
-        cls_module is not module and
-        getattr(cls_module, '__file__', None) != module.__file__)
+    return (cls_module is not module and
+            getattr(cls_module, '__file__', None) != module.__file__)
 
   code_objects = set()
   current = start_objects

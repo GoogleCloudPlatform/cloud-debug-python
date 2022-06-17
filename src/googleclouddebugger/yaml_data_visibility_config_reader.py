@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Reads a YAML configuration file to determine visibility policy.
 
 Example Usage:
@@ -113,8 +112,7 @@ def Read(f):
 
   try:
     return Config(
-        yaml_data.get('blacklist', ()),
-        yaml_data.get('whitelist', ('*')))
+        yaml_data.get('blacklist', ()), yaml_data.get('whitelist', ('*')))
   except UnicodeDecodeError as e:
     raise YAMLLoadError('%s' % e)
 
@@ -124,8 +122,8 @@ def _CheckData(yaml_data):
   legal_keys = set(('blacklist', 'whitelist'))
   unknown_keys = set(yaml_data) - legal_keys
   if unknown_keys:
-    raise UnknownConfigKeyError(
-        'Unknown keys in configuration: %s' % unknown_keys)
+    raise UnknownConfigKeyError('Unknown keys in configuration: %s' %
+                                unknown_keys)
 
   for key, data in yaml_data.items():
     _AssertDataIsList(key, data)
