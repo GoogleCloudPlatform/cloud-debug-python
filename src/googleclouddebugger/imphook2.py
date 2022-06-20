@@ -110,9 +110,8 @@ def _InstallImportHookBySuffix():
   assert _real_import
   builtins.__import__ = _ImportHookBySuffix
 
-  # In Python 2, importlib.import_module calls __import__ internally so
-  # overriding __import__ is enough. In Python 3, they are separate so it also
-  # needs to be overwritten.
+  # importlib.import_module and __import__ are separate in Python 3 so both
+  # need to be overwritten.
   global _real_import_module
   _real_import_module = importlib.import_module
   assert _real_import_module

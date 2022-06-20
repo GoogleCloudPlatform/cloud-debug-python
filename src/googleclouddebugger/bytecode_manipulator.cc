@@ -36,18 +36,13 @@ enum PythonOpcodeType {
 
 // Single Python instruction.
 //
-// In Python 2.7, there are 3 types of instructions:
-// 1. Instruction without arguments (takes 1 byte).
-// 2. Instruction with a single 16 bit argument (takes 3 bytes).
-// 3. Instruction with a 32 bit argument (very uncommon; takes 6 bytes).
-//
 // In Python 3.6, there are 4 types of instructions:
 // 1. Instructions without arguments, or a 8 bit argument (takes 2 bytes).
 // 2. Instructions with a 16 bit argument (takes 4 bytes).
 // 3. Instructions with a 24 bit argument (takes 6 bytes).
 // 4. Instructions with a 32 bit argument (takes 8 bytes).
 //
-// To handle 32 bit arguments in Python 2, or 16-32 bit arguments in Python 3,
+// To handle 16-32 bit arguments in Python 3,
 // a special instruction with an opcode of EXTENDED_ARG is prepended to the
 // actual instruction. The argument of the EXTENDED_ARG instruction is combined
 // with the argument of the next instruction to form the full argument.

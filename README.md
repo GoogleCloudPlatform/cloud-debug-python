@@ -73,7 +73,7 @@ sudo apt-get -y -q --no-install-recommends install \
 ```
 
 If the desired target version of Python is not the default version of
-the 'python' command on your system, run the build script as `PYTHON=python3.x
+the 'python3' command on your system, run the build script as `PYTHON=python3.x
 ./build.sh`.
 
 ### Alpine Linux
