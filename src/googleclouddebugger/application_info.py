@@ -69,6 +69,11 @@ def GetRegion():
     response.raise_for_status()
     # Example of response text: projects/id/regions/us-central1. So we strip
     # everything before the last /.
-    return response.text.split('/')[-1]
+    region = response.text.split('/')[-1]
+    if region == 'html>':
+      # Sometimes we get an html response!
+      return None
+
+    return region
   except requests.exceptions.RequestException:
     return None
