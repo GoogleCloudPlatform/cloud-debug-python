@@ -1,4 +1,4 @@
-"""Unit test for capture_collector module."""
+"""Unit test for collector module."""
 
 import copy
 import datetime
@@ -10,7 +10,7 @@ from unittest import mock
 
 from absl.testing import absltest
 
-from googleclouddebugger import capture_collector
+from googleclouddebugger import collector
 from googleclouddebugger import labels
 
 LOGPOINT_PAUSE_MSG = (
@@ -29,8 +29,8 @@ def CaptureCollectorWithDefaultLocation(definition,
   Returns:
     A LogCollector
   """
-  definition['location'] = {'path': 'capture_collector_test.py', 'line': 10}
-  return capture_collector.CaptureCollector(definition, data_visibility_policy)
+  definition['location'] = {'path': 'collector_test.py', 'line': 10}
+  return collector.CaptureCollector(definition, data_visibility_policy)
 
 
 def LogCollectorWithDefaultLocation(definition):
@@ -42,15 +42,15 @@ def LogCollectorWithDefaultLocation(definition):
   Returns:
     A LogCollector
   """
-  definition['location'] = {'path': 'capture_collector_test.py', 'line': 10}
-  return capture_collector.LogCollector(definition)
+  definition['location'] = {'path': 'collector_test.py', 'line': 10}
+  return collector.LogCollector(definition)
 
 
 class CaptureCollectorTest(absltest.TestCase):
   """Unit test for capture collector."""
 
   def tearDown(self):
-    capture_collector.CaptureCollector.pretty_printers = []
+    collector.CaptureCollector.pretty_printers = []
 
   def testCallStackUnlimitedFrames(self):
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
@@ -70,7 +70,7 @@ class CaptureCollectorTest(absltest.TestCase):
     top_frame = self._collector.breakpoint['stackFrames'][0]
     self.assertEqual('CaptureCollectorTest.testCallStackLimitedFrames',
                      top_frame['function'])
-    self.assertIn('capture_collector_test.py', top_frame['location']['path'])
+    self.assertIn('collector_test.py', top_frame['location']['path'])
     self.assertGreater(top_frame['location']['line'], 1)
 
     frame_below = self._collector.breakpoint['stackFrames'][1]
@@ -335,12 +335,12 @@ class CaptureCollectorTest(absltest.TestCase):
     }], top_frame['locals'])
 
   def testLocalVariablesWithBlacklist(self):
-    unused_a = capture_collector.LineNoFilter()
+    unused_a = collector.LineNoFilter()
     unused_b = 5
 
     # Side effect logic for the mock data visibility object
     def IsDataVisible(name):
-      path_prefix = 'googleclouddebugger.capture_collector.'
+      path_prefix = 'googleclouddebugger.collector.'
       if name == path_prefix + 'LineNoFilter':
         return (False, 'data blocked')
       return (True, None)
@@ -382,7 +382,7 @@ class CaptureCollectorTest(absltest.TestCase):
 
     # Side effect logic for the mock data visibility object
     def IsDataVisible(name):
-      if name == 'capture_collector_test.TestClass':
+      if name == 'collector_test.TestClass':
         return (False, 'data blocked')
       return (True, None)
 
@@ -1065,7 +1065,7 @@ class CaptureCollectorTest(absltest.TestCase):
         return None
       return ((('name2_%d' % i, '2_%d' % i) for i in range(3)), 'pp-type2')
 
-    capture_collector.CaptureCollector.pretty_printers += [
+    collector.CaptureCollector.pretty_printers += [
         PrettyPrinter1, PrettyPrinter2
     ]
 
@@ -1192,7 +1192,7 @@ class CaptureCollectorTest(absltest.TestCase):
     }], obj['members'])
 
   def testRequestLogIdCapturing(self):
-    capture_collector.request_log_id_collector = lambda: 'test_log_id'
+    collector.request_log_id_collector = lambda: 'test_log_id'
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.Collect(inspect.currentframe())
 
@@ -1202,17 +1202,17 @@ class CaptureCollectorTest(absltest.TestCase):
         self._collector.breakpoint['labels'][labels.Breakpoint.REQUEST_LOG_ID])
 
   def testRequestLogIdCapturingNoId(self):
-    capture_collector.request_log_id_collector = lambda: None
+    collector.request_log_id_collector = lambda: None
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.Collect(inspect.currentframe())
 
   def testRequestLogIdCapturingNoCollector(self):
-    capture_collector.request_log_id_collector = None
+    collector.request_log_id_collector = None
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.Collect(inspect.currentframe())
 
   def testUserIdSuccess(self):
-    capture_collector.user_id_collector = lambda: ('mdb_user', 'noogler')
+    collector.user_id_collector = lambda: ('mdb_user', 'noogler')
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.Collect(inspect.currentframe())
 
@@ -1223,21 +1223,21 @@ class CaptureCollectorTest(absltest.TestCase):
     }, self._collector.breakpoint['evaluatedUserId'])
 
   def testUserIdIsNone(self):
-    capture_collector.user_id_collector = lambda: (None, None)
+    collector.user_id_collector = lambda: (None, None)
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.Collect(inspect.currentframe())
 
     self.assertNotIn('evaluatedUserId', self._collector.breakpoint)
 
   def testUserIdNoKind(self):
-    capture_collector.user_id_collector = lambda: (None, 'noogler')
+    collector.user_id_collector = lambda: (None, 'noogler')
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.Collect(inspect.currentframe())
 
     self.assertNotIn('evaluatedUserId', self._collector.breakpoint)
 
   def testUserIdNoValue(self):
-    capture_collector.user_id_collector = lambda: ('mdb_user', None)
+    collector.user_id_collector = lambda: ('mdb_user', None)
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.Collect(inspect.currentframe())
 
@@ -1310,7 +1310,7 @@ class LogCollectorTest(absltest.TestCase):
         if msg != record.msg:
           logging.error('Expected msg "%s", received "%s"', msg, record.msg)
           return False
-        pathname = capture_collector.NormalizePath(frame.f_code.co_filename)
+        pathname = collector.NormalizePath(frame.f_code.co_filename)
         if pathname != record.pathname:
           logging.error('Expected pathname "%s", received "%s"', pathname,
                         record.pathname)
@@ -1354,7 +1354,7 @@ class LogCollectorTest(absltest.TestCase):
     self._verifier = LogVerifier()
     self._logger.addHandler(self._verifier)
     self._logger.setLevel(logging.INFO)
-    capture_collector.SetLogger(self._logger)
+    collector.SetLogger(self._logger)
 
     # Give some time for the global quota to recover
     time.sleep(0.1)
@@ -1433,7 +1433,7 @@ class LogCollectorTest(absltest.TestCase):
     self.assertTrue(self._verifier.GotMessage('LOGPOINT: hello'))
 
   def testUndefinedLogLevel(self):
-    capture_collector.log_info_message = None
+    collector.log_info_message = None
     collector = LogCollectorWithDefaultLocation({'logLevel': 'INFO'})
     self.assertDictEqual(
         {
@@ -1754,16 +1754,16 @@ class LogCollectorTest(absltest.TestCase):
 
   def testDetermineType(self):
     builtin_prefix = 'builtins.'
-    path_prefix = 'googleclouddebugger.capture_collector.'
+    path_prefix = 'googleclouddebugger.collector.'
     test_data = (
         (builtin_prefix + 'int', 5),
         (builtin_prefix + 'str', 'hello'),
-        (builtin_prefix + 'function', capture_collector.DetermineType),
-        (path_prefix + 'LineNoFilter', capture_collector.LineNoFilter()),
+        (builtin_prefix + 'function', collector.DetermineType),
+        (path_prefix + 'LineNoFilter', collector.LineNoFilter()),
     )
 
     for type_string, value in test_data:
-      self.assertEqual(type_string, capture_collector.DetermineType(value))
+      self.assertEqual(type_string, collector.DetermineType(value))
 
 
 if __name__ == '__main__':

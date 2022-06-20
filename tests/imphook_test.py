@@ -1,4 +1,4 @@
-"""Unit test for imphook2 module."""
+"""Unit test for imphook module."""
 
 import importlib
 import os
@@ -7,10 +7,10 @@ import tempfile
 
 from absl.testing import absltest
 
-from googleclouddebugger import imphook2
+from googleclouddebugger import imphook
 
 
-class ImportHookTest2(absltest.TestCase):
+class ImportHookTest(absltest.TestCase):
   """Tests for the new module import hook."""
 
   def setUp(self):
@@ -27,7 +27,7 @@ class ImportHookTest2(absltest.TestCase):
       cleanup()
 
     # Assert no hooks or entries remained in the set.
-    self.assertEmpty(imphook2._import_callbacks)
+    self.assertEmpty(imphook._import_callbacks)
 
   def testPackageImport(self):
     self._Hook(self._CreateFile('testpkg1/__init__.py'))
@@ -368,8 +368,8 @@ class ImportHookTest2(absltest.TestCase):
 
     import testpkg24.foo  # pylint: disable=g-import-not-at-top,unused-variable
 
-    self.assertEqual(imphook2._import_local.nest_level, 0)
-    self.assertEmpty(imphook2._import_local.names)
+    self.assertEqual(imphook._import_local.nest_level, 0)
+    self.assertEmpty(imphook._import_local.names)
 
   def testThreadLocalCleanupWithCaughtImportError(self):
     self._CreateFile('testpkg25/__init__.py')
@@ -390,8 +390,8 @@ class ImportHookTest2(absltest.TestCase):
     # Successful import at top level. Failed import at inner level.
     import testpkg25.foo  # pylint: disable=g-import-not-at-top,unused-variable
 
-    self.assertEqual(imphook2._import_local.nest_level, 0)
-    self.assertEmpty(imphook2._import_local.names)
+    self.assertEqual(imphook._import_local.nest_level, 0)
+    self.assertEmpty(imphook._import_local.names)
 
   def testThreadLocalCleanupWithUncaughtImportError(self):
     self._CreateFile('testpkg26/__init__.py')
@@ -413,8 +413,8 @@ class ImportHookTest2(absltest.TestCase):
     # The hook for bar should be invoked, as bar is already loaded.
     self.assertEqual(['testpkg26/bar.py'], self._import_callbacks_log)
 
-    self.assertEqual(imphook2._import_local.nest_level, 0)
-    self.assertEmpty(imphook2._import_local.names)
+    self.assertEqual(imphook._import_local.nest_level, 0)
+    self.assertEmpty(imphook._import_local.names)
 
   def testCleanup(self):
     cleanup1 = self._Hook('a/b/c.py')
@@ -422,18 +422,18 @@ class ImportHookTest2(absltest.TestCase):
     cleanup3 = self._Hook('a/d/f.py')
     cleanup4 = self._Hook('a/d/g.py')
     cleanup5 = self._Hook('a/d/c.py')
-    self.assertLen(imphook2._import_callbacks, 4)
+    self.assertLen(imphook._import_callbacks, 4)
 
     cleanup1()
-    self.assertLen(imphook2._import_callbacks, 4)
+    self.assertLen(imphook._import_callbacks, 4)
     cleanup2()
-    self.assertLen(imphook2._import_callbacks, 3)
+    self.assertLen(imphook._import_callbacks, 3)
     cleanup3()
-    self.assertLen(imphook2._import_callbacks, 2)
+    self.assertLen(imphook._import_callbacks, 2)
     cleanup4()
-    self.assertLen(imphook2._import_callbacks, 1)
+    self.assertLen(imphook._import_callbacks, 1)
     cleanup5()
-    self.assertLen(imphook2._import_callbacks, 0)
+    self.assertLen(imphook._import_callbacks, 0)
 
   def _CreateFile(self, path, content='', rewrite_imports=True):
     full_path = os.path.join(self._test_package_dir, path)
@@ -473,7 +473,7 @@ class ImportHookTest2(absltest.TestCase):
 
   # TODO: add test for the module param in the callback.
   def _Hook(self, path, callback=lambda m: None):
-    cleanup = imphook2.AddImportCallbackBySuffix(
+    cleanup = imphook.AddImportCallbackBySuffix(
         path, lambda mod:
         (self._import_callbacks_log.append(path), callback(mod)))
     self.assertTrue(cleanup, path)

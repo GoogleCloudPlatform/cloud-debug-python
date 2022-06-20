@@ -1,4 +1,4 @@
-"""Unit test for module_search2 module."""
+"""Unit test for module_search module."""
 
 import os
 import sys
@@ -6,7 +6,7 @@ import tempfile
 
 from absl.testing import absltest
 
-from googleclouddebugger import module_search2
+from googleclouddebugger import module_search
 
 
 # TODO: Add tests for whitespace in location path including in,
@@ -23,29 +23,29 @@ class SearchModulesTest(absltest.TestCase):
   def testSearchValidSourcePath(self):
     # These modules are on the sys.path.
     self.assertEndsWith(
-        module_search2.Search('googleclouddebugger/module_search2.py'),
-        '/site-packages/googleclouddebugger/module_search2.py')
+        module_search.Search('googleclouddebugger/module_search.py'),
+        '/site-packages/googleclouddebugger/module_search.py')
 
     # inspect and dis are <embedded stdlib> libraries with no real file. So, we
     # can no longer match them by file path.
 
   def testSearchInvalidSourcePath(self):
     # This is an invalid module that doesn't exist anywhere.
-    self.assertEqual(module_search2.Search('aaaaa.py'), 'aaaaa.py')
+    self.assertEqual(module_search.Search('aaaaa.py'), 'aaaaa.py')
 
     # This module exists, but the search input is missing the outer package
     # name.
-    self.assertEqual(module_search2.Search('absltest.py'), 'absltest.py')
+    self.assertEqual(module_search.Search('absltest.py'), 'absltest.py')
 
   def testSearchInvalidExtension(self):
     # Test that the module rejects invalid extension in the input.
     with self.assertRaises(AssertionError):
-      module_search2.Search('module_search2.x')
+      module_search.Search('module_search.x')
 
   def testSearchPathStartsWithSep(self):
     # Test that module rejects invalid leading os.sep char in the input.
     with self.assertRaises(AssertionError):
-      module_search2.Search('/module_search2')
+      module_search.Search('/module_search')
 
   def testSearchRelativeSysPath(self):
     # An entry in sys.path is in relative form, and represents the same
@@ -64,7 +64,7 @@ class SearchModulesTest(absltest.TestCase):
 
       # Returned result should have a successful file match and relative
       # paths should be kept as-is.
-      result = module_search2.Search('b/first.py')
+      result = module_search.Search('b/first.py')
       self.assertEndsWith(result, 'a/../a/b/first.py')
 
     finally:
@@ -84,7 +84,7 @@ class SearchModulesTest(absltest.TestCase):
       # Returned result should have a successful file match and symbolic
       # links should be kept.
       self.assertEndsWith(
-          module_search2.Search('b/first.py'), 'link/b/first.py')
+          module_search.Search('b/first.py'), 'link/b/first.py')
     finally:
       sys.path.remove(os.path.join(self._test_package_dir, 'link'))
 
