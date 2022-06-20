@@ -371,7 +371,7 @@ class CaptureCollector(object):
     # Capture all local variables (including method arguments).
     variables = {
         n: self.CaptureNamedVariable(n, v, 1, self.default_capture_limits)
-        for n, v in six.viewitems(frame.f_locals)
+        for n, v in frame.f_locals.items()
     }
 
     # Split between locals and arguments (keeping arguments in the right order).
