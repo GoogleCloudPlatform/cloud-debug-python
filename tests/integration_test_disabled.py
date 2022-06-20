@@ -15,7 +15,7 @@ from unittest import mock
 from googleapiclient import discovery
 import googleclouddebugger as cdbg
 
-from six.moves import queue
+import queue
 
 import google.auth
 from absl.testing import absltest

@@ -35,8 +35,7 @@ import os
 import sys  # Must be imported, otherwise import hooks don't work.
 import threading
 
-import six
-from six.moves import builtins  # pylint: disable=redefined-builtin
+import builtins
 
 from . import module_utils2
 
@@ -111,14 +110,12 @@ def _InstallImportHookBySuffix():
   assert _real_import
   builtins.__import__ = _ImportHookBySuffix
 
-  if six.PY3:
-    # In Python 2, importlib.import_module calls __import__ internally so
-    # overriding __import__ is enough. In Python 3, they are separate so it also
-    # needs to be overwritten.
-    global _real_import_module
-    _real_import_module = importlib.import_module
-    assert _real_import_module
-    importlib.import_module = _ImportModuleHookBySuffix
+  # importlib.import_module and __import__ are separate in Python 3 so both
+  # need to be overwritten.
+  global _real_import_module
+  _real_import_module = importlib.import_module
+  assert _real_import_module
+  importlib.import_module = _ImportModuleHookBySuffix
 
 
 def _IncrementNestLevel():
@@ -181,12 +178,9 @@ def _ImportHookBySuffix(name,
 
   if level is None:
     # A level of 0 means absolute import, positive values means relative
-    # imports, and -1 means to try both an absolute and relative import.
-    # Since imports were disambiguated in Python 3, -1 is not a valid value.
-    # The default values are 0 and -1 for Python 3 and 3 respectively.
-    # https://docs.python.org/2/library/functions.html#__import__
+    # imports.
     # https://docs.python.org/3/library/functions.html#__import__
-    level = 0 if six.PY3 else -1
+    level = 0
 
   try:
     # Really import modules.

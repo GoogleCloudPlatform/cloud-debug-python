@@ -26,8 +26,6 @@ import sys
 import time
 import types
 
-import six
-
 from . import cdbg_native as native
 from . import labels
 
@@ -46,9 +44,8 @@ user_id_collector = lambda: (None, None)
 # Externally defined function to collect the end user id.
 breakpoint_labels_collector = lambda: {}
 
-_PRIMITIVE_TYPES = (type(None), float, complex, bool, slice, bytearray,
-                    six.text_type,
-                    six.binary_type) + six.integer_types + six.string_types
+_PRIMITIVE_TYPES = (type(None), float, complex, bool, slice, bytearray, str,
+                    bytes, int)
 _DATE_TYPES = (datetime.date, datetime.time, datetime.timedelta)
 _VECTOR_TYPES = (tuple, list, set)
 
@@ -389,7 +386,7 @@ class CaptureCollector(object):
       if argname in variables:
         frame_arguments.append(variables.pop(argname))
 
-    return (frame_arguments, list(six.viewvalues(variables)))
+    return (frame_arguments, list(variables.values()))
 
   def CaptureNamedVariable(self, name, value, depth, limits):
     """Appends name to the product of CaptureVariable.
@@ -597,12 +594,11 @@ class CaptureCollector(object):
 
     # Add an additional depth for the object itself
     items = value.__dict__.items()
-    if six.PY3:
-      # Make a list of the iterator in Python 3, to avoid 'dict changed size
-      # during iteration' errors from GC happening in the middle.
-      # Only limits.max_list_items + 1 items are copied, anything past that will
-      # get ignored by CaptureVariablesList().
-      items = list(itertools.islice(items, limits.max_list_items + 1))
+    # Make a list of the iterator in Python 3, to avoid 'dict changed size
+    # during iteration' errors from GC happening in the middle.
+    # Only limits.max_list_items + 1 items are copied, anything past that will
+    # get ignored by CaptureVariablesList().
+    items = list(itertools.islice(items, limits.max_list_items + 1))
     members = self.CaptureVariablesList(items, depth + 2, OBJECT_HAS_NO_FIELDS,
                                         limits)
     v = {'members': members}
@@ -664,7 +660,7 @@ class CaptureCollector(object):
       self.breakpoint['labels'] = {}
 
     if callable(breakpoint_labels_collector):
-      for (key, value) in six.iteritems(breakpoint_labels_collector()):
+      for (key, value) in breakpoint_labels_collector().items():
         self._StoreLabel(key, value)
 
   def _CaptureRequestLogId(self):
@@ -879,7 +875,7 @@ class LogCollector(object):
       return str(type(value))
 
     if isinstance(value, dict):
-      return '{' + FormatList(six.iteritems(value), FormatDictItem) + '}'
+      return '{' + FormatList(value.items(), FormatDictItem) + '}'
 
     if isinstance(value, _VECTOR_TYPES):
       return _ListTypeFormatString(value).format(

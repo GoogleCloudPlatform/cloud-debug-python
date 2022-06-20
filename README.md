@@ -1,6 +1,6 @@
 # Python Cloud Debugger Agent
 
-Google [Cloud Debugger](https://cloud.google.com/debugger/) for Python 2.7,
+Google [Cloud Debugger](https://cloud.google.com/debugger/) for
 Python 3.6, Python 3.7, Python 3.8 and Python 3.9.
 
 ## Overview
@@ -27,7 +27,7 @@ tested on Debian Linux, but it should work on other distributions as well.
 
 Cloud Debugger consists of 3 primary components:
 
-1.  The Python debugger agent (this repo implements one for CPython 2.7, 3.6,
+1.  The Python debugger agent (this repo implements one for CPython 3.6,
     3.7, 3.8 and 3.9).
 2.  Cloud Debugger service storing and managing snapshots/logpoints. Explore the
     APIs using
@@ -54,21 +54,13 @@ The easiest way to install the Python Cloud Debugger is with PyPI:
 pip install google-python-cloud-debugger
 ```
 
-Alternatively, download the *egg* package from
-[Releases](https://github.com/GoogleCloudPlatform/cloud-debug-python/releases)
-and install the debugger agent with:
-
-```shell
-easy_install google_python_cloud_debugger-py2.7-linux-x86_64.egg
-```
-
 You can also build the agent from source code:
 
 ```shell
 git clone https://github.com/GoogleCloudPlatform/cloud-debug-python.git
 cd cloud-debug-python/src/
 ./build.sh
-easy_install dist/google_python_cloud_debugger-*.egg
+pip install dist/google_python_cloud_debugger-*.whl
 ```
 
 Note that the build script assumes some dependencies. To install these
@@ -77,17 +69,11 @@ dependencies on Debian, run this command:
 ```shell
 sudo apt-get -y -q --no-install-recommends install \
     curl ca-certificates gcc build-essential cmake \
-    python python-dev libpython2.7 python-setuptools
+    python3 python3-dev python3-pip
 ```
 
-### Python 3
-
-There is support for Python 3.6, Python 3.7, Python 3.8 and Python 3.9. Python
-3.0 to 3.5 are not supported, and newer versions have not been tested.
-
-To build for Python 3.x (x in [6-8]), the `python3.x` and `python3.x-dev`
-packages are additionally needed.  If Python 3.x is not the default version of
-the 'python' command on your system, run the build script as `PYTHON=python3.x
+If the desired target version of Python is not the default version of
+the 'python3' command on your system, run the build script as `PYTHON=python3.x
 ./build.sh`.
 
 ### Alpine Linux

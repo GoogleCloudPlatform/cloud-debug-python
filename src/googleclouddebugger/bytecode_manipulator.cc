@@ -36,18 +36,13 @@ enum PythonOpcodeType {
 
 // Single Python instruction.
 //
-// In Python 2.7, there are 3 types of instructions:
-// 1. Instruction without arguments (takes 1 byte).
-// 2. Instruction with a single 16 bit argument (takes 3 bytes).
-// 3. Instruction with a 32 bit argument (very uncommon; takes 6 bytes).
-//
 // In Python 3.6, there are 4 types of instructions:
 // 1. Instructions without arguments, or a 8 bit argument (takes 2 bytes).
 // 2. Instructions with a 16 bit argument (takes 4 bytes).
 // 3. Instructions with a 24 bit argument (takes 6 bytes).
 // 4. Instructions with a 32 bit argument (takes 8 bytes).
 //
-// To handle 32 bit arguments in Python 2, or 16-32 bit arguments in Python 3,
+// To handle 16-32 bit arguments in Python 3,
 // a special instruction with an opcode of EXTENDED_ARG is prepended to the
 // actual instruction. The argument of the EXTENDED_ARG instruction is combined
 // with the argument of the next instruction to form the full argument.
@@ -68,11 +63,7 @@ static PythonInstruction PythonInstructionNoArg(uint8_t opcode) {
   instruction.opcode = opcode;
   instruction.argument = 0;
 
-#if PY_MAJOR_VERSION >= 3
   instruction.size = 2;
-#else
-  instruction.size = 1;
-#endif
 
   return instruction;
 }
@@ -86,7 +77,6 @@ static PythonInstruction PythonInstructionArg(uint8_t opcode,
   instruction.opcode = opcode;
   instruction.argument = argument;
 
-#if PY_MAJOR_VERSION >= 3
   if (argument <= 0xFF) {
     instruction.size = 2;
   } else if (argument <= 0xFFFF) {
@@ -96,9 +86,6 @@ static PythonInstruction PythonInstructionArg(uint8_t opcode,
   } else {
     instruction.size = 8;
   }
-#else
-  instruction.size = instruction.argument > 0xFFFF ? 6 : 3;
-#endif
 
   return instruction;
 }
@@ -119,9 +106,7 @@ static int GetInstructionsSize(
 static PythonOpcodeType GetOpcodeType(uint8_t opcode) {
   switch (opcode) {
     case YIELD_VALUE:
-#if PY_MAJOR_VERSION >= 3
     case YIELD_FROM:
-#endif
       return YIELD_OPCODE;
 
     case FOR_ITER:
@@ -171,23 +156,6 @@ static int GetBranchTarget(int offset, PythonInstruction instruction) {
 }
 
 
-#if PY_MAJOR_VERSION < 3
-// Reads 16 bit value according to Python bytecode encoding.
-static uint16 ReadPythonBytecodeUInt16(std::vector<uint8>::const_iterator it) {
-  return it[0] | (static_cast<uint16>(it[1]) << 8);
-}
-
-
-// Writes 16 bit value according to Python bytecode encoding.
-static void WritePythonBytecodeUInt16(
-    std::vector<uint8>::iterator it,
-    uint16 data) {
-  it[0] = static_cast<uint8>(data);
-  it[1] = data >> 8;
-}
-#endif
-
-
 // Read instruction at the specified offset. Returns kInvalidInstruction
 // buffer underflow.
 static PythonInstruction ReadInstruction(
@@ -195,7 +163,6 @@ static PythonInstruction ReadInstruction(
     std::vector<uint8_t>::const_iterator it) {
   PythonInstruction instruction { 0, 0, 0 };
 
-#if PY_MAJOR_VERSION >= 3
   if (bytecode.end() - it < 2) {
     LOG(ERROR) << "Buffer underflow";
     return kInvalidInstruction;
@@ -214,39 +181,6 @@ static PythonInstruction ReadInstruction(
   instruction.opcode = it[0];
   instruction.argument = instruction.argument << 8 | it[1];
   instruction.size += 2;
-#else
-  if (it == bytecode.end()) {
-    LOG(ERROR) << "Buffer underflow";
-    return kInvalidInstruction;
-  }
-
-  instruction.opcode = it[0];
-  instruction.size = 1;
-
-  auto it_arg = it + 1;
-  if (instruction.opcode == EXTENDED_ARG) {
-    if (bytecode.end() - it < 6) {
-      LOG(ERROR) << "Buffer underflow";
-      return kInvalidInstruction;
-    }
-
-    instruction.opcode = it[3];
-
-    auto it_ext = it + 4;
-    instruction.argument =
-        (static_cast<uint32>(ReadPythonBytecodeUInt16(it_arg)) << 16) |
-        ReadPythonBytecodeUInt16(it_ext);
-    instruction.size = 6;
-  } else if (HAS_ARG(instruction.opcode)) {
-    if (bytecode.end() - it < 3) {
-      LOG(ERROR) << "Buffer underflow";
-      return kInvalidInstruction;
-    }
-
-    instruction.argument = ReadPythonBytecodeUInt16(it_arg);
-    instruction.size = 3;
-  }
-#endif
 
   return instruction;
 }
@@ -256,7 +190,6 @@ static PythonInstruction ReadInstruction(
 // instruction.
 static int WriteInstruction(std::vector<uint8_t>::iterator it,
                             const PythonInstruction& instruction) {
-#if PY_MAJOR_VERSION >= 3
   uint32_t arg = instruction.argument;
   int size_written = 0;
   // Start writing backwards from the real instruction, followed by any
@@ -268,29 +201,6 @@ static int WriteInstruction(std::vector<uint8_t>::iterator it,
     size_written += 2;
   }
   return size_written;
-#else
-  if (instruction.size == 6) {
-    it[0] = EXTENDED_ARG;
-    WritePythonBytecodeUInt16(it + 1, instruction.argument >> 16);
-    it[3] = instruction.opcode;
-    WritePythonBytecodeUInt16(
-        it + 4,
-        static_cast<uint16>(instruction.argument));
-    return 6;
-  } else {
-    it[0] = instruction.opcode;
-
-    if (HAS_ARG(instruction.opcode)) {
-      DCHECK_LE(instruction.argument, 0xFFFFU);
-      WritePythonBytecodeUInt16(
-          it + 1,
-          static_cast<uint16>(instruction.argument));
-      return 3;
-    }
-
-    return 1;
-  }
-#endif
 }
 
 // Write set of instructions to the specified destination.
@@ -365,16 +275,6 @@ bool BytecodeManipulator::InjectMethodCall(
   data_ = std::move(new_data);
   return true;
 }
-
-
-// Use different algorithms to insert method calls for Python 2 and 3.
-// Technically the algorithm for Python 3 will work with Python 2, but because
-// it is more complicated and the issue of needing to upgrade branch
-// instructions to use EXTENDED_ARG is less common, we stick with the existing
-// algorithm for better safety.
-
-
-#if PY_MAJOR_VERSION >= 3
 
 
 // Represents a branch instruction in the original bytecode that may need to
@@ -617,113 +517,6 @@ bool BytecodeManipulator::InsertMethodCall(
 
   return true;
 }
-
-
-#else
-
-
-bool BytecodeManipulator::InsertMethodCall(
-    BytecodeManipulator::Data* data,
-    int offset,
-    int const_index) const {
-  const std::vector<PythonInstruction> method_call_instructions =
-      BuildMethodCall(const_index);
-  int size = GetInstructionsSize(method_call_instructions);
-
-  bool offset_valid = false;
-  for (auto it = data->bytecode.begin(); it < data->bytecode.end(); ) {
-    const int current_offset = it - data->bytecode.begin();
-    if (current_offset == offset) {
-      DCHECK(!offset_valid) << "Each offset should be visited only once";
-      offset_valid = true;
-    }
-
-    int current_fixed_offset = current_offset;
-    if (current_fixed_offset >= offset) {
-      current_fixed_offset += size;
-    }
-
-    PythonInstruction instruction = ReadInstruction(data->bytecode, it);
-    if (instruction.opcode == kInvalidInstruction.opcode) {
-      return false;
-    }
-
-    // Fix targets in branch instructions.
-    switch (GetOpcodeType(instruction.opcode)) {
-      case BRANCH_DELTA_OPCODE: {
-        int32 delta = static_cast<int32>(instruction.argument);
-        int32 target = current_offset + instruction.size + delta;
-
-        if (target > offset) {
-          target += size;
-        }
-
-        int32 fixed_delta = target - current_fixed_offset - instruction.size;
-        if (delta != fixed_delta) {
-          PythonInstruction new_instruction =
-              PythonInstructionArg(instruction.opcode, fixed_delta);
-          if (new_instruction.size != instruction.size) {
-            LOG(ERROR) << "Upgrading instruction to extended not supported";
-            return false;
-          }
-
-          WriteInstruction(it, new_instruction);
-        }
-        break;
-      }
-
-      case BRANCH_ABSOLUTE_OPCODE:
-        if (static_cast<int32>(instruction.argument) > offset) {
-          PythonInstruction new_instruction = PythonInstructionArg(
-              instruction.opcode, instruction.argument + size);
-          if (new_instruction.size != instruction.size) {
-            LOG(ERROR) << "Upgrading instruction to extended not supported";
-            return false;
-          }
-
-          WriteInstruction(it, new_instruction);
-        }
-        break;
-
-      default:
-        break;
-    }
-
-    it += instruction.size;
-  }
-
-  if (!offset_valid) {
-    LOG(ERROR) << "Offset " << offset << " is mid instruction or out of range";
-    return false;
-  }
-
-  // Insert the bytecode to invoke the callable.
-  data->bytecode.insert(data->bytecode.begin() + offset, size, NOP);
-  WriteInstructions(data->bytecode.begin() + offset, method_call_instructions);
-
-  // Insert a new entry into line table to account for the new bytecode.
-  if (has_lnotab_) {
-    int current_offset = 0;
-    for (auto it = data->lnotab.begin(); it != data->lnotab.end(); it += 2) {
-      current_offset += it[0];
-
-      if (current_offset >= offset) {
-        int remaining_size = size;
-        while (remaining_size > 0) {
-          const int current_size = std::min(remaining_size, 0xFF);
-          it = data->lnotab.insert(it, static_cast<uint8>(current_size)) + 1;
-          it = data->lnotab.insert(it, 0) + 1;
-          remaining_size -= current_size;
-        }
-
-        break;
-      }
-    }
-  }
-
-  return true;
-}
-#endif
 
 
 // This method does not change line numbers table. The line numbers table

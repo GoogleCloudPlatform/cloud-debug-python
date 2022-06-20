@@ -8,8 +8,6 @@ import os
 import time
 from unittest import mock
 
-import six
-
 from absl.testing import absltest
 
 from googleclouddebugger import capture_collector
@@ -703,7 +701,7 @@ class CaptureCollectorTest(absltest.TestCase):
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.Collect(inspect.currentframe())
 
-    frozenset_name = 'frozenset({5, 6})' if six.PY3 else 'frozenset([5, 6])'
+    frozenset_name = 'frozenset({5, 6})'
     self.assertCountEqual([{
         'name': "'first'",
         'value': '1',
@@ -770,9 +768,9 @@ class CaptureCollectorTest(absltest.TestCase):
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.Collect(inspect.currentframe())
 
-    unicode_type = 'str' if six.PY3 else 'unicode'
-    unicode_name = "'\xe0'" if six.PY3 else "u'\\xe0'"
-    unicode_value = "'\xe0'" if six.PY3 else "u'\\xe0'"
+    unicode_type = 'str'
+    unicode_name = "'\xe0'"
+    unicode_value = "'\xe0'"
 
     self.assertCountEqual([{
         'type': 'str',
@@ -1010,8 +1008,7 @@ class CaptureCollectorTest(absltest.TestCase):
     })
     self._collector.Collect(inspect.currentframe())
 
-    zero_division_msg = ('division by zero'
-                         if six.PY3 else 'integer division or modulo by zero')
+    zero_division_msg = 'division by zero'
 
     self.assertListEqual([{
         'name': 'unused_dummy_a/unused_dummy_b',
@@ -1742,7 +1739,7 @@ class LogCollectorTest(absltest.TestCase):
   def testNestedRecursionItemLimits(self):
     unused_list = [1, [1, [1, [2], 3, 4], 3, 4], 3, 4]
 
-    list_type = "<class 'list'>" if six.PY3 else "<type 'list'>"
+    list_type = "<class 'list'>"
     collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': '$0',
@@ -1756,7 +1753,7 @@ class LogCollectorTest(absltest.TestCase):
             'LOGPOINT: [1, [1, [1, %s, 3, ...], 3, ...], 3, ...]' % list_type))
 
   def testDetermineType(self):
-    builtin_prefix = 'builtins.' if six.PY3 else '__builtin__.'
+    builtin_prefix = 'builtins.'
     path_prefix = 'googleclouddebugger.capture_collector.'
     test_data = (
         (builtin_prefix + 'int', 5),

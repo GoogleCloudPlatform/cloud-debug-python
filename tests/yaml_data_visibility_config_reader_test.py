@@ -4,7 +4,7 @@ import os
 import sys
 from unittest import mock
 
-from six import StringIO
+from io import StringIO
 
 from absl.testing import absltest
 from googleclouddebugger import yaml_data_visibility_config_reader

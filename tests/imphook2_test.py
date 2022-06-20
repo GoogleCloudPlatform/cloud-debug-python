@@ -5,7 +5,6 @@ import os
 import sys
 import tempfile
 
-import six
 from absl.testing import absltest
 
 from googleclouddebugger import imphook2
@@ -188,13 +187,10 @@ class ImportHookTest2(absltest.TestCase):
     self._import_callbacks_log = []
 
     # Relative module import from package context with '..'.
-    if six.PY3:
-      # In Python 3, the parent module has to be loaded before a relative import
-      importlib.import_module('testpkg15a.testpkg15c')
-      self._import_callbacks_log = []
-      importlib.import_module('..first', 'testpkg15a.testpkg15c')
-    else:
-      importlib.import_module('..first', 'testpkg15a.testpkg15b')
+    # In Python 3, the parent module has to be loaded before a relative import
+    importlib.import_module('testpkg15a.testpkg15c')
+    self._import_callbacks_log = []
+    importlib.import_module('..first', 'testpkg15a.testpkg15c')
     self.assertEqual(
         [
             'testpkg15a/__init__.py',
@@ -439,7 +435,7 @@ class ImportHookTest2(absltest.TestCase):
     cleanup5()
     self.assertLen(imphook2._import_callbacks, 0)
 
-  def _CreateFile(self, path, content='', rewrite_imports_if_py3=True):
+  def _CreateFile(self, path, content='', rewrite_imports=True):
     full_path = os.path.join(self._test_package_dir, path)
     directory, unused_name = os.path.split(full_path)
 
@@ -469,7 +465,7 @@ class ImportHookTest2(absltest.TestCase):
       return indent + line
 
     with open(full_path, 'w') as writer:
-      if six.PY3 and rewrite_imports_if_py3:
+      if rewrite_imports:
         content = '\n'.join(RewriteImport(l) for l in content.split('\n'))
       writer.write(content)
 
