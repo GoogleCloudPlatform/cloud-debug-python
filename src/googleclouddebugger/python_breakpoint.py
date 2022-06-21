@@ -18,12 +18,12 @@ from datetime import timedelta
 import os
 from threading import Lock
 
-from . import capture_collector
+from . import collector
 from . import cdbg_native as native
-from . import imphook2
+from . import imphook
 from . import module_explorer
-from . import module_search2
-from . import module_utils2
+from . import module_search
+from . import module_utils
 
 # TODO: move to messages.py module.
 # Use the following schema to define breakpoint error message constant:
@@ -194,7 +194,7 @@ class PythonBreakpoint(object):
     self._completed = False
 
     if self.definition.get('action') == 'LOG':
-      self._collector = capture_collector.LogCollector(self.definition)
+      self._collector = collector.LogCollector(self.definition)
 
     path = _NormalizePath(self.definition['location']['path'])
 
@@ -225,13 +225,13 @@ class PythonBreakpoint(object):
       })
       return
 
-    new_path = module_search2.Search(path)
-    new_module = module_utils2.GetLoadedModuleBySuffix(new_path)
+    new_path = module_search.Search(path)
+    new_module = module_utils.GetLoadedModuleBySuffix(new_path)
 
     if new_module:
       self._ActivateBreakpoint(new_module)
     else:
-      self._import_hook_cleanup = imphook2.AddImportCallbackBySuffix(
+      self._import_hook_cleanup = imphook.AddImportCallbackBySuffix(
           new_path, self._ActivateBreakpoint)
 
   def Clear(self):
@@ -420,7 +420,7 @@ class PythonBreakpoint(object):
       self._CompleteBreakpoint({'status': error_status})
       return
 
-    collector = capture_collector.CaptureCollector(self.definition,
+    collector = collector.CaptureCollector(self.definition,
                                                    self.data_visibility_policy)
 
     # TODO: This is a temporary try/except. All exceptions should be

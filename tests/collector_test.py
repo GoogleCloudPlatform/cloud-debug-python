@@ -1,4 +1,4 @@
-"""Unit test for capture_collector module."""
+"""Unit test for collector module."""
 
 import copy
 import datetime
@@ -10,7 +10,7 @@ from unittest import mock
 
 from absl.testing import absltest
 
-from googleclouddebugger import capture_collector
+from googleclouddebugger import collector
 from googleclouddebugger import labels
 
 LOGPOINT_PAUSE_MSG = (
@@ -29,8 +29,8 @@ def CaptureCollectorWithDefaultLocation(definition,
   Returns:
     A LogCollector
   """
-  definition['location'] = {'path': 'capture_collector_test.py', 'line': 10}
-  return capture_collector.CaptureCollector(definition, data_visibility_policy)
+  definition['location'] = {'path': 'collector_test.py', 'line': 10}
+  return collector.CaptureCollector(definition, data_visibility_policy)
 
 
 def LogCollectorWithDefaultLocation(definition):
@@ -42,15 +42,15 @@ def LogCollectorWithDefaultLocation(definition):
   Returns:
     A LogCollector
   """
-  definition['location'] = {'path': 'capture_collector_test.py', 'line': 10}
-  return capture_collector.LogCollector(definition)
+  definition['location'] = {'path': 'collector_test.py', 'line': 10}
+  return collector.LogCollector(definition)
 
 
 class CaptureCollectorTest(absltest.TestCase):
   """Unit test for capture collector."""
 
   def tearDown(self):
-    capture_collector.CaptureCollector.pretty_printers = []
+    collector.CaptureCollector.pretty_printers = []
 
   def testCallStackUnlimitedFrames(self):
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
@@ -70,7 +70,7 @@ class CaptureCollectorTest(absltest.TestCase):
     top_frame = self._collector.breakpoint['stackFrames'][0]
     self.assertEqual('CaptureCollectorTest.testCallStackLimitedFrames',
                      top_frame['function'])
-    self.assertIn('capture_collector_test.py', top_frame['location']['path'])
+    self.assertIn('collector_test.py', top_frame['location']['path'])
     self.assertGreater(top_frame['location']['line'], 1)
 
     frame_below = self._collector.breakpoint['stackFrames'][1]
@@ -335,12 +335,12 @@ class CaptureCollectorTest(absltest.TestCase):
     }], top_frame['locals'])
 
   def testLocalVariablesWithBlacklist(self):
-    unused_a = capture_collector.LineNoFilter()
+    unused_a = collector.LineNoFilter()
     unused_b = 5
 
     # Side effect logic for the mock data visibility object
     def IsDataVisible(name):
-      path_prefix = 'googleclouddebugger.capture_collector.'
+      path_prefix = 'googleclouddebugger.collector.'
       if name == path_prefix + 'LineNoFilter':
         return (False, 'data blocked')
       return (True, None)
@@ -382,7 +382,7 @@ class CaptureCollectorTest(absltest.TestCase):
 
     # Side effect logic for the mock data visibility object
     def IsDataVisible(name):
-      if name == 'capture_collector_test.TestClass':
+      if name == 'collector_test.TestClass':
         return (False, 'data blocked')
       return (True, None)
 
@@ -1065,7 +1065,7 @@ class CaptureCollectorTest(absltest.TestCase):
         return None
       return ((('name2_%d' % i, '2_%d' % i) for i in range(3)), 'pp-type2')
 
-    capture_collector.CaptureCollector.pretty_printers += [
+    collector.CaptureCollector.pretty_printers += [
         PrettyPrinter1, PrettyPrinter2
     ]
 
@@ -1192,7 +1192,7 @@ class CaptureCollectorTest(absltest.TestCase):
     }], obj['members'])
 
   def testRequestLogIdCapturing(self):
-    capture_collector.request_log_id_collector = lambda: 'test_log_id'
+    collector.request_log_id_collector = lambda: 'test_log_id'
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.Collect(inspect.currentframe())
 
@@ -1202,17 +1202,17 @@ class CaptureCollectorTest(absltest.TestCase):
         self._collector.breakpoint['labels'][labels.Breakpoint.REQUEST_LOG_ID])
 
   def testRequestLogIdCapturingNoId(self):
-    capture_collector.request_log_id_collector = lambda: None
+    collector.request_log_id_collector = lambda: None
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.Collect(inspect.currentframe())
 
   def testRequestLogIdCapturingNoCollector(self):
-    capture_collector.request_log_id_collector = None
+    collector.request_log_id_collector = None
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.Collect(inspect.currentframe())
 
   def testUserIdSuccess(self):
-    capture_collector.user_id_collector = lambda: ('mdb_user', 'noogler')
+    collector.user_id_collector = lambda: ('mdb_user', 'noogler')
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.Collect(inspect.currentframe())
 
@@ -1223,21 +1223,21 @@ class CaptureCollectorTest(absltest.TestCase):
     }, self._collector.breakpoint['evaluatedUserId'])
 
   def testUserIdIsNone(self):
-    capture_collector.user_id_collector = lambda: (None, None)
+    collector.user_id_collector = lambda: (None, None)
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.Collect(inspect.currentframe())
 
     self.assertNotIn('evaluatedUserId', self._collector.breakpoint)
 
   def testUserIdNoKind(self):
-    capture_collector.user_id_collector = lambda: (None, 'noogler')
+    collector.user_id_collector = lambda: (None, 'noogler')
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.Collect(inspect.currentframe())
 
     self.assertNotIn('evaluatedUserId', self._collector.breakpoint)
 
   def testUserIdNoValue(self):
-    capture_collector.user_id_collector = lambda: ('mdb_user', None)
+    collector.user_id_collector = lambda: ('mdb_user', None)
     self._collector = CaptureCollectorWithDefaultLocation({'id': 'BP_ID'})
     self._collector.Collect(inspect.currentframe())
 
@@ -1310,7 +1310,7 @@ class LogCollectorTest(absltest.TestCase):
         if msg != record.msg:
           logging.error('Expected msg "%s", received "%s"', msg, record.msg)
           return False
-        pathname = capture_collector.NormalizePath(frame.f_code.co_filename)
+        pathname = collector.NormalizePath(frame.f_code.co_filename)
         if pathname != record.pathname:
           logging.error('Expected pathname "%s", received "%s"', pathname,
                         record.pathname)
@@ -1354,7 +1354,7 @@ class LogCollectorTest(absltest.TestCase):
     self._verifier = LogVerifier()
     self._logger.addHandler(self._verifier)
     self._logger.setLevel(logging.INFO)
-    capture_collector.SetLogger(self._logger)
+    collector.SetLogger(self._logger)
 
     # Give some time for the global quota to recover
     time.sleep(0.1)
@@ -1381,12 +1381,12 @@ class LogCollectorTest(absltest.TestCase):
     # recover so the ordering of tests ideally doesn't affect this test.
     self.ResetGlobalLogQuota()
     bucket_max_capacity = 250
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logMessageFormat': '$0',
         'expressions': ['i']
     })
     for i in range(0, bucket_max_capacity * 2):
-      self.assertIsNone(collector.Log(inspect.currentframe()))
+      self.assertIsNone(log_collector.Log(inspect.currentframe()))
       if not self._verifier.CheckMessageSafe('LOGPOINT: %s' % i):
         self.assertGreaterEqual(i, bucket_max_capacity,
                                 'Log quota exhausted earlier than expected')
@@ -1394,7 +1394,7 @@ class LogCollectorTest(absltest.TestCase):
             self._verifier.CheckMessageSafe(LOGPOINT_PAUSE_MSG),
             'Quota hit message not logged')
         time.sleep(0.6)
-        self.assertIsNone(collector.Log(inspect.currentframe()))
+        self.assertIsNone(log_collector.Log(inspect.currentframe()))
         self.assertTrue(
             self._verifier.CheckMessageSafe('LOGPOINT: %s' % i),
             'Logging not resumed after quota recovery time')
@@ -1410,46 +1410,46 @@ class LogCollectorTest(absltest.TestCase):
     # implemented, it can allow effectively twice that amount to go out in a
     # very short time frame. So the third 30k message should pause.
     msg = ' ' * 30000
-    collector = LogCollectorWithDefaultLocation({'logMessageFormat': msg})
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    log_collector = LogCollectorWithDefaultLocation({'logMessageFormat': msg})
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage('LOGPOINT: ' + msg))
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage('LOGPOINT: ' + msg))
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(
         self._verifier.CheckMessageSafe(LOGPOINT_PAUSE_MSG),
         'Quota hit message not logged')
     time.sleep(0.6)
-    collector._definition['logMessageFormat'] = 'hello'
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    log_collector._definition['logMessageFormat'] = 'hello'
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(
         self._verifier.GotMessage('LOGPOINT: hello'),
         'Logging was not resumed after quota recovery time')
 
   def testMissingLogLevel(self):
     # Missing is equivalent to INFO.
-    collector = LogCollectorWithDefaultLocation({'logMessageFormat': 'hello'})
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    log_collector = LogCollectorWithDefaultLocation({'logMessageFormat': 'hello'})
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage('LOGPOINT: hello'))
 
   def testUndefinedLogLevel(self):
-    capture_collector.log_info_message = None
-    collector = LogCollectorWithDefaultLocation({'logLevel': 'INFO'})
+    collector.log_info_message = None
+    log_collector = LogCollectorWithDefaultLocation({'logLevel': 'INFO'})
     self.assertDictEqual(
         {
             'isError': True,
             'description': {
                 'format': 'Log action on a breakpoint not supported'
             }
-        }, collector.Log(inspect.currentframe()))
+        }, log_collector.Log(inspect.currentframe()))
 
   def testLogInfo(self):
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': 'hello'
     })
-    collector._definition['location']['line'] = 20
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    log_collector._definition['location']['line'] = 20
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(
         self._verifier.GotMessage(
             'LOGPOINT: hello',
@@ -1457,11 +1457,11 @@ class LogCollectorTest(absltest.TestCase):
             line_number=20))
 
   def testLogWarning(self):
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'WARNING',
         'logMessageFormat': 'hello'
     })
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(
         self._verifier.GotMessage(
             'LOGPOINT: hello',
@@ -1469,11 +1469,11 @@ class LogCollectorTest(absltest.TestCase):
             func_name='LogCollectorTest.testLogWarning'))
 
   def testLogError(self):
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'ERROR',
         'logMessageFormat': 'hello'
     })
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(
         self._verifier.GotMessage(
             'LOGPOINT: hello',
@@ -1481,12 +1481,12 @@ class LogCollectorTest(absltest.TestCase):
             func_name='LogCollectorTest.testLogError'))
 
   def testBadExpression(self):
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': 'a=$0, b=$1',
         'expressions': ['-', '+']
     })
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(
         self._verifier.GotMessage(
             'LOGPOINT: a=<Expression could not be compiled: unexpected EOF while '
@@ -1496,30 +1496,30 @@ class LogCollectorTest(absltest.TestCase):
   def testDollarEscape(self):
     unused_integer = 12345
 
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': '$ $$ $$$ $$$$ $0 $$0 $$$0 $$$$0 $1 hello',
         'expressions': ['unused_integer']
     })
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     msg = 'LOGPOINT: $ $ $$ $$ 12345 $0 $12345 $$0 <N/A> hello'
     self.assertTrue(self._verifier.GotMessage(msg))
 
   def testInvalidExpressionIndex(self):
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': 'a=$0'
     })
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage('LOGPOINT: a=<N/A>'))
 
   def testException(self):
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': '$0',
         'expressions': ['[][1]']
     })
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(
         self._verifier.GotMessage(
             'LOGPOINT: <Exception occurred: list index out of range>'))
@@ -1529,12 +1529,12 @@ class LogCollectorTest(absltest.TestCase):
     def MutableMethod():  # pylint: disable=unused-variable
       self.abc = None
 
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': '$0',
         'expressions': ['MutableMethod()']
     })
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(
         self._verifier.GotMessage(
             'LOGPOINT: <Exception occurred: Only immutable methods can be called '
@@ -1543,12 +1543,12 @@ class LogCollectorTest(absltest.TestCase):
   def testNone(self):
     unused_none = None
 
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': '$0',
         'expressions': ['unused_none']
     })
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage('LOGPOINT: None'))
 
   def testPrimitives(self):
@@ -1556,36 +1556,36 @@ class LogCollectorTest(absltest.TestCase):
     unused_integer = 12345
     unused_string = 'hello'
 
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': '$0,$1,$2',
         'expressions': ['unused_boolean', 'unused_integer', 'unused_string']
     })
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage("LOGPOINT: True,12345,'hello'"))
 
   def testLongString(self):
     unused_string = '1234567890'
 
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': '$0',
         'expressions': ['unused_string']
     })
-    collector.max_value_len = 9
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    log_collector.max_value_len = 9
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage("LOGPOINT: '123456789..."))
 
   def testLongBytes(self):
     unused_bytes = bytearray([i for i in range(20)])
 
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': '$0',
         'expressions': ['unused_bytes']
     })
-    collector.max_value_len = 20
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    log_collector.max_value_len = 20
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(
         self._verifier.GotMessage(r"LOGPOINT: bytearray(b'\x00\x01\..."))
 
@@ -1595,7 +1595,7 @@ class LogCollectorTest(absltest.TestCase):
     unused_time = datetime.time(18, 43, 11)
     unused_timedelta = datetime.timedelta(days=3, microseconds=8237)
 
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel':
             'INFO',
         'logMessageFormat':
@@ -1604,7 +1604,7 @@ class LogCollectorTest(absltest.TestCase):
             'unused_datetime', 'unused_date', 'unused_time', 'unused_timedelta'
         ]
     })
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(
         self._verifier.GotMessage(
             'LOGPOINT: 2014-06-11 02:30:00;1980-03-01 00:00:00;'
@@ -1613,69 +1613,69 @@ class LogCollectorTest(absltest.TestCase):
   def testSet(self):
     unused_set = set(['a'])
 
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': '$0',
         'expressions': ['unused_set']
     })
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage("LOGPOINT: {'a'}"))
 
   def testTuple(self):
     unused_tuple = (1, 2, 3, 4, 5)
 
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': '$0',
         'expressions': ['unused_tuple']
     })
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage('LOGPOINT: (1, 2, 3, 4, 5)'))
 
   def testList(self):
     unused_list = ['a', 'b', 'c']
 
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': '$0',
         'expressions': ['unused_list']
     })
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage("LOGPOINT: ['a', 'b', 'c']"))
 
   def testOversizedList(self):
     unused_list = [1, 2, 3, 4]
 
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': '$0',
         'expressions': ['unused_list']
     })
-    collector.max_list_items = 3
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    log_collector.max_list_items = 3
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage('LOGPOINT: [1, 2, 3, ...]'))
 
   def testSlice(self):
     unused_slice = slice(1, 10)
 
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': '$0',
         'expressions': ['unused_slice']
     })
     collector.max_list_items = 3
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage('LOGPOINT: slice(1, 10, None)'))
 
   def testMap(self):
     unused_map = {'a': 1}
 
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': '$0',
         'expressions': ['unused_map']
     })
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage("LOGPOINT: {'a': 1}"))
 
   def testObject(self):
@@ -1687,23 +1687,23 @@ class LogCollectorTest(absltest.TestCase):
 
     unused_my = MyClass()
 
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': '$0',
         'expressions': ['unused_my']
     })
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage("LOGPOINT: {'some': 'thing'}"))
 
   def testNestedBelowLimit(self):
     unused_list = [1, [2], [1, 2, 3], [1, [1, 2, 3]], 5]
 
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': '$0',
         'expressions': ['unused_list']
     })
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(
         self._verifier.GotMessage(
             'LOGPOINT: [1, [2], [1, 2, 3], [1, [1, 2, 3]], 5]'))
@@ -1713,12 +1713,12 @@ class LogCollectorTest(absltest.TestCase):
         1, [1, 2, 3, 4, 5], [[1, 2, 3, 4, 5], 2, 3, 4, 5], 4, 5, 6, 7, 8, 9
     ]
 
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': '$0',
         'expressions': ['unused_list']
     })
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(
         self._verifier.GotMessage(
             'LOGPOINT: [1, [1, 2, 3, 4, 5], [[1, 2, 3, 4, 5], 2, 3, 4, 5], '
@@ -1727,12 +1727,12 @@ class LogCollectorTest(absltest.TestCase):
   def testNestedRecursionLimit(self):
     unused_list = [1, [[2, [3]], 4], 5]
 
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': '$0',
         'expressions': ['unused_list']
     })
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(
         self._verifier.GotMessage('LOGPOINT: [1, [[2, %s], 4], 5]' % type([])))
 
@@ -1740,30 +1740,30 @@ class LogCollectorTest(absltest.TestCase):
     unused_list = [1, [1, [1, [2], 3, 4], 3, 4], 3, 4]
 
     list_type = "<class 'list'>"
-    collector = LogCollectorWithDefaultLocation({
+    log_collector = LogCollectorWithDefaultLocation({
         'logLevel': 'INFO',
         'logMessageFormat': '$0',
         'expressions': ['unused_list']
     })
-    collector.max_list_items = 3
-    collector.max_sublist_items = 3
-    self.assertIsNone(collector.Log(inspect.currentframe()))
+    log_collector.max_list_items = 3
+    log_collector.max_sublist_items = 3
+    self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(
         self._verifier.GotMessage(
             'LOGPOINT: [1, [1, [1, %s, 3, ...], 3, ...], 3, ...]' % list_type))
 
   def testDetermineType(self):
     builtin_prefix = 'builtins.'
-    path_prefix = 'googleclouddebugger.capture_collector.'
+    path_prefix = 'googleclouddebugger.collector.'
     test_data = (
         (builtin_prefix + 'int', 5),
         (builtin_prefix + 'str', 'hello'),
-        (builtin_prefix + 'function', capture_collector.DetermineType),
-        (path_prefix + 'LineNoFilter', capture_collector.LineNoFilter()),
+        (builtin_prefix + 'function', collector.DetermineType),
+        (path_prefix + 'LineNoFilter', collector.LineNoFilter()),
     )
 
     for type_string, value in test_data:
-      self.assertEqual(type_string, capture_collector.DetermineType(value))
+      self.assertEqual(type_string, collector.DetermineType(value))
 
 
 if __name__ == '__main__':

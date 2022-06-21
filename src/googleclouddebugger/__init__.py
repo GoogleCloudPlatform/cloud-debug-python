@@ -27,7 +27,7 @@ import sys
 
 from . import appengine_pretty_printers
 from . import breakpoints_manager
-from . import capture_collector
+from . import collector
 from . import error_data_visibility_policy
 from . import gcp_hub_client
 from . import glob_data_visibility_policy
@@ -58,9 +58,9 @@ def _StartDebugger():
       _hub_client, visibility_policy)
 
   # Set up loggers for logpoints.
-  capture_collector.SetLogger(logging.getLogger())
+  collector.SetLogger(logging.getLogger())
 
-  capture_collector.CaptureCollector.pretty_printers.append(
+  collector.CaptureCollector.pretty_printers.append(
       appengine_pretty_printers.PrettyPrinter)
 
   _hub_client.on_active_breakpoints_changed = (
