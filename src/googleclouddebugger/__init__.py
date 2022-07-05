@@ -30,6 +30,7 @@ from . import breakpoints_manager
 from . import capture_collector
 from . import error_data_visibility_policy
 from . import gcp_hub_client
+from . import firebase_client
 from . import glob_data_visibility_policy
 from . import yaml_data_visibility_config_reader
 from . import cdbg_native
@@ -38,24 +39,25 @@ from . import version
 __version__ = version.__version__
 
 _flags = None
-_hub_client = None
+_backend_client = None
 _breakpoints_manager = None
 
 
 def _StartDebugger():
   """Configures and starts the debugger."""
-  global _hub_client
+  global _backend_client
   global _breakpoints_manager
 
   cdbg_native.InitializeModule(_flags)
   cdbg_native.LogInfo(
       f'Initializing Cloud Debugger Python agent version: {__version__}')
 
-  _hub_client = gcp_hub_client.GcpHubClient()
+  #_backend_client = gcp_hub_client.GcpHubClient()
+  _backend_client = firebase_client.FirebaseClient()
   visibility_policy = _GetVisibilityPolicy()
 
   _breakpoints_manager = breakpoints_manager.BreakpointsManager(
-      _hub_client, visibility_policy)
+      _backend_client, visibility_policy)
 
   # Set up loggers for logpoints.
   capture_collector.SetLogger(logging.getLogger())
@@ -63,17 +65,17 @@ def _StartDebugger():
   capture_collector.CaptureCollector.pretty_printers.append(
       appengine_pretty_printers.PrettyPrinter)
 
-  _hub_client.on_active_breakpoints_changed = (
+  _backend_client.on_active_breakpoints_changed = (
       _breakpoints_manager.SetActiveBreakpoints)
-  _hub_client.on_idle = _breakpoints_manager.CheckBreakpointsExpiration
-  _hub_client.SetupAuth(
+  _backend_client.on_idle = _breakpoints_manager.CheckBreakpointsExpiration
+  _backend_client.SetupAuth(
       _flags.get('project_id'), _flags.get('project_number'),
       _flags.get('service_account_json_file'))
-  _hub_client.SetupCanaryMode(
+  _backend_client.SetupCanaryMode(
       _flags.get('breakpoint_enable_canary'),
       _flags.get('breakpoint_allow_canary_override'))
-  _hub_client.InitializeDebuggeeLabels(_flags)
-  _hub_client.Start()
+  _backend_client.InitializeDebuggeeLabels(_flags)
+  _backend_client.Start()
 
 
 def _GetVisibilityPolicy():
