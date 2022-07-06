@@ -385,10 +385,12 @@ class FirebaseClient(object):
     if event.event_type == 'put':
         # Either a delete or a completely new set of breakpoints.
         if event.data is None:
-            # Deleting a breakpoint.
-            # event.path will be /{breakpointid}
-            breakpoint_id = event.path[1:]
-            del self._breakpoints[breakpoint_id]
+            # Either deleting a breakpoint or initializing with no breakpoints.
+            # Initializing with no breakpoints is a no-op.
+            # If deleting, event.path will be /{breakpointid}
+            if event.path != '/':
+                breakpoint_id = event.path[1:]
+                del self._breakpoints[breakpoint_id]
         else:
             # New set of breakpoints.
             self._breakpoints = event.data
@@ -442,26 +444,43 @@ class FirebaseClient(object):
 
       try:
         # Something has changed on the breakpoint.  It should be going from active to final, but let's make sure.
-        # TODO: What I just said above..
+        if not breakpoint['isFinalState']:
+            raise BaseException(f'Unexpected breakpoint update requested on breakpoint: {breakpoint}')
+
         bp_id = breakpoint['id']
+
+        # If action is missing, it should be set to 'CAPTURE'
+        is_logpoint = breakpoint.get('action') == 'LOG'
+        is_snapshot = not is_logpoint
+        if is_snapshot:
+            breakpoint['action'] = 'CAPTURE'
+
+        # Set the completion time on the server side using a magic value.
+        breakpoint['finalTimeUnixMsec'] = {'.sv': 'timestamp'}
 
         # First, remove from the active breakpoints.
         bp_ref = firebase_admin.db.reference(f'cdbg/breakpoints/{self._debuggee_id}/active/{bp_id}')
         bp_ref.delete()
 
-        # Then add it to the list of final breakpoints.
-        # TODO: Strip the snapshot data.
-        bp_ref = firebase_admin.db.reference(f'cdbg/breakpoints/{self._debuggee_id}/final/{bp_id}')
-        bp_ref.set(breakpoint)
+        # Save snapshot data for snapshots only.
+        if is_snapshot:
+            # Note that there may not be snapshot data.
+            bp_ref = firebase_admin.db.reference(f'cdbg/breakpoints/{self._debuggee_id}/snapshots/{bp_id}')
+            bp_ref.set(breakpoint)
 
-        # Finally, add the snapshot data.
-        # TODO: check what is supposed to go in here and make sure it's right.
-        # TODO: Only put in the snapshot data if it's a snapshot..
-        bp_ref = firebase_admin.db.reference(f'cdbg/breakpoints/{self._debuggee_id}/snapshots/{bp_id}')
+            # Now strip potential snapshot data.
+            breakpoint.pop('evaluatedExpressions', None)
+            breakpoint.pop('stackFrames', None)
+            breakpoint.pop('variableTable', None)
+            
+
+        # Then add it to the list of final breakpoints.
+        bp_ref = firebase_admin.db.reference(f'cdbg/breakpoints/{self._debuggee_id}/final/{bp_id}')
         bp_ref.set(breakpoint)
 
         native.LogInfo('Breakpoint %s update transmitted successfully' %
                        (breakpoint['id']))
+
       # TODO: Add any firebase-related error handling.
       except googleapiclient.errors.HttpError as err:
         # Treat 400 error codes (except timeout) as application error that will
@@ -494,7 +513,6 @@ class FirebaseClient(object):
       except BaseException:
         native.LogWarning('Fatal error sending breakpoint %s update: %s' %
                           (breakpoint['id'], traceback.format_exc()))
-        #reconnect = True
 
     self._transmission_queue.extend(retry_list)
 
