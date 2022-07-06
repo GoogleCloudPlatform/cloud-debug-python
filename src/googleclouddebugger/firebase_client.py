@@ -120,7 +120,7 @@ class FirebaseClient(object):
     self._agent_id = None
     self._canary_mode = None
     self._wait_token = 'init'
-    self._breakpoints = []
+    self._breakpoints = {}
     self._main_thread = None
     self._transmission_thread = None
     self._transmission_thread_startup_lock = threading.Lock()
@@ -340,16 +340,11 @@ class FirebaseClient(object):
 
   def _TransmissionThreadProc(self):
     """Entry point for the transmission worker thread."""
-    reconnect = True
 
     while not self._shutdown:
       self._new_updates.clear()
 
-      if reconnect:
-        service = self._BuildService()
-        reconnect = False
-
-      reconnect, delay = self._TransmitBreakpointUpdates(service)
+      delay = self._TransmitBreakpointUpdates()
 
       self._new_updates.wait(delay)
 
@@ -387,56 +382,38 @@ class FirebaseClient(object):
     return (True, self.register_backoff.Failed())
 
   def _ActiveBreakpointCallback(self, event):
-    print(event.event_type)
-    print(event.path)
-    print(event.data)
+    if event.event_type == 'put':
+        # Either a delete or a completely new set of breakpoints.
+        if event.data is None:
+            # Deleting a breakpoint.
+            # event.path will be /{breakpointid}
+            breakpoint_id = event.path[1:]
+            del self._breakpoints[breakpoint_id]
+        else:
+            # New set of breakpoints.
+            self._breakpoints = event.data
+            # Make sure that 'id' is set on all breakpoints.
+            for key in event.data:
+                self._breakpoints[key]['id'] = key
+    elif event.event_type == 'patch':
+        # New breakpoint or breakpoints.
+        self._breakpoints.update(event.data)
+        # Make sure that 'id' is set on all breakpoints.
+        for key in event.data:
+            self._breakpoints[key]['id'] = key
+    else:
+        native.LogWarning(f'Unexpected event from Firebase: {event.event_type} {event.path} {event.data}')
+        return
+
+    native.LogInfo(f'Breakpoints list changed, {len(self._breakpoints)} active')
+    self.on_active_breakpoints_changed(list(self._breakpoints.values()))
 
   def _SubscribeToBreakpoints(self):
     self._breakpointRef = firebase_admin.db.reference(f'cdbg/breakpoints/{self._debuggee_id}/active')
     self._breakpointSubscription = self._breakpointRef.listen(self._ActiveBreakpointCallback)
     native.LogInfo(f'Subscribing to updates at cdbg/breakpoints/{self._debuggee_id}/active')
 
-  def _ListActiveBreakpoints(self, service):
-    """Single attempt query the list of active breakpoints.
-
-    Must not be called before the debuggee has been registered. If the request
-    fails, this function resets self._debuggee_id, which triggers repeated
-    debuggee registration.
-
-    Args:
-      service: client to use for API calls
-
-    Returns:
-      (registration_required, delay) tuple
-    """
-    try:
-      response = service.debuggees().breakpoints().list(
-          debuggeeId=self._debuggee_id,
-          agentId=self._agent_id,
-          waitToken=self._wait_token,
-          successOnTimeout=True).execute()
-      if not response.get('waitExpired'):
-        self._wait_token = response.get('nextWaitToken')
-        breakpoints = response.get('breakpoints') or []
-        if self._breakpoints != breakpoints:
-          self._breakpoints = breakpoints
-          native.LogInfo('Breakpoints list changed, %d active, wait token: %s' %
-                         (len(self._breakpoints), self._wait_token))
-          self.on_active_breakpoints_changed(copy.deepcopy(self._breakpoints))
-    except BaseException:
-      native.LogInfo('Failed to query active breakpoints: ' +
-                     traceback.format_exc())
-
-      # Forget debuggee ID to trigger repeated debuggee registration. Once the
-      # registration succeeds, the worker thread will retry this query
-      self._debuggee_id = None
-
-      return (True, self.list_backoff.Failed())
-
-    self.list_backoff.Succeeded()
-    return (False, 0)
-
-  def _TransmitBreakpointUpdates(self, service):
+  def _TransmitBreakpointUpdates(self):
     """Tries to send pending breakpoint updates to the backend.
 
     Sends all the pending breakpoint updates. In case of transient failures,
@@ -457,7 +434,6 @@ class FirebaseClient(object):
       set to None if all pending breakpoints were sent successfully. Otherwise
       returns time interval in seconds to stall before retrying.
     """
-    reconnect = False
     retry_list = []
 
     # There is only one consumer, so two step pop is safe.
@@ -465,17 +441,28 @@ class FirebaseClient(object):
       breakpoint, retry_count = self._transmission_queue.popleft()
 
       try:
-        ref = self._GetActiveBreakpointReference(breakpoint['id'])
-        
-        service.debuggees().breakpoints().update(
-            debuggeeId=self._debuggee_id,
-            id=breakpoint['id'],
-            body={
-                'breakpoint': breakpoint
-            }).execute()
+        # Something has changed on the breakpoint.  It should be going from active to final, but let's make sure.
+        # TODO: What I just said above..
+        bp_id = breakpoint['id']
+
+        # First, remove from the active breakpoints.
+        bp_ref = firebase_admin.db.reference(f'cdbg/breakpoints/{self._debuggee_id}/active/{bp_id}')
+        bp_ref.delete()
+
+        # Then add it to the list of final breakpoints.
+        # TODO: Strip the snapshot data.
+        bp_ref = firebase_admin.db.reference(f'cdbg/breakpoints/{self._debuggee_id}/final/{bp_id}')
+        bp_ref.set(breakpoint)
+
+        # Finally, add the snapshot data.
+        # TODO: check what is supposed to go in here and make sure it's right.
+        # TODO: Only put in the snapshot data if it's a snapshot..
+        bp_ref = firebase_admin.db.reference(f'cdbg/breakpoints/{self._debuggee_id}/snapshots/{bp_id}')
+        bp_ref.set(breakpoint)
 
         native.LogInfo('Breakpoint %s update transmitted successfully' %
                        (breakpoint['id']))
+      # TODO: Add any firebase-related error handling.
       except googleapiclient.errors.HttpError as err:
         # Treat 400 error codes (except timeout) as application error that will
         # not be retried. All other errors are assumed to be transient.
@@ -503,20 +490,20 @@ class FirebaseClient(object):
           native.LogWarning('Breakpoint %s retry count exceeded maximum' %
                             breakpoint['id'])
           # Socket errors shouldn't persist like this; reconnect.
-          reconnect = True
+          #reconnect = True
       except BaseException:
         native.LogWarning('Fatal error sending breakpoint %s update: %s' %
                           (breakpoint['id'], traceback.format_exc()))
-        reconnect = True
+        #reconnect = True
 
     self._transmission_queue.extend(retry_list)
 
     if not self._transmission_queue:
       self.update_backoff.Succeeded()
       # Nothing to send, wait until next breakpoint update.
-      return (reconnect, None)
+      return None
     else:
-      return (reconnect, self.update_backoff.Failed())
+      return self.update_backoff.Failed()
 
   def _GetDebuggee(self):
     """Builds the debuggee structure."""
