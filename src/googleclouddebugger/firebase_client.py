@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import platform
+import requests
 import socket
 import sys
 import threading
@@ -71,7 +72,7 @@ _DEBUGGEE_LABELS = {
 # Debuggee labels used to format debuggee description (ordered). The minor
 # version is excluded for the sake of consistency with AppEngine UX.
 _DESCRIPTION_LABELS = [
-    labels.Debuggee.PROJECT_ID, labels.Debuggee.MODULE, labels.Debuggee.VERSION
+    labels.Debuggee.MODULE, labels.Debuggee.VERSION
 ]
 
 # HTTP timeout when accessing the cloud debugger API. It is selected to be
@@ -113,6 +114,8 @@ class FirebaseClient(object):
     self.on_idle = lambda: None
     self._debuggee_labels = {}
     self._service_account_auth = False
+    self._project_id = None
+    self._database_url = None
     self._debuggee_id = None
     self._agent_id = None
     self._canary_mode = None
@@ -239,7 +242,13 @@ class FirebaseClient(object):
         with open(service_account_json_file) as f:
           project_id = json.load(f).get('project_id')
     else:
-      # TODO: Find credentials from gcp metadata server.
+      if not project_id:
+        try:
+          r = requests.get('http://metadata.google.internal/computeMetadata/v1/project/project-id', headers={'Metadata-Flavor': 'Google'})
+          # TODO: Check whether more needs to be done here.
+          project_id = r.text
+        except requests.exceptions.RequestException as e:
+          native.LogInfo('Metadata server not available')
 
     if not project_id:
       raise NoProjectIdError(
@@ -247,9 +256,8 @@ class FirebaseClient(object):
           'Please specify the project id using the --project_id flag.')
 
     self._project_id = project_id
-    self._project_number = project_number or project_id
+    self._database_url = f'https://{self._project_id}-cdbg.firebaseio.com'
 
-    # TODO: Determine database URL or use the supplied one.
 
   def SetupCanaryMode(self, breakpoint_enable_canary,
                       breakpoint_allow_canary_override):
@@ -315,31 +323,20 @@ class FirebaseClient(object):
     # TODO: Might need to do cleanup of previous service
     # TODO: Something something default credentials.
     #firebase_admin.initialize_app(self._credentials, {'databaseURL': self._databaseUrl})
-    firebase_admin.initialize_app(None, {'databaseURL': self._databaseUrl})
+    # TODO: Yeah, set that database url.
+    firebase_admin.initialize_app(None, {'databaseURL': self._database_url})
     # Is there anything to return?  Probably the database, but that seems to be
     # through the module in the Python library.
 
 
+  # FIXME: This whole thing needs to change.
   def _MainThreadProc(self):
     """Entry point for the worker thread."""
-    registration_required = True
-    # TODO: This doesn't need to be a loop...
-    while not self._shutdown:
-      if registration_required:
-        self._BuildService()
-        registration_required, delay = self._RegisterDebuggee()
+    self._BuildService()
+    # FIXME: Oops; kind of ignoring that whole success/failure thing.
+    registration_required, delay = self._RegisterDebuggee()
 
-      # NOTE: Functional change here.  Not sure what yet.
-      #if not registration_required:
-      #  registration_required, delay = self._ListActiveBreakpoints(service)
-      self._SubscribeToBreakpoints()
-
-      # TODO: Find out why this is here.  Testing?
-      if self.on_idle is not None:
-        self.on_idle()
-
-      if not self._shutdown:
-        time.sleep(delay)
+    self._SubscribeToBreakpoints()
 
   def _TransmissionThreadProc(self):
     """Entry point for the transmission worker thread."""
@@ -370,10 +367,12 @@ class FirebaseClient(object):
     """
     try:
       debuggee = self._GetDebuggee()
+      self._debuggee_id = debuggee['id']
 
       try:
-        debuggeeRef = firebase_admin.db.reference(f'cdbg/debuggees/{debuggee.get('id')}')
-        debuggeeRef.put(debuggee)
+        debuggeeRef = firebase_admin.db.reference(f'cdbg/debuggees/{self._debuggee_id}')
+        debuggeeRef.set(debuggee)
+        native.LogInfo(f'registering at {self._database_url}, path: cdbg/debuggees/{self._debuggee_id}')
 
         native.LogInfo('Debuggee registered successfully, ID: %s' % (self._debuggee_id))
         self.register_backoff.Succeeded()
@@ -395,6 +394,7 @@ class FirebaseClient(object):
   def _SubscribeToBreakpoints(self):
     self._breakpointRef = firebase_admin.db.reference(f'cdbg/breakpoints/{self._debuggee_id}/active')
     self._breakpointSubscription = self._breakpointRef.listen(self._ActiveBreakpointCallback)
+    native.LogInfo(f'Subscribing to updates at cdbg/breakpoints/{self._debuggee_id}/active')
 
   def _ListActiveBreakpoints(self, service):
     """Single attempt query the list of active breakpoints.
@@ -526,7 +526,6 @@ class FirebaseClient(object):
                      (python_version, major_version))
 
     debuggee = {
-        'project': self._project_number,
         'description': self._GetDebuggeeDescription(),
         'labels': self._debuggee_labels,
         'agentVersion': agent_version,
