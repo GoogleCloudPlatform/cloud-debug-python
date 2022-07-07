@@ -207,10 +207,7 @@ class FirebaseClient(object):
       if region:
         self._debuggee_labels[labels.Debuggee.REGION] = region
 
-  def SetupAuth(self,
-                project_id=None,
-                project_number=None,
-                service_account_json_file=None):
+  def SetupAuth(self, project_id=None, service_account_json_file=None):
     """Sets up authentication with Google APIs.
 
     This will use the credentials from service_account_json_file if provided,
@@ -220,8 +217,6 @@ class FirebaseClient(object):
     Args:
       project_id: GCP project ID (e.g. myproject). If not provided, will attempt
           to retrieve it from the credentials.
-      project_number: GCP project number (e.g. 72386324623). If not provided,
-          project_id will be used in its place.
       service_account_json_file: JSON file to use for credentials. If not
           provided, will default to application default credentials.
     Raises:
@@ -230,7 +225,7 @@ class FirebaseClient(object):
     if service_account_json_file:
       self._credentials = credentials.Certificate(service_account_json_file)
       if not project_id:
-        with open(service_account_json_file) as f:
+        with open(service_account_json_file, encoding="utf-8") as f:
           project_id = json.load(f).get('project_id')
     else:
       if not project_id:
@@ -240,7 +235,7 @@ class FirebaseClient(object):
               headers={'Metadata-Flavor': 'Google'})
           # TODO: Check whether more needs to be done here.
           project_id = r.text
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
           native.LogInfo('Metadata server not available')
 
     if not project_id:
@@ -341,15 +336,15 @@ class FirebaseClient(object):
       self._debuggee_id = debuggee['id']
 
       try:
-        debuggeeRef = firebase_admin.db.reference(
+        debuggee_ref = firebase_admin.db.reference(
             f'cdbg/debuggees/{self._debuggee_id}')
-        debuggeeRef.set(debuggee)
+        debuggee_ref.set(debuggee)
         native.LogInfo(
             f'registering at {self._database_url}, path: cdbg/debuggees/{self._debuggee_id}'
         )
 
-        native.LogInfo('Debuggee registered successfully, ID: %s' %
-                       (self._debuggee_id))
+        native.LogInfo(
+            f'Debuggee registered successfully, ID: {self._debuggee_id}')
         self.register_backoff.Succeeded()
         return (False, 0)  # Proceed immediately to list active breakpoints.
       except BaseException:
@@ -405,9 +400,9 @@ class FirebaseClient(object):
     native.LogInfo(f'Breakpoints list changed, {len(self._breakpoints)} active')
     self.on_active_breakpoints_changed(list(self._breakpoints.values()))
 
-  def _AddBreakpoint(self, breakpoint_id, breakpoint):
-    breakpoint['id'] = breakpoint_id
-    self._breakpoints[breakpoint_id] = breakpoint
+  def _AddBreakpoint(self, breakpoint_id, breakpoint_data):
+    breakpoint_data['id'] = breakpoint_id
+    self._breakpoints[breakpoint_id] = breakpoint_data
 
   def _TransmitBreakpointUpdates(self):
     """Tries to send pending breakpoint updates to the backend.
@@ -546,8 +541,9 @@ class FirebaseClient(object):
     return debuggee
 
   def _ComputeDebuggeeId(self, debuggee):
-    return hashlib.sha1(json.dumps(debuggee,
-                                   sort_keys=True).encode()).hexdigest()
+    fullhash = hashlib.sha1(json.dumps(debuggee,
+                                       sort_keys=True).encode()).hexdigest()
+    return f'd-{fullhash[:8]}'
 
   def _GetDebuggeeDescription(self):
     """Formats debuggee description based on debuggee labels."""

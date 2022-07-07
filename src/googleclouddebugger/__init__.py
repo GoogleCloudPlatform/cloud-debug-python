@@ -72,14 +72,18 @@ def _StartDebugger():
   _backend_client.on_active_breakpoints_changed = (
       _breakpoints_manager.SetActiveBreakpoints)
   _backend_client.on_idle = _breakpoints_manager.CheckBreakpointsExpiration
-  _backend_client.SetupAuth(
-      _flags.get('project_id'), _flags.get('project_number'),
-      _flags.get('service_account_json_file'))
-  if not use_firebase:
-    # The firebase backend does not support canarying.
+
+  if use_firebase:
+    _backend_client.SetupAuth(
+        _flags.get('project_id'), _flags.get('service_account_json_file'))
+  else:
+    _backend_client.SetupAuth(
+        _flags.get('project_id'), _flags.get('project_number'),
+        _flags.get('project_id'), _flags.get('service_account_json_file'))
     _backend_client.SetupCanaryMode(
         _flags.get('breakpoint_enable_canary'),
         _flags.get('breakpoint_allow_canary_override'))
+
   _backend_client.InitializeDebuggeeLabels(_flags)
   _backend_client.Start()
 
