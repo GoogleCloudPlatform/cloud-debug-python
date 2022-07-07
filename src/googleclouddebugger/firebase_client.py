@@ -381,6 +381,12 @@ class FirebaseClient(object):
 
     return (True, self.register_backoff.Failed())
 
+  def _SubscribeToBreakpoints(self):
+    path = f'cdbg/breakpoints/{self._debuggee_id}/active'
+    native.LogInfo(f'Subscribing to breakpoint updates at {path}')
+    self._breakpointRef = firebase_admin.db.reference(path)
+    self._breakpointSubscription = self._breakpointRef.listen(self._ActiveBreakpointCallback)
+
   def _ActiveBreakpointCallback(self, event):
     if event.event_type == 'put':
         # Either a delete or a completely new set of breakpoints.
@@ -392,17 +398,19 @@ class FirebaseClient(object):
                 breakpoint_id = event.path[1:]
                 del self._breakpoints[breakpoint_id]
         else:
-            # New set of breakpoints.
-            self._breakpoints = event.data
-            # Make sure that 'id' is set on all breakpoints.
-            for key in event.data:
-                self._breakpoints[key]['id'] = key
+            if event.path == '/':
+                # New set of breakpoints.
+                self._breakpoints = {}
+                for (key, value) in event.data.items():
+                    self._AddBreakpoint(key, value)
+            else:
+                breakpoint_id = event.path[1:]
+                self._AddBreakpoint(breakpoint_id, breakpoint)
+
     elif event.event_type == 'patch':
         # New breakpoint or breakpoints.
-        self._breakpoints.update(event.data)
-        # Make sure that 'id' is set on all breakpoints.
-        for key in event.data:
-            self._breakpoints[key]['id'] = key
+        for (key, value) in event.data.items():
+            self._AddBreakpoint(key, value)
     else:
         native.LogWarning(f'Unexpected event from Firebase: {event.event_type} {event.path} {event.data}')
         return
@@ -410,10 +418,9 @@ class FirebaseClient(object):
     native.LogInfo(f'Breakpoints list changed, {len(self._breakpoints)} active')
     self.on_active_breakpoints_changed(list(self._breakpoints.values()))
 
-  def _SubscribeToBreakpoints(self):
-    self._breakpointRef = firebase_admin.db.reference(f'cdbg/breakpoints/{self._debuggee_id}/active')
-    self._breakpointSubscription = self._breakpointRef.listen(self._ActiveBreakpointCallback)
-    native.LogInfo(f'Subscribing to updates at cdbg/breakpoints/{self._debuggee_id}/active')
+  def _AddBreakpoint(self, breakpoint_id, breakpoint):
+      breakpoint['id'] = breakpoint_id
+      self._breakpoints[breakpoint_id] = breakpoint
 
   def _TransmitBreakpointUpdates(self):
     """Tries to send pending breakpoint updates to the backend.
