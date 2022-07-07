@@ -29,8 +29,6 @@ import traceback
 import googleapiclient
 import googleapiclient.discovery
 
-from google.oauth2 import service_account
-
 import firebase_admin
 import firebase_admin.db
 from firebase_admin import credentials
@@ -68,19 +66,7 @@ _DEBUGGEE_LABELS = {
 # version is excluded for the sake of consistency with AppEngine UX.
 _DESCRIPTION_LABELS = [labels.Debuggee.MODULE, labels.Debuggee.VERSION]
 
-# HTTP timeout when accessing the cloud debugger API. It is selected to be
-# longer than the typical controller.breakpoints.list hanging get latency
-# of 40 seconds.
-_HTTP_TIMEOUT_SECONDS = 100
-
-# The map from the values of flags (breakpoint_enable_canary,
-# breakpoint_allow_canary_override) to canary mode.
-_CANARY_MODE_MAP = {
-    (True, True): 'CANARY_MODE_DEFAULT_ENABLED',
-    (True, False): 'CANARY_MODE_ALWAYS_ENABLED',
-    (False, True): 'CANARY_MODE_DEFAULT_DISABLED',
-    (False, False): 'CANARY_MODE_ALWAYS_DISABLED',
-}
+_METADATA_SERVER_URL = 'http://metadata.google.internal/computeMetadata/v1'
 
 
 class NoProjectIdError(Exception):
@@ -225,13 +211,13 @@ class FirebaseClient(object):
     if service_account_json_file:
       self._credentials = credentials.Certificate(service_account_json_file)
       if not project_id:
-        with open(service_account_json_file, encoding="utf-8") as f:
+        with open(service_account_json_file, encoding='utf-8') as f:
           project_id = json.load(f).get('project_id')
     else:
       if not project_id:
         try:
           r = requests.get(
-              'http://metadata.google.internal/computeMetadata/v1/project/project-id',
+              f'{_METADATA_SERVER_URL}/project/project-id',
               headers={'Metadata-Flavor': 'Google'})
           # TODO: Check whether more needs to be done here.
           project_id = r.text
@@ -251,6 +237,7 @@ class FirebaseClient(object):
     """Starts the worker thread."""
     self._shutdown = False
 
+    # TODO: Sort out what needs to be done here.
     self._main_thread = threading.Thread(target=self._MainThreadProc)
     self._main_thread.name = 'Cloud Debugger main worker thread'
     self._main_thread.daemon = True
@@ -273,7 +260,7 @@ class FirebaseClient(object):
       self._breakpoint_subscription.close()
       self._breakpoint_subscription = None
 
-  def EnqueueBreakpointUpdate(self, breakpoint):
+  def EnqueueBreakpointUpdate(self, breakpoint_data):
     """Asynchronously updates the specified breakpoint on the backend.
 
     This function returns immediately. The worker thread is actually doing
@@ -293,13 +280,15 @@ class FirebaseClient(object):
         self._transmission_thread.daemon = True
         self._transmission_thread.start()
 
-    self._transmission_queue.append((breakpoint, 0))
+    self._transmission_queue.append((breakpoint_data, 0))
     self._new_updates.set()  # Wake up the worker thread to send immediately.
 
   def _MainThreadProc(self):
     """Entry point for the worker thread.
 
-    This thread only serves to kick off the firebase subscription which will live in its own thread.
+    This thread only serves to kick off the firebase subscription which will
+    run in its own thread.  That thread will be owned by
+    self._breakpoint_subscription.
     """
     # Note: if self._credentials is None, default app credentials will be used.
     firebase_admin.initialize_app(self._credentials,
@@ -336,20 +325,17 @@ class FirebaseClient(object):
       self._debuggee_id = debuggee['id']
 
       try:
-        debuggee_ref = firebase_admin.db.reference(
-            f'cdbg/debuggees/{self._debuggee_id}')
-        debuggee_ref.set(debuggee)
+        debuggee_path = f'cdbg/debuggees/{self._debuggee_id}'
+        firebase_admin.db.reference(debuggee_path).set(debuggee)
         native.LogInfo(
-            f'registering at {self._database_url}, path: cdbg/debuggees/{self._debuggee_id}'
-        )
+            f'registering at {self._database_url}, path: {debuggee_path}')
 
         native.LogInfo(
             f'Debuggee registered successfully, ID: {self._debuggee_id}')
         self.register_backoff.Succeeded()
         return (False, 0)  # Proceed immediately to list active breakpoints.
       except BaseException:
-        native.LogInfo('Failed to register debuggee: %s' %
-                       (traceback.format_exc()))
+        native.LogInfo(f'Failed to register debuggee: {traceback.format_exc()}')
     except BaseException:
       native.LogWarning('Debuggee information not available: ' +
                         traceback.format_exc())
@@ -392,9 +378,8 @@ class FirebaseClient(object):
       for (key, value) in event.data.items():
         self._AddBreakpoint(key, value)
     else:
-      native.LogWarning(
-          f'Unexpected event from Firebase: {event.event_type} {event.path} {event.data}'
-      )
+      native.LogWarning('Unexpected event from Firebase: '
+                        f'{event.event_type} {event.path} {event.data}')
       return
 
     native.LogInfo(f'Breakpoints list changed, {len(self._breakpoints)} active')
@@ -429,25 +414,25 @@ class FirebaseClient(object):
 
     # There is only one consumer, so two step pop is safe.
     while self._transmission_queue:
-      breakpoint, retry_count = self._transmission_queue.popleft()
+      breakpoint_data, retry_count = self._transmission_queue.popleft()
+
+      bp_id = breakpoint_data['id']
 
       try:
-        # Something has changed on the breakpoint.  It should be going from active to final, but let's make sure.
-        if not breakpoint['isFinalState']:
+        # Something has changed on the breakpoint.
+        # It should be going from active to final, but let's make sure.
+        if not breakpoint_data['isFinalState']:
           raise BaseException(
-              f'Unexpected breakpoint update requested on breakpoint: {breakpoint}'
-          )
-
-        bp_id = breakpoint['id']
+              f'Unexpected breakpoint update requested: {breakpoint_data}')
 
         # If action is missing, it should be set to 'CAPTURE'
-        is_logpoint = breakpoint.get('action') == 'LOG'
+        is_logpoint = breakpoint_data.get('action') == 'LOG'
         is_snapshot = not is_logpoint
         if is_snapshot:
-          breakpoint['action'] = 'CAPTURE'
+          breakpoint_data['action'] = 'CAPTURE'
 
         # Set the completion time on the server side using a magic value.
-        breakpoint['finalTimeUnixMsec'] = {'.sv': 'timestamp'}
+        breakpoint_data['finalTimeUnixMsec'] = {'.sv': 'timestamp'}
 
         # First, remove from the active breakpoints.
         bp_ref = firebase_admin.db.reference(
@@ -459,20 +444,19 @@ class FirebaseClient(object):
           # Note that there may not be snapshot data.
           bp_ref = firebase_admin.db.reference(
               f'cdbg/breakpoints/{self._debuggee_id}/snapshots/{bp_id}')
-          bp_ref.set(breakpoint)
+          bp_ref.set(breakpoint_data)
 
           # Now strip potential snapshot data.
-          breakpoint.pop('evaluatedExpressions', None)
-          breakpoint.pop('stackFrames', None)
-          breakpoint.pop('variableTable', None)
+          breakpoint_data.pop('evaluatedExpressions', None)
+          breakpoint_data.pop('stackFrames', None)
+          breakpoint_data.pop('variableTable', None)
 
         # Then add it to the list of final breakpoints.
         bp_ref = firebase_admin.db.reference(
             f'cdbg/breakpoints/{self._debuggee_id}/final/{bp_id}')
-        bp_ref.set(breakpoint)
+        bp_ref.set(breakpoint_data)
 
-        native.LogInfo('Breakpoint %s update transmitted successfully' %
-                       (breakpoint['id']))
+        native.LogInfo(f'Breakpoint {bp_id} update transmitted successfully')
 
       # TODO: Add any firebase-related error handling.
       except googleapiclient.errors.HttpError as err:
@@ -482,30 +466,28 @@ class FirebaseClient(object):
         is_transient = ((status >= 500) or (status == 408))
         if is_transient:
           if retry_count < self.max_transmit_attempts - 1:
-            native.LogInfo('Failed to send breakpoint %s update: %s' %
-                           (breakpoint['id'], traceback.format_exc()))
-            retry_list.append((breakpoint, retry_count + 1))
+            native.LogInfo(f'Failed to send breakpoint {bp_id} update: '
+                           f'{traceback.format_exc()}')
+            retry_list.append((breakpoint_data, retry_count + 1))
           else:
-            native.LogWarning('Breakpoint %s retry count exceeded maximum' %
-                              breakpoint['id'])
+            native.LogWarning(
+                f'Breakpoint {bp_id} retry count exceeded maximum')
         else:
           # This is very common if multiple instances are sending final update
           # simultaneously.
-          native.LogInfo('%s, breakpoint: %s' % (err, breakpoint['id']))
+          native.LogInfo(f'{err}, breakpoint: {bp_id}')
       except socket.error as err:
         if retry_count < self.max_transmit_attempts - 1:
-          native.LogInfo(
-              'Socket error %d while sending breakpoint %s update: %s' %
-              (err.errno, breakpoint['id'], traceback.format_exc()))
-          retry_list.append((breakpoint, retry_count + 1))
+          native.LogInfo(f'Socket error {err.errno} while sending breakpoint '
+                         f'{bp_id} update: {traceback.format_exc()}')
+          retry_list.append((breakpoint_data, retry_count + 1))
         else:
-          native.LogWarning('Breakpoint %s retry count exceeded maximum' %
-                            breakpoint['id'])
+          native.LogWarning(f'Breakpoint {bp_id} retry count exceeded maximum')
           # Socket errors shouldn't persist like this; reconnect.
           #reconnect = True
       except BaseException:
-        native.LogWarning('Fatal error sending breakpoint %s update: %s' %
-                          (breakpoint['id'], traceback.format_exc()))
+        native.LogWarning(f'Fatal error sending breakpoint {bp_id} update: '
+                          f'{traceback.format_exc()}')
 
     self._transmission_queue.extend(retry_list)
 
@@ -518,10 +500,9 @@ class FirebaseClient(object):
 
   def _GetDebuggee(self):
     """Builds the debuggee structure."""
-    major_version = 'v' + version.__version__.split('.')[0]
+    major_version = 'v' + version.__version__.split('.', maxsplit=1)[0]
     python_version = ''.join(platform.python_version().split('.')[:2])
-    agent_version = ('google.com/python%s-gcp/%s' %
-                     (python_version, major_version))
+    agent_version = f'google.com/python{python_version}-gcp/{major_version}'
 
     debuggee = {
         'description': self._GetDebuggeeDescription(),
@@ -586,7 +567,8 @@ class FirebaseClient(object):
       not a valid JSON file.
     """
     try:
-      with open(os.path.join(sys.path[0], relative_path), 'r') as f:
+      with open(
+          os.path.join(sys.path[0], relative_path), 'r', encoding='utf-8') as f:
         return json.load(f)
     except (IOError, ValueError):
       return None
