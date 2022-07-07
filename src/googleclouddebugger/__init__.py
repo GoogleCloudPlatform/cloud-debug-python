@@ -52,8 +52,12 @@ def _StartDebugger():
   cdbg_native.LogInfo(
       f'Initializing Cloud Debugger Python agent version: {__version__}')
 
-  #_backend_client = gcp_hub_client.GcpHubClient()
-  _backend_client = firebase_client.FirebaseClient()
+  use_firebase = _flags.get('use_firebase')
+  if use_firebase:
+    _backend_client = firebase_client.FirebaseClient()
+  else:
+    _backend_client = gcp_hub_client.GcpHubClient()
+
   visibility_policy = _GetVisibilityPolicy()
 
   _breakpoints_manager = breakpoints_manager.BreakpointsManager(
@@ -71,9 +75,11 @@ def _StartDebugger():
   _backend_client.SetupAuth(
       _flags.get('project_id'), _flags.get('project_number'),
       _flags.get('service_account_json_file'))
-  _backend_client.SetupCanaryMode(
-      _flags.get('breakpoint_enable_canary'),
-      _flags.get('breakpoint_allow_canary_override'))
+  if not use_firebase:
+    # The firebase backend does not support canarying.
+    _backend_client.SetupCanaryMode(
+        _flags.get('breakpoint_enable_canary'),
+        _flags.get('breakpoint_allow_canary_override'))
   _backend_client.InitializeDebuggeeLabels(_flags)
   _backend_client.Start()
 

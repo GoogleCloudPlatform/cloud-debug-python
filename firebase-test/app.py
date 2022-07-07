@@ -1,5 +1,5 @@
 import googleclouddebugger
-googleclouddebugger.enable()
+googleclouddebugger.enable(use_firebase= True)
 
 from flask import Flask
 
