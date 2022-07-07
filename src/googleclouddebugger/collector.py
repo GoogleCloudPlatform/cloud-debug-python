@@ -13,8 +13,6 @@
 # limitations under the License.
 """Captures application state on a breakpoint hit."""
 
-# TODO: rename this file to collector.py.
-
 import copy
 import datetime
 import inspect

@@ -13,7 +13,7 @@
 # limitations under the License.
 """Support for breakpoints on modules that haven't been loaded yet.
 
-This is the new module import hook which:
+This is the module import hook which:
   1. Takes a partial path of the module file excluding the file extension as
      input (can be as short as 'foo' or longer such as 'sys/path/pkg/foo').
   2. At each (top-level-only) import statement:
@@ -26,7 +26,6 @@ This is the new module import hook which:
     b. Checks sys.modules if any of these modules have a file that matches the
        given path, using suffix match.
 
-For the old module import hook, see imphook.py file.
 """
 
 import importlib
@@ -37,7 +36,7 @@ import threading
 
 import builtins
 
-from . import module_utils2
+from . import module_utils
 
 # Callbacks to invoke when a module is imported.
 _import_callbacks = {}
@@ -431,7 +430,7 @@ def _InvokeImportCallbackBySuffix(names):
       if not os.path.isabs(mod_root):
         mod_root = os.path.join(os.curdir, mod_root)
 
-      if module_utils2.IsPathSuffix(mod_root, root):
+      if module_utils.IsPathSuffix(mod_root, root):
         for callback in callbacks.copy():
           callback(module)
         break
