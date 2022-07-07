@@ -71,9 +71,7 @@ _DEBUGGEE_LABELS = {
 
 # Debuggee labels used to format debuggee description (ordered). The minor
 # version is excluded for the sake of consistency with AppEngine UX.
-_DESCRIPTION_LABELS = [
-    labels.Debuggee.MODULE, labels.Debuggee.VERSION
-]
+_DESCRIPTION_LABELS = [labels.Debuggee.MODULE, labels.Debuggee.VERSION]
 
 # HTTP timeout when accessing the cloud debugger API. It is selected to be
 # longer than the typical controller.breakpoints.list hanging get latency
@@ -244,7 +242,9 @@ class FirebaseClient(object):
     else:
       if not project_id:
         try:
-          r = requests.get('http://metadata.google.internal/computeMetadata/v1/project/project-id', headers={'Metadata-Flavor': 'Google'})
+          r = requests.get(
+              'http://metadata.google.internal/computeMetadata/v1/project/project-id',
+              headers={'Metadata-Flavor': 'Google'})
           # TODO: Check whether more needs to be done here.
           project_id = r.text
         except requests.exceptions.RequestException as e:
@@ -257,7 +257,6 @@ class FirebaseClient(object):
 
     self._project_id = project_id
     self._database_url = f'https://{self._project_id}-cdbg.firebaseio.com'
-
 
   def SetupCanaryMode(self, breakpoint_enable_canary,
                       breakpoint_allow_canary_override):
@@ -328,7 +327,6 @@ class FirebaseClient(object):
     # Is there anything to return?  Probably the database, but that seems to be
     # through the module in the Python library.
 
-
   # FIXME: This whole thing needs to change.
   def _MainThreadProc(self):
     """Entry point for the worker thread."""
@@ -365,11 +363,15 @@ class FirebaseClient(object):
       self._debuggee_id = debuggee['id']
 
       try:
-        debuggeeRef = firebase_admin.db.reference(f'cdbg/debuggees/{self._debuggee_id}')
+        debuggeeRef = firebase_admin.db.reference(
+            f'cdbg/debuggees/{self._debuggee_id}')
         debuggeeRef.set(debuggee)
-        native.LogInfo(f'registering at {self._database_url}, path: cdbg/debuggees/{self._debuggee_id}')
+        native.LogInfo(
+            f'registering at {self._database_url}, path: cdbg/debuggees/{self._debuggee_id}'
+        )
 
-        native.LogInfo('Debuggee registered successfully, ID: %s' % (self._debuggee_id))
+        native.LogInfo('Debuggee registered successfully, ID: %s' %
+                       (self._debuggee_id))
         self.register_backoff.Succeeded()
         return (False, 0)  # Proceed immediately to list active breakpoints.
       except BaseException:
@@ -385,42 +387,45 @@ class FirebaseClient(object):
     path = f'cdbg/breakpoints/{self._debuggee_id}/active'
     native.LogInfo(f'Subscribing to breakpoint updates at {path}')
     self._breakpointRef = firebase_admin.db.reference(path)
-    self._breakpointSubscription = self._breakpointRef.listen(self._ActiveBreakpointCallback)
+    self._breakpointSubscription = self._breakpointRef.listen(
+        self._ActiveBreakpointCallback)
 
   def _ActiveBreakpointCallback(self, event):
     if event.event_type == 'put':
-        # Either a delete or a completely new set of breakpoints.
-        if event.data is None:
-            # Either deleting a breakpoint or initializing with no breakpoints.
-            # Initializing with no breakpoints is a no-op.
-            # If deleting, event.path will be /{breakpointid}
-            if event.path != '/':
-                breakpoint_id = event.path[1:]
-                del self._breakpoints[breakpoint_id]
+      # Either a delete or a completely new set of breakpoints.
+      if event.data is None:
+        # Either deleting a breakpoint or initializing with no breakpoints.
+        # Initializing with no breakpoints is a no-op.
+        # If deleting, event.path will be /{breakpointid}
+        if event.path != '/':
+          breakpoint_id = event.path[1:]
+          del self._breakpoints[breakpoint_id]
+      else:
+        if event.path == '/':
+          # New set of breakpoints.
+          self._breakpoints = {}
+          for (key, value) in event.data.items():
+            self._AddBreakpoint(key, value)
         else:
-            if event.path == '/':
-                # New set of breakpoints.
-                self._breakpoints = {}
-                for (key, value) in event.data.items():
-                    self._AddBreakpoint(key, value)
-            else:
-                breakpoint_id = event.path[1:]
-                self._AddBreakpoint(breakpoint_id, breakpoint)
+          breakpoint_id = event.path[1:]
+          self._AddBreakpoint(breakpoint_id, breakpoint)
 
     elif event.event_type == 'patch':
-        # New breakpoint or breakpoints.
-        for (key, value) in event.data.items():
-            self._AddBreakpoint(key, value)
+      # New breakpoint or breakpoints.
+      for (key, value) in event.data.items():
+        self._AddBreakpoint(key, value)
     else:
-        native.LogWarning(f'Unexpected event from Firebase: {event.event_type} {event.path} {event.data}')
-        return
+      native.LogWarning(
+          f'Unexpected event from Firebase: {event.event_type} {event.path} {event.data}'
+      )
+      return
 
     native.LogInfo(f'Breakpoints list changed, {len(self._breakpoints)} active')
     self.on_active_breakpoints_changed(list(self._breakpoints.values()))
 
   def _AddBreakpoint(self, breakpoint_id, breakpoint):
-      breakpoint['id'] = breakpoint_id
-      self._breakpoints[breakpoint_id] = breakpoint
+    breakpoint['id'] = breakpoint_id
+    self._breakpoints[breakpoint_id] = breakpoint
 
   def _TransmitBreakpointUpdates(self):
     """Tries to send pending breakpoint updates to the backend.
@@ -452,7 +457,9 @@ class FirebaseClient(object):
       try:
         # Something has changed on the breakpoint.  It should be going from active to final, but let's make sure.
         if not breakpoint['isFinalState']:
-            raise BaseException(f'Unexpected breakpoint update requested on breakpoint: {breakpoint}')
+          raise BaseException(
+              f'Unexpected breakpoint update requested on breakpoint: {breakpoint}'
+          )
 
         bp_id = breakpoint['id']
 
@@ -460,29 +467,31 @@ class FirebaseClient(object):
         is_logpoint = breakpoint.get('action') == 'LOG'
         is_snapshot = not is_logpoint
         if is_snapshot:
-            breakpoint['action'] = 'CAPTURE'
+          breakpoint['action'] = 'CAPTURE'
 
         # Set the completion time on the server side using a magic value.
         breakpoint['finalTimeUnixMsec'] = {'.sv': 'timestamp'}
 
         # First, remove from the active breakpoints.
-        bp_ref = firebase_admin.db.reference(f'cdbg/breakpoints/{self._debuggee_id}/active/{bp_id}')
+        bp_ref = firebase_admin.db.reference(
+            f'cdbg/breakpoints/{self._debuggee_id}/active/{bp_id}')
         bp_ref.delete()
 
         # Save snapshot data for snapshots only.
         if is_snapshot:
-            # Note that there may not be snapshot data.
-            bp_ref = firebase_admin.db.reference(f'cdbg/breakpoints/{self._debuggee_id}/snapshots/{bp_id}')
-            bp_ref.set(breakpoint)
+          # Note that there may not be snapshot data.
+          bp_ref = firebase_admin.db.reference(
+              f'cdbg/breakpoints/{self._debuggee_id}/snapshots/{bp_id}')
+          bp_ref.set(breakpoint)
 
-            # Now strip potential snapshot data.
-            breakpoint.pop('evaluatedExpressions', None)
-            breakpoint.pop('stackFrames', None)
-            breakpoint.pop('variableTable', None)
-            
+          # Now strip potential snapshot data.
+          breakpoint.pop('evaluatedExpressions', None)
+          breakpoint.pop('stackFrames', None)
+          breakpoint.pop('variableTable', None)
 
         # Then add it to the list of final breakpoints.
-        bp_ref = firebase_admin.db.reference(f'cdbg/breakpoints/{self._debuggee_id}/final/{bp_id}')
+        bp_ref = firebase_admin.db.reference(
+            f'cdbg/breakpoints/{self._debuggee_id}/final/{bp_id}')
         bp_ref.set(breakpoint)
 
         native.LogInfo('Breakpoint %s update transmitted successfully' %

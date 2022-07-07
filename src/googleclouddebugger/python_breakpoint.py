@@ -421,7 +421,7 @@ class PythonBreakpoint(object):
       return
 
     collector = collector.CaptureCollector(self.definition,
-                                                   self.data_visibility_policy)
+                                           self.data_visibility_policy)
 
     # TODO: This is a temporary try/except. All exceptions should be
     # caught inside Collect and converted into breakpoint error messages.
