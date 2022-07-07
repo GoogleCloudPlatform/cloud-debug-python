@@ -14,7 +14,6 @@
 """Communicates with Firebase RTDB backend."""
 
 from collections import deque
-import copy
 import hashlib
 import inspect
 import json
@@ -25,15 +24,11 @@ import requests
 import socket
 import sys
 import threading
-import time
 import traceback
 
-import google_auth_httplib2
 import googleapiclient
 import googleapiclient.discovery
-import httplib2
 
-import google.auth
 from google.oauth2 import service_account
 
 import firebase_admin
@@ -111,19 +106,18 @@ class FirebaseClient(object):
     self.on_active_breakpoints_changed = lambda x: None
     self.on_idle = lambda: None
     self._debuggee_labels = {}
-    self._service_account_auth = False
+    self._credentials = None
     self._project_id = None
     self._database_url = None
     self._debuggee_id = None
-    self._agent_id = None
     self._canary_mode = None
-    self._wait_token = 'init'
     self._breakpoints = {}
     self._main_thread = None
     self._transmission_thread = None
     self._transmission_thread_startup_lock = threading.Lock()
     self._transmission_queue = deque(maxlen=100)
     self._new_updates = threading.Event()
+    self._breakpoint_subscription = None
 
     # Disable logging in the discovery API to avoid excessive logging.
     class _ChildLogFilter(logging.Filter):
@@ -154,7 +148,6 @@ class FirebaseClient(object):
 
     # Delay before retrying failed request.
     self.register_backoff = backoff.Backoff()  # Register debuggee.
-    self.list_backoff = backoff.Backoff()  # Query active breakpoints.
     self.update_backoff = backoff.Backoff()  # Update breakpoint.
 
     # Maximum number of times that the message is re-transmitted before it
@@ -256,22 +249,8 @@ class FirebaseClient(object):
           'Please specify the project id using the --project_id flag.')
 
     self._project_id = project_id
+    # TODO: Add database url override support.
     self._database_url = f'https://{self._project_id}-cdbg.firebaseio.com'
-
-  def SetupCanaryMode(self, breakpoint_enable_canary,
-                      breakpoint_allow_canary_override):
-    """Sets up canaryMode for the debuggee according to input parameters.
-
-    Args:
-      breakpoint_enable_canary: str or bool, whether to enable breakpoint
-          canary. Any string except 'True' is interpreted as False.
-      breakpoint_allow_canary_override: str or bool, whether to allow the
-          individually set breakpoint to override the canary behavior. Any
-          string except 'True' is interpreted as False.
-    """
-    enable_canary = breakpoint_enable_canary in ('True', True)
-    allow_canary_override = breakpoint_allow_canary_override in ('True', True)
-    self._canary_mode = _CANARY_MODE_MAP[enable_canary, allow_canary_override]
 
   def Start(self):
     """Starts the worker thread."""
@@ -294,6 +273,10 @@ class FirebaseClient(object):
     if self._transmission_thread is not None:
       self._transmission_thread.join()
       self._transmission_thread = None
+
+    if self._breakpoint_subscription is not None:
+      self._breakpoint_subscription.close()
+      self._breakpoint_subscription = None
 
   def EnqueueBreakpointUpdate(self, breakpoint):
     """Asynchronously updates the specified breakpoint on the backend.
@@ -318,22 +301,17 @@ class FirebaseClient(object):
     self._transmission_queue.append((breakpoint, 0))
     self._new_updates.set()  # Wake up the worker thread to send immediately.
 
-  def _BuildService(self):
-    # TODO: Might need to do cleanup of previous service
-    # TODO: Something something default credentials.
-    #firebase_admin.initialize_app(self._credentials, {'databaseURL': self._databaseUrl})
-    # TODO: Yeah, set that database url.
-    firebase_admin.initialize_app(None, {'databaseURL': self._database_url})
-    # Is there anything to return?  Probably the database, but that seems to be
-    # through the module in the Python library.
-
-  # FIXME: This whole thing needs to change.
   def _MainThreadProc(self):
-    """Entry point for the worker thread."""
-    self._BuildService()
-    # FIXME: Oops; kind of ignoring that whole success/failure thing.
-    registration_required, delay = self._RegisterDebuggee()
+    """Entry point for the worker thread.
 
+    This thread only serves to kick off the firebase subscription which will live in its own thread.
+    """
+    # Note: if self._credentials is None, default app credentials will be used.
+    firebase_admin.initialize_app(self._credentials,
+                                  {'databaseURL': self._database_url})
+
+    # TODO: Error handling.
+    self._RegisterDebuggee()
     self._SubscribeToBreakpoints()
 
   def _TransmissionThreadProc(self):
@@ -384,11 +362,15 @@ class FirebaseClient(object):
     return (True, self.register_backoff.Failed())
 
   def _SubscribeToBreakpoints(self):
+    # Kill any previous subscriptions first.
+    if self._breakpoint_subscription is not None:
+      self._breakpoint_subscription.close()
+      self._breakpoint_subscription = None
+
     path = f'cdbg/breakpoints/{self._debuggee_id}/active'
     native.LogInfo(f'Subscribing to breakpoint updates at {path}')
-    self._breakpointRef = firebase_admin.db.reference(path)
-    self._breakpointSubscription = self._breakpointRef.listen(
-        self._ActiveBreakpointCallback)
+    ref = firebase_admin.db.reference(path)
+    self._breakpoint_subscription = ref.listen(self._ActiveBreakpointCallback)
 
   def _ActiveBreakpointCallback(self, event):
     if event.event_type == 'put':
@@ -559,14 +541,12 @@ class FirebaseClient(object):
 
     debuggee['uniquifier'] = self._ComputeUniquifier(debuggee)
 
-    # FIREBASE Specific:
     debuggee['id'] = self._ComputeDebuggeeId(debuggee)
 
     return debuggee
 
-  # FIREBASE Specific:
   def _ComputeDebuggeeId(self, debuggee):
-    return "12345"
+    return hashlib.sha1(json.dumps(debuggee, sort_keys=True).encode()).hexdigest()
 
   def _GetDebuggeeDescription(self):
     """Formats debuggee description based on debuggee labels."""
