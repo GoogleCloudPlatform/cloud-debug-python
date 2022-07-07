@@ -546,7 +546,8 @@ class FirebaseClient(object):
     return debuggee
 
   def _ComputeDebuggeeId(self, debuggee):
-    return hashlib.sha1(json.dumps(debuggee, sort_keys=True).encode()).hexdigest()
+    return hashlib.sha1(json.dumps(debuggee,
+                                   sort_keys=True).encode()).hexdigest()
 
   def _GetDebuggeeDescription(self):
     """Formats debuggee description based on debuggee labels."""
