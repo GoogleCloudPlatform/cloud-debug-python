@@ -45,9 +45,6 @@ from . import version
 # exception it can throw.
 # pylint: disable=broad-except
 
-# API scope we are requesting when service account authentication is enabled.
-_CLOUD_PLATFORM_SCOPE = ['https://www.googleapis.com/auth/cloud-platform']
-
 # Set of all known debuggee labels (passed down as flags). The value of
 # a map is optional environment variable that can be used to set the flag
 # (flags still take precedence).
