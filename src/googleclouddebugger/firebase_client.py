@@ -31,7 +31,7 @@ import googleapiclient.discovery
 
 import firebase_admin
 import firebase_admin.db
-from firebase_admin import credentials
+import firebase_admin.credentials
 
 from . import backoff
 from . import cdbg_native as native
@@ -71,9 +71,9 @@ class NoProjectIdError(Exception):
 
 
 class FirebaseClient(object):
-  """Controller API client.
+  """Firebase RTDB Backend client.
 
-  Registers the debuggee, queries the active breakpoints and sends breakpoint
+  Registers the debuggee, subscribes for active breakpoints and sends breakpoint
   updates to the backend.
 
   This class supports two types of authentication: application default
@@ -206,7 +206,8 @@ class FirebaseClient(object):
       NoProjectIdError: If the project id cannot be determined.
     """
     if service_account_json_file:
-      self._credentials = credentials.Certificate(service_account_json_file)
+      self._credentials = firebase_admin.credentials.Certificate(
+          service_account_json_file)
       if not project_id:
         with open(service_account_json_file, encoding='utf-8') as f:
           project_id = json.load(f).get('project_id')
@@ -323,10 +324,9 @@ class FirebaseClient(object):
 
       try:
         debuggee_path = f'cdbg/debuggees/{self._debuggee_id}'
-        firebase_admin.db.reference(debuggee_path).set(debuggee)
         native.LogInfo(
             f'registering at {self._database_url}, path: {debuggee_path}')
-
+        firebase_admin.db.reference(debuggee_path).set(debuggee)
         native.LogInfo(
             f'Debuggee registered successfully, ID: {self._debuggee_id}')
         self.register_backoff.Succeeded()
@@ -352,7 +352,6 @@ class FirebaseClient(object):
 
   def _ActiveBreakpointCallback(self, event):
     if event.event_type == 'put':
-      # Either a delete or a completely new set of breakpoints.
       if event.data is None:
         # Either deleting a breakpoint or initializing with no breakpoints.
         # Initializing with no breakpoints is a no-op.
@@ -367,8 +366,9 @@ class FirebaseClient(object):
           for (key, value) in event.data.items():
             self._AddBreakpoint(key, value)
         else:
+          # New breakpoint.
           breakpoint_id = event.path[1:]
-          self._AddBreakpoint(breakpoint_id, breakpoint)
+          self._AddBreakpoint(breakpoint_id, event.data)
 
     elif event.event_type == 'patch':
       # New breakpoint or breakpoints.
