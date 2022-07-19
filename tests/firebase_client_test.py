@@ -1,12 +1,10 @@
 """Unit tests for firebase_client module."""
 
-import datetime
 import errno
 import os
 import socket
 import sys
 import tempfile
-import time
 from unittest import mock
 from unittest.mock import MagicMock
 from unittest.mock import call
@@ -16,13 +14,10 @@ import requests_mock
 
 from googleapiclient.errors import HttpError
 from googleclouddebugger import version
+from googleclouddebugger import firebase_client
 
-import google.auth
-from google.oauth2 import service_account
 from absl.testing import absltest
 from absl.testing import parameterized
-
-from googleclouddebugger import firebase_client
 
 import firebase_admin.credentials
 
@@ -80,13 +75,6 @@ class FirebaseClientTest(parameterized.TestCase):
 
     self.breakpoints_changed_count = 0
     self.breakpoints = {}
-    #self._client.on_active_breakpoints_changed = self._BreakpointsChanged
-
-
-#    patcher = mock.patch.object(google.auth, 'default')
-#    self._default_auth_mock = patcher.start()
-#    self._default_auth_mock.return_value = (None, TEST_PROJECT_ID)
-#    self.addCleanup(patcher.stop)
 
   def tearDown(self):
     self._client.Stop()
@@ -118,7 +106,7 @@ class FirebaseClientTest(parameterized.TestCase):
                            'Certificate') as firebase_certificate:
       json_file = tempfile.NamedTemporaryFile()
       # And load the project id from the file as well.
-      with open(json_file.name, 'w') as f:
+      with open(json_file.name, 'w', encoding='utf-8') as f:
         f.write(f'{{"project_id": "{TEST_PROJECT_ID}"}}')
       self._client.SetupAuth(service_account_json_file=json_file.name)
 
@@ -151,7 +139,8 @@ class FirebaseClientTest(parameterized.TestCase):
     ], mock_db_ref.call_args_list)
 
   # TODO: testStartRegisterRetry
-  # TODO: testStartSubscribeRetry - Note: failures don't require retrying registration.
+  # TODO: testStartSubscribeRetry
+  # - Note: failures don't require retrying registration.
 
   @patch('firebase_admin.db.reference')
   @patch('firebase_admin.initialize_app')
@@ -160,7 +149,8 @@ class FirebaseClientTest(parameterized.TestCase):
     fake_subscribe_ref = FakeReference()
     mock_db_ref.side_effect = [mock_register_ref, fake_subscribe_ref]
 
-    # This class will keep track of the breakpoint updates and check them against expectations.
+    # This class will keep track of the breakpoint updates and will check
+    # them against expectations.
     class ResultChecker:
 
       def __init__(self, expected_results, test):
@@ -218,36 +208,8 @@ class FirebaseClientTest(parameterized.TestCase):
 
     self.assertEqual(len(expected_results), result_checker._change_count)
 
-  def asdftestTransmitBreakpointUpdateSuccess(self):
-    self._Start()
-    self._client.EnqueueBreakpointUpdate({'id': 'A'})
-    while not self._update_execute.call_count:
-      self._SkipIterations()
-    self.assertEmpty(self._client._transmission_queue)
-
-  def asdftestPoisonousMessage(self):
-    self._update_execute.side_effect = HttpErrorTimeout()
-    self._Start()
-    self._SkipIterations(5)
-    self._client.EnqueueBreakpointUpdate({'id': 'A'})
-    while self._update_execute.call_count < 10:
-      self._SkipIterations()
-    self._SkipIterations(10)
-    self.assertEmpty(self._client._transmission_queue)
-
-  def asdftestTransmitBreakpointUpdateSocketError(self):
-    # It would be nice to ensure that the retries will succeed if the error
-    # stops, but that would make this test setup flaky.
-    self._update_execute.side_effect = HttpConnectionReset()
-    self._Start()
-    self._client.EnqueueBreakpointUpdate({'id': 'A'})
-    while self._update_execute.call_count < 10:
-      self._SkipIterations()
-    self._SkipIterations(10)
-    self.assertEmpty(self._client._transmission_queue)
-
   def _TestInitializeLabels(self, module_var, version_var, minor_var):
-    self._Start()
+    self._client.SetupAuth(project_id=TEST_PROJECT_ID)
 
     self._client.InitializeDebuggeeLabels({
         'module': 'my_module',
@@ -305,16 +267,16 @@ class FirebaseClientTest(parameterized.TestCase):
       del os.environ[version_var]
       del os.environ[minor_var]
 
-  def asdftestInitializeLegacyDebuggeeLabels(self):
+  def testInitializeLegacyDebuggeeLabels(self):
     self._TestInitializeLabels('GAE_MODULE_NAME', 'GAE_MODULE_VERSION',
-                               'GAE_MINOR_VERSION')
+                                     'GAE_MINOR_VERSION')
 
-  def asdftestInitializeDebuggeeLabels(self):
+  def testInitializeDebuggeeLabels(self):
     self._TestInitializeLabels('GAE_SERVICE', 'GAE_VERSION',
-                               'GAE_DEPLOYMENT_ID')
+                                     'GAE_DEPLOYMENT_ID')
 
-  def asdftestInitializeCloudRunDebuggeeLabels(self):
-    self._Start()
+  def testInitializeCloudRunDebuggeeLabels(self):
+    self._client.SetupAuth(project_id=TEST_PROJECT_ID)
 
     try:
       os.environ['K_SERVICE'] = 'env_module'
@@ -334,8 +296,8 @@ class FirebaseClientTest(parameterized.TestCase):
       del os.environ['K_SERVICE']
       del os.environ['K_REVISION']
 
-  def asdftestInitializeCloudFunctionDebuggeeLabels(self):
-    self._Start()
+  def testInitializeCloudFunctionDebuggeeLabels(self):
+    self._client.SetupAuth(project_id=TEST_PROJECT_ID)
 
     try:
       os.environ['FUNCTION_NAME'] = 'fcn-name'
@@ -355,8 +317,8 @@ class FirebaseClientTest(parameterized.TestCase):
       del os.environ['FUNCTION_NAME']
       del os.environ['X_GOOGLE_FUNCTION_VERSION']
 
-  def asdftestInitializeCloudFunctionUnversionedDebuggeeLabels(self):
-    self._Start()
+  def testInitializeCloudFunctionUnversionedDebuggeeLabels(self):
+    self._client.SetupAuth(project_id=TEST_PROJECT_ID)
 
     try:
       os.environ['FUNCTION_NAME'] = 'fcn-name'
@@ -374,8 +336,8 @@ class FirebaseClientTest(parameterized.TestCase):
     finally:
       del os.environ['FUNCTION_NAME']
 
-  def asdftestInitializeCloudFunctionWithRegionDebuggeeLabels(self):
-    self._Start()
+  def testInitializeCloudFunctionWithRegionDebuggeeLabels(self):
+    self._client.SetupAuth(project_id=TEST_PROJECT_ID)
 
     try:
       os.environ['FUNCTION_NAME'] = 'fcn-name'
@@ -396,16 +358,16 @@ class FirebaseClientTest(parameterized.TestCase):
       del os.environ['FUNCTION_NAME']
       del os.environ['FUNCTION_REGION']
 
-  def asdftestAppFilesUniquifierNoMinorVersion(self):
+  def testAppFilesUniquifierNoMinorVersion(self):
     """Verify that uniquifier_computer is used if minor version not defined."""
-    self._Start()
+    self._client.SetupAuth(project_id=TEST_PROJECT_ID)
 
     root = tempfile.mkdtemp('', 'fake_app_')
     sys.path.insert(0, root)
     try:
       uniquifier1 = self._client._ComputeUniquifier({})
 
-      with open(os.path.join(root, 'app.py'), 'w') as f:
+      with open(os.path.join(root, 'app.py'), 'w', encoding='utf-8') as f:
         f.write('hello')
       uniquifier2 = self._client._ComputeUniquifier({})
     finally:
@@ -413,9 +375,9 @@ class FirebaseClientTest(parameterized.TestCase):
 
     self.assertNotEqual(uniquifier1, uniquifier2)
 
-  def asdftestAppFilesUniquifierWithMinorVersion(self):
+  def testAppFilesUniquifierWithMinorVersion(self):
     """Verify that uniquifier_computer not used if minor version is defined."""
-    self._Start()
+    self._client.SetupAuth(project_id=TEST_PROJECT_ID)
 
     root = tempfile.mkdtemp('', 'fake_app_')
 
@@ -426,7 +388,7 @@ class FirebaseClientTest(parameterized.TestCase):
 
       uniquifier1 = self._client._GetDebuggee()['uniquifier']
 
-      with open(os.path.join(root, 'app.py'), 'w') as f:
+      with open(os.path.join(root, 'app.py'), 'w', encoding='utf-8') as f:
         f.write('hello')
       uniquifier2 = self._client._GetDebuggee()['uniquifier']
     finally:
@@ -435,8 +397,8 @@ class FirebaseClientTest(parameterized.TestCase):
 
     self.assertEqual(uniquifier1, uniquifier2)
 
-  def asdftestSourceContext(self):
-    self._Start()
+  def testSourceContext(self):
+    self._client.SetupAuth(project_id=TEST_PROJECT_ID)
 
     root = tempfile.mkdtemp('', 'fake_app_')
     source_context_path = os.path.join(root, 'source-context.json')
@@ -445,15 +407,15 @@ class FirebaseClientTest(parameterized.TestCase):
     try:
       debuggee_no_source_context1 = self._client._GetDebuggee()
 
-      with open(source_context_path, 'w') as f:
+      with open(source_context_path, 'w', encoding='utf-8') as f:
         f.write('not a valid JSON')
       debuggee_bad_source_context = self._client._GetDebuggee()
 
-      with open(os.path.join(root, 'fake_app.py'), 'w') as f:
+      with open(os.path.join(root, 'fake_app.py'), 'w', encoding='utf-8') as f:
         f.write('pretend')
       debuggee_no_source_context2 = self._client._GetDebuggee()
 
-      with open(source_context_path, 'w') as f:
+      with open(source_context_path, 'w', encoding='utf-8') as f:
         f.write('{"what": "source context"}')
       debuggee_with_source_context = self._client._GetDebuggee()
 
@@ -475,27 +437,6 @@ class FirebaseClientTest(parameterized.TestCase):
     uniquifiers.add(debuggee_no_source_context2['uniquifier'])
     self.assertLen(uniquifiers, 2)
 
-  def _Start(self):
-    self._client.SetupAuth()
-    self._client.Start()
-
-  def _OnIdle(self):
-    self._iterations += 1
-
-  def _SkipIterations(self, n=1):
-    target = self._iterations + n
-    while self._iterations < target:
-      self._CheckTestTimeout()
-      time.sleep(0.01)
-
-  def _CheckTestTimeout(self):
-    elapsed_time = datetime.datetime.utcnow() - self._start_time
-    if elapsed_time > datetime.timedelta(seconds=15):
-      self.fail('Test case timed out while waiting for state transition')
-
-  def _BreakpointsChanged(self, breakpoints):
-    self.breakpoints_changed_count += 1
-    self.breakpoints = breakpoints
 
 if __name__ == '__main__':
   absltest.main()
