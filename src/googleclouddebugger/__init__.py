@@ -56,7 +56,8 @@ def _StartDebugger():
   if use_firebase:
     _backend_client = firebase_client.FirebaseClient()
     _backend_client.SetupAuth(
-        _flags.get('project_id'), _flags.get('service_account_json_file'))
+        _flags.get('project_id'), _flags.get('service_account_json_file'),
+        _flags.get('firebase_db_url'))
   else:
     _backend_client = gcp_hub_client.GcpHubClient()
     _backend_client.SetupAuth(

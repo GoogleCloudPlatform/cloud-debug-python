@@ -61,7 +61,9 @@ _DEBUGGEE_LABELS = {
 
 # Debuggee labels used to format debuggee description (ordered). The minor
 # version is excluded for the sake of consistency with AppEngine UX.
-_DESCRIPTION_LABELS = [labels.Debuggee.MODULE, labels.Debuggee.VERSION]
+_DESCRIPTION_LABELS = [
+    labels.Debuggee.PROJECT_ID, labels.Debuggee.MODULE, labels.Debuggee.VERSION
+]
 
 _METADATA_SERVER_URL = 'http://metadata.google.internal/computeMetadata/v1'
 
@@ -101,6 +103,10 @@ class FirebaseClient(object):
     self._transmission_queue = deque(maxlen=100)
     self._new_updates = threading.Event()
     self._breakpoint_subscription = None
+
+    # Events for unit testing.
+    self.registration_complete = threading.Event()
+    self.subscription_complete = threading.Event()
 
     # Disable logging in the discovery API to avoid excessive logging.
     class _ChildLogFilter(logging.Filter):
@@ -190,7 +196,10 @@ class FirebaseClient(object):
       if region:
         self._debuggee_labels[labels.Debuggee.REGION] = region
 
-  def SetupAuth(self, project_id=None, service_account_json_file=None):
+  def SetupAuth(self,
+                project_id=None,
+                service_account_json_file=None,
+                database_url=None):
     """Sets up authentication with Google APIs.
 
     This will use the credentials from service_account_json_file if provided,
@@ -202,6 +211,8 @@ class FirebaseClient(object):
           to retrieve it from the credentials.
       service_account_json_file: JSON file to use for credentials. If not
           provided, will default to application default credentials.
+      database_url: Firebase realtime database URL to be used.  If not
+          provided, will default to https://{project_id}-cdbg.firebaseio.com
     Raises:
       NoProjectIdError: If the project id cannot be determined.
     """
@@ -228,14 +239,17 @@ class FirebaseClient(object):
           'Please specify the project id using the --project_id flag.')
 
     self._project_id = project_id
-    # TODO: Add database url override support.
-    self._database_url = f'https://{self._project_id}-cdbg.firebaseio.com'
+
+    if database_url:
+      self._database_url = database_url
+    else:
+      self._database_url = f'https://{self._project_id}-cdbg.firebaseio.com'
 
   def Start(self):
     """Starts the worker thread."""
     self._shutdown = False
 
-    # TODO: Sort out what needs to be done here.
+    # Spin up the main thread which will create the other necessary threads.
     self._main_thread = threading.Thread(target=self._MainThreadProc)
     self._main_thread.name = 'Cloud Debugger main worker thread'
     self._main_thread.daemon = True
@@ -284,8 +298,8 @@ class FirebaseClient(object):
   def _MainThreadProc(self):
     """Entry point for the worker thread.
 
-    This thread only serves to kick off the firebase subscription which will
-    run in its own thread.  That thread will be owned by
+    This thread only serves to register and kick off the firebase subscription
+    which will run in its own thread.  That thread will be owned by
     self._breakpoint_subscription.
     """
     # Note: if self._credentials is None, default app credentials will be used.
@@ -294,7 +308,9 @@ class FirebaseClient(object):
 
     # TODO: Error handling.
     self._RegisterDebuggee()
+    self.registration_complete.set()
     self._SubscribeToBreakpoints()
+    self.subscription_complete.set()
 
   def _TransmissionThreadProc(self):
     """Entry point for the transmission worker thread."""
@@ -330,7 +346,7 @@ class FirebaseClient(object):
         native.LogInfo(
             f'Debuggee registered successfully, ID: {self._debuggee_id}')
         self.register_backoff.Succeeded()
-        return (False, 0)  # Proceed immediately to list active breakpoints.
+        return (False, 0)  # Proceed immediately to subscribing to breakpoints.
       except BaseException:
         native.LogInfo(f'Failed to register debuggee: {traceback.format_exc()}')
     except BaseException:
