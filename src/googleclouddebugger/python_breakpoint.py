@@ -420,13 +420,13 @@ class PythonBreakpoint(object):
       self._CompleteBreakpoint({'status': error_status})
       return
 
-    collector = collector.CaptureCollector(self.definition,
+    capture_collector = collector.CaptureCollector(self.definition,
                                                    self.data_visibility_policy)
 
     # TODO: This is a temporary try/except. All exceptions should be
     # caught inside Collect and converted into breakpoint error messages.
     try:
-      collector.Collect(frame)
+      capture_collector.Collect(frame)
     except BaseException as e:  # pylint: disable=broad-except
       native.LogInfo('Internal error during data capture: %s' % repr(e))
       error_status = {
@@ -448,4 +448,4 @@ class PythonBreakpoint(object):
       self._CompleteBreakpoint({'status': error_status})
       return
 
-    self._CompleteBreakpoint(collector.breakpoint, is_incremental=False)
+    self._CompleteBreakpoint(capture_collector.breakpoint, is_incremental=False)
