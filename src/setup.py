@@ -107,7 +107,6 @@ setup(
         'google-auth-httplib2',
         'google-api-core',
         'pyyaml',
-        'six>=1.10.0',
     ],
     packages=['googleclouddebugger'],
     ext_modules=[cdbg_native_module],
