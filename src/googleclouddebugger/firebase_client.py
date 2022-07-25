@@ -26,12 +26,10 @@ import sys
 import threading
 import traceback
 
-import googleapiclient
-import googleapiclient.discovery
-
 import firebase_admin
-import firebase_admin.db
 import firebase_admin.credentials
+import firebase_admin.db
+import firebase_admin.exceptions
 
 from . import backoff
 from . import cdbg_native as native
@@ -66,6 +64,10 @@ _DESCRIPTION_LABELS = [
 ]
 
 _METADATA_SERVER_URL = 'http://metadata.google.internal/computeMetadata/v1'
+
+_TRANSIENT_ERROR_CODES = ('UNKNOWN', 'INTERNAL', 'N/A', 'UNAVAILABLE',
+                          'DEADLINE_EXCEEDED', 'RESOURCE_EXHAUSTED',
+                          'UNAUTHENTICATED', 'PERMISSION_DENIED')
 
 
 class NoProjectIdError(Exception):
@@ -107,29 +109,6 @@ class FirebaseClient(object):
     # Events for unit testing.
     self.registration_complete = threading.Event()
     self.subscription_complete = threading.Event()
-
-    # Disable logging in the discovery API to avoid excessive logging.
-    class _ChildLogFilter(logging.Filter):
-      """Filter to eliminate info-level logging when called from this module."""
-
-      def __init__(self, filter_levels=None):
-        super(_ChildLogFilter, self).__init__()
-        self._filter_levels = filter_levels or set(logging.INFO)
-        # Get name without extension to avoid .py vs .pyc issues
-        self._my_filename = os.path.splitext(
-            inspect.getmodule(_ChildLogFilter).__file__)[0]
-
-      def filter(self, record):
-        if record.levelno not in self._filter_levels:
-          return True
-        callerframes = inspect.getouterframes(inspect.currentframe())
-        for f in callerframes:
-          if os.path.splitext(f[1])[0] == self._my_filename:
-            return False
-        return True
-
-    self._log_filter = _ChildLogFilter({logging.INFO})
-    googleapiclient.discovery.logger.addFilter(self._log_filter)
 
     #
     # Configuration options (constants only modified by unit test)
@@ -303,10 +282,10 @@ class FirebaseClient(object):
     self._breakpoint_subscription.
     """
     # Note: if self._credentials is None, default app credentials will be used.
+    # TODO: Error handling.
     firebase_admin.initialize_app(self._credentials,
                                   {'databaseURL': self._database_url})
 
-    # TODO: Error handling.
     self._RegisterDebuggee()
     self.registration_complete.set()
     self._SubscribeToBreakpoints()
@@ -472,12 +451,8 @@ class FirebaseClient(object):
         native.LogInfo(f'Breakpoint {bp_id} update transmitted successfully')
 
       # TODO: Add any firebase-related error handling.
-      except googleapiclient.errors.HttpError as err:
-        # Treat 400 error codes (except timeout) as application error that will
-        # not be retried. All other errors are assumed to be transient.
-        status = err.resp.status
-        is_transient = ((status >= 500) or (status == 408))
-        if is_transient:
+      except firebase_admin.exceptions.FirebaseError as err:
+        if err.code in _TRANSIENT_ERROR_CODES:
           if retry_count < self.max_transmit_attempts - 1:
             native.LogInfo(f'Failed to send breakpoint {bp_id} update: '
                            f'{traceback.format_exc()}')
@@ -513,15 +488,14 @@ class FirebaseClient(object):
 
   def _GetDebuggee(self):
     """Builds the debuggee structure."""
-    major_version = 'v' + version.__version__.split('.', maxsplit=1)[0]
+    major_version = version.__version__.split('.', maxsplit=1)[0]
     python_version = ''.join(platform.python_version().split('.')[:2])
-    agent_version = f'google.com/python{python_version}-gcp/{major_version}'
+    agent_version = f'google.com/python{python_version}-gcp/v{major_version}'
 
     debuggee = {
         'description': self._GetDebuggeeDescription(),
         'labels': self._debuggee_labels,
         'agentVersion': agent_version,
-        'canaryMode': self._canary_mode,
     }
 
     source_context = self._ReadAppJsonFile('source-context.json')
@@ -535,6 +509,18 @@ class FirebaseClient(object):
     return debuggee
 
   def _ComputeDebuggeeId(self, debuggee):
+    """Computes a debuggee ID.
+
+    The debuggee ID has to be identical on all instances.  Therefore the
+    ID should not include any random elements or elements that may be
+    different on different instances.
+
+    Args:
+      debuggee: complete debuggee message (including uniquifier)
+
+    Returns:
+      Debuggee ID meeting the criteria described above.
+    """
     fullhash = hashlib.sha1(json.dumps(debuggee,
                                        sort_keys=True).encode()).hexdigest()
     return f'd-{fullhash[:8]}'
