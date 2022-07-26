@@ -21,27 +21,9 @@ from absl.testing import parameterized
 
 import firebase_admin.credentials
 
-TEST_DEBUGGEE_ID = 'gcp:debuggee-id'
 TEST_PROJECT_ID = 'test-project-id'
-TEST_PROJECT_NUMBER = '123456789'
-TEST_SERVICE_ACCOUNT_EMAIL = 'a@developer.gserviceaccount.com'
 METADATA_PROJECT_URL = ('http://metadata.google.internal/computeMetadata/'
                         'v1/project/project-id')
-
-
-class HttpResponse(object):
-
-  def __init__(self, status):
-    self.status = status
-    self.reason = None
-
-
-def HttpErrorTimeout():
-  return HttpError(HttpResponse(408), b'Fake timeout')
-
-
-def HttpConnectionReset():
-  return socket.error(errno.ECONNRESET, 'Fake connection reset')
 
 
 class FakeEvent:
