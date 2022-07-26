@@ -205,7 +205,6 @@ class FirebaseClient(object):
           r = requests.get(
               f'{_METADATA_SERVER_URL}/project/project-id',
               headers={'Metadata-Flavor': 'Google'})
-          # TODO: Check whether more needs to be done here.
           project_id = r.text
         except requests.exceptions.RequestException:
           native.LogInfo('Metadata server not available')
@@ -448,7 +447,6 @@ class FirebaseClient(object):
 
         native.LogInfo(f'Breakpoint {bp_id} update transmitted successfully')
 
-      # TODO: Add any firebase-related error handling.
       except firebase_admin.exceptions.FirebaseError as err:
         if err.code in _TRANSIENT_ERROR_CODES:
           if retry_count < self.max_transmit_attempts - 1:
