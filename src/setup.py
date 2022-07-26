@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Python Cloud Debugger build and packaging script."""
 
 from configparser import ConfigParser
@@ -49,8 +48,7 @@ LONG_DESCRIPTION = (
     'For more details please see '
     'https://github.com/GoogleCloudPlatform/cloud-debug-python\n')
 
-lib_dirs = ReadConfig('build_ext',
-                      'library_dirs',
+lib_dirs = ReadConfig('build_ext', 'library_dirs',
                       sysconfig.get_config_var('LIBDIR')).split(':')
 extra_compile_args = ReadConfig('cc_options', 'extra_compile_args', '').split()
 extra_link_args = ReadConfig('cc_options', 'extra_link_args', '').split()
@@ -65,9 +63,10 @@ for dep in deps:
 assert len(static_libs) == len(deps), (static_libs, deps, lib_dirs)
 
 cvars = sysconfig.get_config_vars()
-cvars['OPT'] = str.join(' ', RemovePrefixes(
-    cvars.get('OPT').split(),
-    ['-g', '-O', '-Wstrict-prototypes']))
+cvars['OPT'] = str.join(
+    ' ',
+    RemovePrefixes(
+        cvars.get('OPT').split(), ['-g', '-O', '-Wstrict-prototypes']))
 
 # Determine the current version of the package. The easiest way would be to
 # import "googleclouddebugger" and read its __version__ attribute.

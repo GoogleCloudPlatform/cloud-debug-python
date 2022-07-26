@@ -1,3 +1,4 @@
 -r requirements.txt
 absl-py
 pytest
+requests-mock
