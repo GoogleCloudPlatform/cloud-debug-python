@@ -25,7 +25,8 @@ TEST_DEBUGGEE_ID = 'gcp:debuggee-id'
 TEST_PROJECT_ID = 'test-project-id'
 TEST_PROJECT_NUMBER = '123456789'
 TEST_SERVICE_ACCOUNT_EMAIL = 'a@developer.gserviceaccount.com'
-METADATA_PROJECT_URL = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
+METADATA_PROJECT_URL = ('http://metadata.google.internal/computeMetadata/'
+                        'v1/project/project-id')
 
 
 class HttpResponse(object):
@@ -269,11 +270,11 @@ class FirebaseClientTest(parameterized.TestCase):
 
   def testInitializeLegacyDebuggeeLabels(self):
     self._TestInitializeLabels('GAE_MODULE_NAME', 'GAE_MODULE_VERSION',
-                                     'GAE_MINOR_VERSION')
+                               'GAE_MINOR_VERSION')
 
   def testInitializeDebuggeeLabels(self):
     self._TestInitializeLabels('GAE_SERVICE', 'GAE_VERSION',
-                                     'GAE_DEPLOYMENT_ID')
+                               'GAE_DEPLOYMENT_ID')
 
   def testInitializeCloudRunDebuggeeLabels(self):
     self._client.SetupAuth(project_id=TEST_PROJECT_ID)

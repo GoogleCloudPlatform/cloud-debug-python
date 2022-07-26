@@ -15,9 +15,7 @@
 
 from collections import deque
 import hashlib
-import inspect
 import json
-import logging
 import os
 import platform
 import requests
