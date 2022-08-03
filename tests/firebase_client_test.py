@@ -20,6 +20,7 @@ from absl.testing import absltest
 from absl.testing import parameterized
 
 import firebase_admin.credentials
+from firebase_admin.exceptions import FirebaseError
 
 TEST_PROJECT_ID = 'test-project-id'
 METADATA_PROJECT_URL = ('http://metadata.google.internal/computeMetadata/'
@@ -58,6 +59,27 @@ class FirebaseClientTest(parameterized.TestCase):
 
     self.breakpoints_changed_count = 0
     self.breakpoints = {}
+
+    # Speed up the delays for retry loops.
+    self._client.register_backoff.min_interval_sec /= 100000.0
+    self._client.register_backoff.max_interval_sec /= 100000.0
+    self._client.register_backoff._current_interval_sec /= 100000.0
+
+    # Set up patchers.
+    patcher = patch('firebase_admin.initialize_app')
+    self._mock_initialize_app = patcher.start()
+    self.addCleanup(patcher.stop)
+
+    patcher = patch('firebase_admin.db.reference')
+    self._mock_db_ref = patcher.start()
+    self.addCleanup(patcher.stop)
+
+    # Set up the mocks for the database refs.
+    self._mock_register_ref = MagicMock()
+    self._fake_subscribe_ref = FakeReference()
+    self._mock_db_ref.side_effect = [
+        self._mock_register_ref, self._fake_subscribe_ref
+    ]
 
   def tearDown(self):
     self._client.Stop()
@@ -105,33 +127,43 @@ class FirebaseClientTest(parameterized.TestCase):
       with self.assertRaises(firebase_client.NoProjectIdError):
         self._client.SetupAuth()
 
-  @patch('firebase_admin.db.reference')
-  @patch('firebase_admin.initialize_app')
-  def testStart(self, mock_initialize_app, mock_db_ref):
+  def testStart(self):
+    self._mock_register_ref.set.side_effect = [None]
+
     self._client.SetupAuth(project_id=TEST_PROJECT_ID)
+    print('alive')
     self._client.Start()
     self._client.subscription_complete.wait()
 
     debuggee_id = self._client._debuggee_id
 
-    mock_initialize_app.assert_called_with(
+    self._mock_initialize_app.assert_called_with(
         None, {'databaseURL': f'https://{TEST_PROJECT_ID}-cdbg.firebaseio.com'})
     self.assertEqual([
         call(f'cdbg/debuggees/{debuggee_id}'),
         call(f'cdbg/breakpoints/{debuggee_id}/active')
-    ], mock_db_ref.call_args_list)
+    ], self._mock_db_ref.call_args_list)
 
-  # TODO: testStartRegisterRetry
-  # TODO: testStartSubscribeRetry
-  # - Note: failures don't require retrying registration.
+  def testStartRegisterRetry(self):
+    # A new db ref is fetched on each retry.
+    self._mock_db_ref.side_effect = [
+        self._mock_register_ref, self._mock_register_ref,
+        self._fake_subscribe_ref
+    ]
 
-  @patch('firebase_admin.db.reference')
-  @patch('firebase_admin.initialize_app')
-  def testBreakpointSubscription(self, mock_initialize_app, mock_db_ref):
-    mock_register_ref = MagicMock()
-    fake_subscribe_ref = FakeReference()
-    mock_db_ref.side_effect = [mock_register_ref, fake_subscribe_ref]
+    # Fail once, then succeed on retry.
+    self._mock_register_ref.set.side_effect = [FirebaseError(1, 'foo'), None]
 
+    self._client.SetupAuth(project_id=TEST_PROJECT_ID)
+    self._client.Start()
+    self._client.registration_complete.wait()
+
+    self.assertEqual(2, self._mock_register_ref.set.call_count)
+
+  def testStartSubscribeRetry(self):
+    print('TODO')
+
+  def testBreakpointSubscription(self):
     # This class will keep track of the breakpoint updates and will check
     # them against expectations.
     class ResultChecker:
@@ -182,12 +214,13 @@ class FirebaseClientTest(parameterized.TestCase):
     self._client.subscription_complete.wait()
 
     # Send in updates to trigger the subscription callback.
-    fake_subscribe_ref.update('put', '/',
-                              {breakpoints[0]['id']: breakpoints[0]})
-    fake_subscribe_ref.update('patch', '/',
-                              {breakpoints[1]['id']: breakpoints[1]})
-    fake_subscribe_ref.update('put', f'/{breakpoints[2]["id"]}', breakpoints[2])
-    fake_subscribe_ref.update('put', f'/{breakpoints[0]["id"]}', None)
+    self._fake_subscribe_ref.update('put', '/',
+                                    {breakpoints[0]['id']: breakpoints[0]})
+    self._fake_subscribe_ref.update('patch', '/',
+                                    {breakpoints[1]['id']: breakpoints[1]})
+    self._fake_subscribe_ref.update('put', f'/{breakpoints[2]["id"]}',
+                                    breakpoints[2])
+    self._fake_subscribe_ref.update('put', f'/{breakpoints[0]["id"]}', None)
 
     self.assertEqual(len(expected_results), result_checker._change_count)
 

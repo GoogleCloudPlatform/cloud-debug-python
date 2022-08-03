@@ -22,6 +22,7 @@ import requests
 import socket
 import sys
 import threading
+import time
 import traceback
 
 import firebase_admin
@@ -283,7 +284,12 @@ class FirebaseClient(object):
     firebase_admin.initialize_app(self._credentials,
                                   {'databaseURL': self._database_url})
 
-    self._RegisterDebuggee()
+    registration_required, delay = True, 0
+    while registration_required:
+      print(f'attempting registration; delay is {delay}')
+      time.sleep(delay)
+      registration_required, delay = self._RegisterDebuggee()
+
     self.registration_complete.set()
     self._SubscribeToBreakpoints()
     self.subscription_complete.set()
@@ -324,10 +330,12 @@ class FirebaseClient(object):
         self.register_backoff.Succeeded()
         return (False, 0)  # Proceed immediately to subscribing to breakpoints.
       except BaseException:
+        # There is no significant benefit to handing different exceptions
+        # in different ways; we will log and retry regardless.
         native.LogInfo(f'Failed to register debuggee: {traceback.format_exc()}')
     except BaseException:
-      native.LogWarning('Debuggee information not available: ' +
-                        traceback.format_exc())
+      native.LogWarning(
+          f'Debuggee information not available: {traceback.format_exc()}')
 
     return (True, self.register_backoff.Failed())
 
