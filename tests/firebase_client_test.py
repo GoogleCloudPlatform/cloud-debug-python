@@ -5,6 +5,7 @@ import os
 import socket
 import sys
 import tempfile
+import time
 from unittest import mock
 from unittest.mock import MagicMock
 from unittest.mock import call
@@ -61,9 +62,13 @@ class FirebaseClientTest(parameterized.TestCase):
     self.breakpoints = {}
 
     # Speed up the delays for retry loops.
-    self._client.register_backoff.min_interval_sec /= 100000.0
-    self._client.register_backoff.max_interval_sec /= 100000.0
-    self._client.register_backoff._current_interval_sec /= 100000.0
+    for backoff in [
+        self._client.register_backoff, self._client.subscribe_backoff,
+        self._client.update_backoff
+    ]:
+      backoff.min_interval_sec /= 100000.0
+      backoff.max_interval_sec /= 100000.0
+      backoff._current_interval_sec /= 100000.0
 
     # Set up patchers.
     patcher = patch('firebase_admin.initialize_app')
@@ -128,10 +133,7 @@ class FirebaseClientTest(parameterized.TestCase):
         self._client.SetupAuth()
 
   def testStart(self):
-    self._mock_register_ref.set.side_effect = [None]
-
     self._client.SetupAuth(project_id=TEST_PROJECT_ID)
-    print('alive')
     self._client.Start()
     self._client.subscription_complete.wait()
 
@@ -161,7 +163,21 @@ class FirebaseClientTest(parameterized.TestCase):
     self.assertEqual(2, self._mock_register_ref.set.call_count)
 
   def testStartSubscribeRetry(self):
-    print('TODO')
+    mock_subscribe_ref = MagicMock()
+    mock_subscribe_ref.listen.side_effect = FirebaseError(1, 'foo')
+
+    # A new db ref is fetched on each retry.
+    self._mock_db_ref.side_effect = [
+        self._mock_register_ref,
+        mock_subscribe_ref,  # Fail the first time
+        self._fake_subscribe_ref  # Succeed the second time
+    ]
+
+    self._client.SetupAuth(project_id=TEST_PROJECT_ID)
+    self._client.Start()
+    self._client.subscription_complete.wait()
+
+    self.assertEqual(3, self._mock_db_ref.call_count)
 
   def testBreakpointSubscription(self):
     # This class will keep track of the breakpoint updates and will check
@@ -223,6 +239,83 @@ class FirebaseClientTest(parameterized.TestCase):
     self._fake_subscribe_ref.update('put', f'/{breakpoints[0]["id"]}', None)
 
     self.assertEqual(len(expected_results), result_checker._change_count)
+
+  def testEnqueueBreakpointUpdate(self):
+    active_ref_mock = MagicMock()
+    snapshot_ref_mock = MagicMock()
+    final_ref_mock = MagicMock()
+
+    self._mock_db_ref.side_effect = [
+        self._mock_register_ref, self._fake_subscribe_ref, active_ref_mock,
+        snapshot_ref_mock, final_ref_mock
+    ]
+
+    self._client.SetupAuth(project_id=TEST_PROJECT_ID)
+    self._client.Start()
+    self._client.subscription_complete.wait()
+
+    debuggee_id = self._client._debuggee_id
+    breakpoint_id = 'breakpoint-0'
+
+    input_breakpoint = {
+        'id': breakpoint_id,
+        'location': {
+            'path': 'foo.py',
+            'line': 18
+        },
+        'isFinalState': True,
+        'evaluatedExpressions': ['expressions go here'],
+        'stackFrames': ['stuff goes here'],
+        'variableTable': ['lots', 'of', 'variables'],
+    }
+    short_breakpoint = {
+        'id': breakpoint_id,
+        'location': {
+            'path': 'foo.py',
+            'line': 18
+        },
+        'isFinalState': True,
+        'action': 'CAPTURE',
+        'finalTimeUnixMsec': {
+            '.sv': 'timestamp'
+        }
+    }
+    full_breakpoint = {
+        'id': breakpoint_id,
+        'location': {
+            'path': 'foo.py',
+            'line': 18
+        },
+        'isFinalState': True,
+        'action': 'CAPTURE',
+        'evaluatedExpressions': ['expressions go here'],
+        'stackFrames': ['stuff goes here'],
+        'variableTable': ['lots', 'of', 'variables'],
+        'finalTimeUnixMsec': {
+            '.sv': 'timestamp'
+        }
+    }
+
+    self._client.EnqueueBreakpointUpdate(input_breakpoint)
+
+    # Wait for the breakpoint to be sent.
+    while self._client._transmission_queue:
+      time.sleep(0.1)
+
+    db_ref_calls = self._mock_db_ref.call_args_list
+    self.assertEqual(
+        call(f'cdbg/breakpoints/{debuggee_id}/active/{breakpoint_id}'),
+        db_ref_calls[2])
+    self.assertEqual(
+        call(f'cdbg/breakpoints/{debuggee_id}/snapshots/{breakpoint_id}'),
+        db_ref_calls[3])
+    self.assertEqual(
+        call(f'cdbg/breakpoints/{debuggee_id}/final/{breakpoint_id}'),
+        db_ref_calls[4])
+
+    active_ref_mock.delete.assert_called_once()
+    snapshot_ref_mock.set.assert_called_once_with(full_breakpoint)
+    final_ref_mock.set.assert_called_once_with(short_breakpoint)
 
   def _TestInitializeLabels(self, module_var, version_var, minor_var):
     self._client.SetupAuth(project_id=TEST_PROJECT_ID)

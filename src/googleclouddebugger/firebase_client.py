@@ -14,6 +14,7 @@
 """Communicates with Firebase RTDB backend."""
 
 from collections import deque
+import copy
 import hashlib
 import json
 import os
@@ -115,6 +116,7 @@ class FirebaseClient(object):
 
     # Delay before retrying failed request.
     self.register_backoff = backoff.Backoff()  # Register debuggee.
+    self.subscribe_backoff = backoff.Backoff()  # Subscribe to updates.
     self.update_backoff = backoff.Backoff()  # Update breakpoint.
 
     # Maximum number of times that the message is re-transmitted before it
@@ -280,18 +282,19 @@ class FirebaseClient(object):
     self._breakpoint_subscription.
     """
     # Note: if self._credentials is None, default app credentials will be used.
-    # TODO: Error handling.
     firebase_admin.initialize_app(self._credentials,
                                   {'databaseURL': self._database_url})
 
     registration_required, delay = True, 0
     while registration_required:
-      print(f'attempting registration; delay is {delay}')
       time.sleep(delay)
       registration_required, delay = self._RegisterDebuggee()
-
     self.registration_complete.set()
-    self._SubscribeToBreakpoints()
+
+    subscription_required, delay = True, 0
+    while subscription_required:
+      time.sleep(delay)
+      subscription_required, delay = self._SubscribeToBreakpoints()
     self.subscription_complete.set()
 
   def _TransmissionThreadProc(self):
@@ -348,7 +351,13 @@ class FirebaseClient(object):
     path = f'cdbg/breakpoints/{self._debuggee_id}/active'
     native.LogInfo(f'Subscribing to breakpoint updates at {path}')
     ref = firebase_admin.db.reference(path)
-    self._breakpoint_subscription = ref.listen(self._ActiveBreakpointCallback)
+    try:
+      self._breakpoint_subscription = ref.listen(self._ActiveBreakpointCallback)
+      return (False, 0)
+  except firebase_admin.exceptions.FirebaseError:
+      native.LogInfo(
+          f'Failed to subscribe to breakpoints: {traceback.format_exc()}')
+      return (True, self.subscribe_backoff.Failed())
 
   def _ActiveBreakpointCallback(self, event):
     if event.event_type == 'put':
@@ -418,7 +427,7 @@ class FirebaseClient(object):
       try:
         # Something has changed on the breakpoint.
         # It should be going from active to final, but let's make sure.
-        if not breakpoint_data['isFinalState']:
+        if not breakpoint_data.get('isFinalState'):
           raise BaseException(
               f'Unexpected breakpoint update requested: {breakpoint_data}')
 
@@ -441,7 +450,7 @@ class FirebaseClient(object):
           # Note that there may not be snapshot data.
           bp_ref = firebase_admin.db.reference(
               f'cdbg/breakpoints/{self._debuggee_id}/snapshots/{bp_id}')
-          bp_ref.set(breakpoint_data)
+          bp_ref.set(copy.deepcopy(breakpoint_data))
 
           # Now strip potential snapshot data.
           breakpoint_data.pop('evaluatedExpressions', None)
