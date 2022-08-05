@@ -317,6 +317,157 @@ class FirebaseClientTest(parameterized.TestCase):
     snapshot_ref_mock.set.assert_called_once_with(full_breakpoint)
     final_ref_mock.set.assert_called_once_with(short_breakpoint)
 
+  def testEnqueueBreakpointUpdateWithFailedLogpoint(self):
+    active_ref_mock = MagicMock()
+    snapshot_ref_mock = MagicMock()
+    final_ref_mock = MagicMock()
+
+    self._mock_db_ref.side_effect = [
+        self._mock_register_ref, self._fake_subscribe_ref, active_ref_mock,
+        final_ref_mock
+    ]
+
+    self._client.SetupAuth(project_id=TEST_PROJECT_ID)
+    self._client.Start()
+    self._client.subscription_complete.wait()
+
+    debuggee_id = self._client._debuggee_id
+    breakpoint_id = 'logpoint-0'
+
+    input_breakpoint = {
+        'id': breakpoint_id,
+        'location': {
+            'path': 'foo.py',
+            'line': 18
+        },
+        'action': 'LOG',
+        'isFinalState': True,
+        'status': {
+            'isError': True,
+            'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
+        },
+    }
+    output_breakpoint = {
+        'id': breakpoint_id,
+        'location': {
+            'path': 'foo.py',
+            'line': 18
+        },
+        'isFinalState': True,
+        'action': 'LOG',
+        'status': {
+            'isError': True,
+            'refersTo': 'BREAKPOINT_SOURCE_LOCATION',
+        },
+        'finalTimeUnixMsec': {
+            '.sv': 'timestamp'
+        }
+    }
+
+    self._client.EnqueueBreakpointUpdate(input_breakpoint)
+
+    # Wait for the breakpoint to be sent.
+    while self._client._transmission_queue:
+      time.sleep(0.1)
+
+    db_ref_calls = self._mock_db_ref.call_args_list
+    self.assertEqual(
+        call(f'cdbg/breakpoints/{debuggee_id}/active/{breakpoint_id}'),
+        db_ref_calls[2])
+    self.assertEqual(
+        call(f'cdbg/breakpoints/{debuggee_id}/final/{breakpoint_id}'),
+        db_ref_calls[3])
+
+    active_ref_mock.delete.assert_called_once()
+    final_ref_mock.set.assert_called_once_with(output_breakpoint)
+
+  def testEnqueueBreakpointUpdateRetry(self):
+    active_ref_mock = MagicMock()
+    snapshot_ref_mock = MagicMock()
+    final_ref_mock = MagicMock()
+
+    # This test will have multiple failures, one for each of the firebase writes.
+    # UNAVAILABLE errors are retryable.
+    active_ref_mock.delete.side_effect = [
+        FirebaseError('UNAVAILABLE', 'active error'), None, None, None
+    ]
+    snapshot_ref_mock.set.side_effect = [
+        FirebaseError('UNAVAILABLE', 'snapshot error'), None, None
+    ]
+    final_ref_mock.set.side_effect = [
+        FirebaseError('UNAVAILABLE', 'final error'), None
+    ]
+
+    self._mock_db_ref.side_effect = [
+        self._mock_register_ref,
+        self._fake_subscribe_ref,  # setup
+        active_ref_mock,  # attempt 1
+        active_ref_mock,
+        snapshot_ref_mock,  # attempt 2
+        active_ref_mock,
+        snapshot_ref_mock,
+        final_ref_mock,  # attempt 3
+        active_ref_mock,
+        snapshot_ref_mock,
+        final_ref_mock  # attempt 4
+    ]
+
+    self._client.SetupAuth(project_id=TEST_PROJECT_ID)
+    self._client.Start()
+    self._client.subscription_complete.wait()
+
+    debuggee_id = self._client._debuggee_id
+    breakpoint_id = 'breakpoint-0'
+
+    input_breakpoint = {
+        'id': breakpoint_id,
+        'location': {
+            'path': 'foo.py',
+            'line': 18
+        },
+        'isFinalState': True,
+        'evaluatedExpressions': ['expressions go here'],
+        'stackFrames': ['stuff goes here'],
+        'variableTable': ['lots', 'of', 'variables'],
+    }
+    short_breakpoint = {
+        'id': breakpoint_id,
+        'location': {
+            'path': 'foo.py',
+            'line': 18
+        },
+        'isFinalState': True,
+        'action': 'CAPTURE',
+        'finalTimeUnixMsec': {
+            '.sv': 'timestamp'
+        }
+    }
+    full_breakpoint = {
+        'id': breakpoint_id,
+        'location': {
+            'path': 'foo.py',
+            'line': 18
+        },
+        'isFinalState': True,
+        'action': 'CAPTURE',
+        'evaluatedExpressions': ['expressions go here'],
+        'stackFrames': ['stuff goes here'],
+        'variableTable': ['lots', 'of', 'variables'],
+        'finalTimeUnixMsec': {
+            '.sv': 'timestamp'
+        }
+    }
+
+    self._client.EnqueueBreakpointUpdate(input_breakpoint)
+
+    # Wait for the breakpoint to be sent.  Retries will have occured.
+    while self._client._transmission_queue:
+      time.sleep(0.1)
+
+    active_ref_mock.delete.assert_has_calls([call()] * 4)
+    snapshot_ref_mock.set.assert_has_calls([call(full_breakpoint)] * 3)
+    final_ref_mock.set.assert_has_calls([call(short_breakpoint)] * 2)
+
   def _TestInitializeLabels(self, module_var, version_var, minor_var):
     self._client.SetupAuth(project_id=TEST_PROJECT_ID)
 

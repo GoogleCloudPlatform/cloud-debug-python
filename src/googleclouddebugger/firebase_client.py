@@ -445,22 +445,24 @@ class FirebaseClient(object):
             f'cdbg/breakpoints/{self._debuggee_id}/active/{bp_id}')
         bp_ref.delete()
 
+        summary_data = breakpoint_data
         # Save snapshot data for snapshots only.
         if is_snapshot:
           # Note that there may not be snapshot data.
           bp_ref = firebase_admin.db.reference(
               f'cdbg/breakpoints/{self._debuggee_id}/snapshots/{bp_id}')
-          bp_ref.set(copy.deepcopy(breakpoint_data))
+          bp_ref.set(breakpoint_data)
 
           # Now strip potential snapshot data.
-          breakpoint_data.pop('evaluatedExpressions', None)
-          breakpoint_data.pop('stackFrames', None)
-          breakpoint_data.pop('variableTable', None)
+          summary_data = copy.deepcopy(breakpoint_data)
+          summary_data.pop('evaluatedExpressions', None)
+          summary_data.pop('stackFrames', None)
+          summary_data.pop('variableTable', None)
 
         # Then add it to the list of final breakpoints.
         bp_ref = firebase_admin.db.reference(
             f'cdbg/breakpoints/{self._debuggee_id}/final/{bp_id}')
-        bp_ref.set(breakpoint_data)
+        bp_ref.set(summary_data)
 
         native.LogInfo(f'Breakpoint {bp_id} update transmitted successfully')
 
