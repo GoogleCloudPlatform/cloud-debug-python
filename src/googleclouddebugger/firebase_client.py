@@ -354,7 +354,7 @@ class FirebaseClient(object):
     try:
       self._breakpoint_subscription = ref.listen(self._ActiveBreakpointCallback)
       return (False, 0)
-  except firebase_admin.exceptions.FirebaseError:
+    except firebase_admin.exceptions.FirebaseError:
       native.LogInfo(
           f'Failed to subscribe to breakpoints: {traceback.format_exc()}')
       return (True, self.subscribe_backoff.Failed())
