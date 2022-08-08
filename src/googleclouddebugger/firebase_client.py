@@ -20,7 +20,6 @@ import json
 import os
 import platform
 import requests
-import socket
 import sys
 import threading
 import time
@@ -282,8 +281,14 @@ class FirebaseClient(object):
     self._breakpoint_subscription.
     """
     # Note: if self._credentials is None, default app credentials will be used.
-    firebase_admin.initialize_app(self._credentials,
-                                  {'databaseURL': self._database_url})
+    try:
+      firebase_admin.initialize_app(self._credentials,
+                                    {'databaseURL': self._database_url})
+    except ValueError:
+      native.LogWarning(
+          f'Failed to initialize firebase: {traceback.format_exc()}')
+      native.LogError('Failed to start debugger agent.  Giving up.')
+      return
 
     registration_required, delay = True, 0
     while registration_required:
@@ -319,28 +324,29 @@ class FirebaseClient(object):
     Returns:
       (registration_required, delay) tuple
     """
+    debuggee = None
     try:
       debuggee = self._GetDebuggee()
       self._debuggee_id = debuggee['id']
-
-      try:
-        debuggee_path = f'cdbg/debuggees/{self._debuggee_id}'
-        native.LogInfo(
-            f'registering at {self._database_url}, path: {debuggee_path}')
-        firebase_admin.db.reference(debuggee_path).set(debuggee)
-        native.LogInfo(
-            f'Debuggee registered successfully, ID: {self._debuggee_id}')
-        self.register_backoff.Succeeded()
-        return (False, 0)  # Proceed immediately to subscribing to breakpoints.
-      except BaseException:
-        # There is no significant benefit to handing different exceptions
-        # in different ways; we will log and retry regardless.
-        native.LogInfo(f'Failed to register debuggee: {traceback.format_exc()}')
     except BaseException:
       native.LogWarning(
           f'Debuggee information not available: {traceback.format_exc()}')
+      return (True, self.register_backoff.Failed())
 
-    return (True, self.register_backoff.Failed())
+    try:
+      debuggee_path = f'cdbg/debuggees/{self._debuggee_id}'
+      native.LogInfo(
+          f'registering at {self._database_url}, path: {debuggee_path}')
+      firebase_admin.db.reference(debuggee_path).set(debuggee)
+      native.LogInfo(
+          f'Debuggee registered successfully, ID: {self._debuggee_id}')
+      self.register_backoff.Succeeded()
+      return (False, 0)  # Proceed immediately to subscribing to breakpoints.
+    except BaseException:
+      # There is no significant benefit to handing different exceptions
+      # in different ways; we will log and retry regardless.
+      native.LogInfo(f'Failed to register debuggee: {traceback.format_exc()}')
+      return (True, self.register_backoff.Failed())
 
   def _SubscribeToBreakpoints(self):
     # Kill any previous subscriptions first.
@@ -427,7 +433,7 @@ class FirebaseClient(object):
       try:
         # Something has changed on the breakpoint.
         # It should be going from active to final, but let's make sure.
-        if not breakpoint_data.get('isFinalState'):
+        if not breakpoint_data.get('isFinalState', False):
           raise BaseException(
               f'Unexpected breakpoint update requested: {breakpoint_data}')
 
@@ -479,15 +485,7 @@ class FirebaseClient(object):
           # This is very common if multiple instances are sending final update
           # simultaneously.
           native.LogInfo(f'{err}, breakpoint: {bp_id}')
-      except socket.error as err:
-        if retry_count < self.max_transmit_attempts - 1:
-          native.LogInfo(f'Socket error {err.errno} while sending breakpoint '
-                         f'{bp_id} update: {traceback.format_exc()}')
-          retry_list.append((breakpoint_data, retry_count + 1))
-        else:
-          native.LogWarning(f'Breakpoint {bp_id} retry count exceeded maximum')
-          # Socket errors shouldn't persist like this; reconnect.
-          #reconnect = True
+
       except BaseException:
         native.LogWarning(f'Fatal error sending breakpoint {bp_id} update: '
                           f'{traceback.format_exc()}')

@@ -1,8 +1,6 @@
 """Unit tests for firebase_client module."""
 
-import errno
 import os
-import socket
 import sys
 import tempfile
 import time
@@ -13,7 +11,6 @@ from unittest.mock import patch
 import requests
 import requests_mock
 
-from googleapiclient.errors import HttpError
 from googleclouddebugger import version
 from googleclouddebugger import firebase_client
 
@@ -145,6 +142,10 @@ class FirebaseClientTest(parameterized.TestCase):
         call(f'cdbg/debuggees/{debuggee_id}'),
         call(f'cdbg/breakpoints/{debuggee_id}/active')
     ], self._mock_db_ref.call_args_list)
+
+    # Verify that the register call has been made.
+    self._mock_register_ref.set.assert_called_once_with(
+        self._client._GetDebuggee())
 
   def testStartRegisterRetry(self):
     # A new db ref is fetched on each retry.
@@ -317,9 +318,8 @@ class FirebaseClientTest(parameterized.TestCase):
     snapshot_ref_mock.set.assert_called_once_with(full_breakpoint)
     final_ref_mock.set.assert_called_once_with(short_breakpoint)
 
-  def testEnqueueBreakpointUpdateWithFailedLogpoint(self):
+  def testEnqueueBreakpointUpdateWithLogpoint(self):
     active_ref_mock = MagicMock()
-    snapshot_ref_mock = MagicMock()
     final_ref_mock = MagicMock()
 
     self._mock_db_ref.side_effect = [
@@ -386,7 +386,7 @@ class FirebaseClientTest(parameterized.TestCase):
     snapshot_ref_mock = MagicMock()
     final_ref_mock = MagicMock()
 
-    # This test will have multiple failures, one for each of the firebase writes.
+    # This test will have three failures, one for each of the firebase writes.
     # UNAVAILABLE errors are retryable.
     active_ref_mock.delete.side_effect = [
         FirebaseError('UNAVAILABLE', 'active error'), None, None, None
@@ -416,7 +416,6 @@ class FirebaseClientTest(parameterized.TestCase):
     self._client.Start()
     self._client.subscription_complete.wait()
 
-    debuggee_id = self._client._debuggee_id
     breakpoint_id = 'breakpoint-0'
 
     input_breakpoint = {
