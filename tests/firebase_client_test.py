@@ -381,6 +381,11 @@ class FirebaseClientTest(parameterized.TestCase):
     active_ref_mock.delete.assert_called_once()
     final_ref_mock.set.assert_called_once_with(output_breakpoint)
 
+    # Make sure that the snapshots node was not accessed.
+    self.assertTrue(
+        call(f'cdbg/breakpoints/{debuggee_id}/snapshots/{breakpoint_id}') not in
+        db_ref_calls)
+
   def testEnqueueBreakpointUpdateRetry(self):
     active_ref_mock = MagicMock()
     snapshot_ref_mock = MagicMock()
