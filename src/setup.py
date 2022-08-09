@@ -105,6 +105,7 @@ setup(
         'google-auth>=1.0.0',
         'google-auth-httplib2',
         'google-api-core',
+        'firebase-admin==5.2.0',
         'pyyaml',
     ],
     packages=['googleclouddebugger'],
