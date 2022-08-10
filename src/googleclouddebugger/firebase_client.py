@@ -456,7 +456,7 @@ class FirebaseClient(object):
         if is_snapshot:
           # Note that there may not be snapshot data.
           bp_ref = firebase_admin.db.reference(
-              f'cdbg/breakpoints/{self._debuggee_id}/snapshots/{bp_id}')
+              f'cdbg/breakpoints/{self._debuggee_id}/snapshot/{bp_id}')
           bp_ref.set(breakpoint_data)
 
           # Now strip potential snapshot data.
