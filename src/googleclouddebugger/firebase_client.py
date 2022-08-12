@@ -373,7 +373,8 @@ class FirebaseClient(object):
         # If deleting, event.path will be /{breakpointid}
         if event.path != '/':
           breakpoint_id = event.path[1:]
-          del self._breakpoints[breakpoint_id]
+          # Breakpoint may have already been deleted, so pop for possible no-op.
+          self._breakpoints.pop(breakpoint_id, None) 
       else:
         if event.path == '/':
           # New set of breakpoints.

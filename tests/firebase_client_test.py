@@ -219,9 +219,12 @@ class FirebaseClientTest(parameterized.TestCase):
         },
     ]
 
-    expected_results = [[breakpoints[0]], [breakpoints[0], breakpoints[1]],
+    expected_results = [[breakpoints[0]],
+                        [breakpoints[0], breakpoints[1]],
                         [breakpoints[0], breakpoints[1], breakpoints[2]],
-                        [breakpoints[1], breakpoints[2]]]
+                        [breakpoints[1], breakpoints[2]],
+                        [breakpoints[1], breakpoints[2]]
+                       ]
     result_checker = ResultChecker(expected_results, self)
 
     self._client.on_active_breakpoints_changed = result_checker.callback
@@ -231,12 +234,19 @@ class FirebaseClientTest(parameterized.TestCase):
     self._client.subscription_complete.wait()
 
     # Send in updates to trigger the subscription callback.
+
+    # Initial state.
     self._fake_subscribe_ref.update('put', '/',
                                     {breakpoints[0]['id']: breakpoints[0]})
+    # Add a breakpoint via patch.
     self._fake_subscribe_ref.update('patch', '/',
                                     {breakpoints[1]['id']: breakpoints[1]})
+    # Add a breakpoint via put.
     self._fake_subscribe_ref.update('put', f'/{breakpoints[2]["id"]}',
                                     breakpoints[2])
+    # Delete a breakpoint.
+    self._fake_subscribe_ref.update('put', f'/{breakpoints[0]["id"]}', None)
+    # Delete the breakpoint a second time; should handle this gracefully.
     self._fake_subscribe_ref.update('put', f'/{breakpoints[0]["id"]}', None)
 
     self.assertEqual(len(expected_results), result_checker._change_count)
