@@ -335,7 +335,7 @@ in whatever way you desire.
 It is recommended that you do this within a
 [virtual environment](https://docs.python.org/3/library/venv.html).
 
-### Build & Release
+### Build & Release (for project owners)
 
 Before performing a release, be sure to update the version number in
 `src/googleclouddebugger/version.py`.  Tag the commit that increments the
