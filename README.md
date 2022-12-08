@@ -300,3 +300,52 @@ environment variable.
 It expects a boolean value (`True`/`False`) or a string, with `'True'`
 interpreted as `True` and any other string interpreted as `False`). If not
 provided, the breakpoint canarying will not be enabled.
+
+## Development
+
+The following instructions are intended to help with modifying the codebase.
+
+### Testing
+
+#### Unit tests
+
+Run the `build_and_test.sh` script from the root of the repository to build and
+run the unit tests using the locally installed version of Python.
+
+#### Local development
+
+You may want to run an agent with local changes in an application in order to
+validate functionality in a way that unit tests don't fully cover.  To do this,
+you will need to build the agent:
+```
+cd src
+./build.sh
+cd ..
+```
+
+The built agent will be available in the `src/dist` directory.  You can now
+force the installation of the agent using:
+```
+pip3 install src/dist/* --force-reinstall
+```
+
+You can now run your test application using the development build of the agent
+in whatever way you desire.
+
+It is recommended that you do this within a
+[virtual environment](https://docs.python.org/3/library/venv.html).
+
+### Build & Release
+
+Before performing a release, be sure to update the version number in
+`src/googleclouddebugger/version.py`.  Tag the commit that increments the
+version number (eg. `v3.1`) and create a Github release.
+
+Run the `build-dist.sh` script from the root of the repository to build,
+test, and generate the distribution whls.  You may need to use `sudo`
+depending on your system's docker setup.
+
+Build artifacts will be placed in `/dist` and can be pushed to pypi by running:
+```
+twine upload dist/*.whl
+```
