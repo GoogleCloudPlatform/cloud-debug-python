@@ -1,5 +1,6 @@
 """Unit tests for firebase_client module."""
 
+import copy
 import os
 import sys
 import tempfile
@@ -77,10 +78,14 @@ class FirebaseClientTest(parameterized.TestCase):
     self.addCleanup(patcher.stop)
 
     # Set up the mocks for the database refs.
+    self._mock_presence_ref = MagicMock()
+    self._mock_presence_ref.get.return_value = None
+    self._mock_active_ref = MagicMock()
     self._mock_register_ref = MagicMock()
     self._fake_subscribe_ref = FakeReference()
     self._mock_db_ref.side_effect = [
-        self._mock_register_ref, self._fake_subscribe_ref
+        self._mock_presence_ref, self._mock_register_ref,
+        self._fake_subscribe_ref
     ]
 
   def tearDown(self):
@@ -139,18 +144,43 @@ class FirebaseClientTest(parameterized.TestCase):
     self._mock_initialize_app.assert_called_with(
         None, {'databaseURL': f'https://{TEST_PROJECT_ID}-cdbg.firebaseio.com'})
     self.assertEqual([
+        call(f'cdbg/debuggees/{debuggee_id}/registrationTimeUnixMsec'),
         call(f'cdbg/debuggees/{debuggee_id}'),
         call(f'cdbg/breakpoints/{debuggee_id}/active')
     ], self._mock_db_ref.call_args_list)
 
     # Verify that the register call has been made.
-    self._mock_register_ref.set.assert_called_once_with(
-        self._client._GetDebuggee())
+    expected_data = copy.deepcopy(self._client._GetDebuggee())
+    expected_data['registrationTimeUnixMsec'] = {'.sv': 'timestamp'}
+    expected_data['lastUpdateTimeUnixMsec'] = {'.sv': 'timestamp'}
+    self._mock_register_ref.set.assert_called_once_with(expected_data)
+
+  def testStartAlreadyPresent(self):
+    self._mock_db_ref.side_effect = [
+        self._mock_presence_ref, self._mock_active_ref, self._fake_subscribe_ref
+    ]
+    self._mock_presence_ref.get.return_value = 'present!'
+
+    self._client.SetupAuth(project_id=TEST_PROJECT_ID)
+    self._client.Start()
+    self._client.subscription_complete.wait()
+
+    debuggee_id = self._client._debuggee_id
+
+    self.assertEqual([
+        call(f'cdbg/debuggees/{debuggee_id}/registrationTimeUnixMsec'),
+        call(f'cdbg/debuggees/{debuggee_id}/lastUpdateTimeUnixMsec'),
+        call(f'cdbg/breakpoints/{debuggee_id}/active')
+    ], self._mock_db_ref.call_args_list)
+
+    # Verify that the register call has been made.
+    self._mock_active_ref.set.assert_called_once_with({'.sv': 'timestamp'})
 
   def testStartRegisterRetry(self):
-    # A new db ref is fetched on each retry.
+    # A new set of db refs are fetched on each retry.
     self._mock_db_ref.side_effect = [
-        self._mock_register_ref, self._mock_register_ref,
+        self._mock_presence_ref, self._mock_register_ref,
+        self._mock_presence_ref, self._mock_register_ref,
         self._fake_subscribe_ref
     ]
 
@@ -219,12 +249,10 @@ class FirebaseClientTest(parameterized.TestCase):
         },
     ]
 
-    expected_results = [[breakpoints[0]],
-                        [breakpoints[0], breakpoints[1]],
+    expected_results = [[breakpoints[0]], [breakpoints[0], breakpoints[1]],
                         [breakpoints[0], breakpoints[1], breakpoints[2]],
                         [breakpoints[1], breakpoints[2]],
-                        [breakpoints[1], breakpoints[2]]
-                       ]
+                        [breakpoints[1], breakpoints[2]]]
     result_checker = ResultChecker(expected_results, self)
 
     self._client.on_active_breakpoints_changed = result_checker.callback
@@ -257,8 +285,9 @@ class FirebaseClientTest(parameterized.TestCase):
     final_ref_mock = MagicMock()
 
     self._mock_db_ref.side_effect = [
-        self._mock_register_ref, self._fake_subscribe_ref, active_ref_mock,
-        snapshot_ref_mock, final_ref_mock
+        self._mock_presence_ref, self._mock_register_ref,
+        self._fake_subscribe_ref, active_ref_mock, snapshot_ref_mock,
+        final_ref_mock
     ]
 
     self._client.SetupAuth(project_id=TEST_PROJECT_ID)
@@ -316,13 +345,13 @@ class FirebaseClientTest(parameterized.TestCase):
     db_ref_calls = self._mock_db_ref.call_args_list
     self.assertEqual(
         call(f'cdbg/breakpoints/{debuggee_id}/active/{breakpoint_id}'),
-        db_ref_calls[2])
-    self.assertEqual(
-        call(f'cdbg/breakpoints/{debuggee_id}/snapshot/{breakpoint_id}'),
         db_ref_calls[3])
     self.assertEqual(
-        call(f'cdbg/breakpoints/{debuggee_id}/final/{breakpoint_id}'),
+        call(f'cdbg/breakpoints/{debuggee_id}/snapshot/{breakpoint_id}'),
         db_ref_calls[4])
+    self.assertEqual(
+        call(f'cdbg/breakpoints/{debuggee_id}/final/{breakpoint_id}'),
+        db_ref_calls[5])
 
     active_ref_mock.delete.assert_called_once()
     snapshot_ref_mock.set.assert_called_once_with(full_breakpoint)
@@ -333,8 +362,8 @@ class FirebaseClientTest(parameterized.TestCase):
     final_ref_mock = MagicMock()
 
     self._mock_db_ref.side_effect = [
-        self._mock_register_ref, self._fake_subscribe_ref, active_ref_mock,
-        final_ref_mock
+        self._mock_presence_ref, self._mock_register_ref,
+        self._fake_subscribe_ref, active_ref_mock, final_ref_mock
     ]
 
     self._client.SetupAuth(project_id=TEST_PROJECT_ID)
@@ -383,10 +412,10 @@ class FirebaseClientTest(parameterized.TestCase):
     db_ref_calls = self._mock_db_ref.call_args_list
     self.assertEqual(
         call(f'cdbg/breakpoints/{debuggee_id}/active/{breakpoint_id}'),
-        db_ref_calls[2])
+        db_ref_calls[3])
     self.assertEqual(
         call(f'cdbg/breakpoints/{debuggee_id}/final/{breakpoint_id}'),
-        db_ref_calls[3])
+        db_ref_calls[4])
 
     active_ref_mock.delete.assert_called_once()
     final_ref_mock.set.assert_called_once_with(output_breakpoint)
@@ -414,6 +443,7 @@ class FirebaseClientTest(parameterized.TestCase):
     ]
 
     self._mock_db_ref.side_effect = [
+        self._mock_presence_ref,
         self._mock_register_ref,
         self._fake_subscribe_ref,  # setup
         active_ref_mock,  # attempt 1

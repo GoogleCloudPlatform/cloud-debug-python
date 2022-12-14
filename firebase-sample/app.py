@@ -1,11 +1,12 @@
 import googleclouddebugger
-googleclouddebugger.enable(use_firebase= True)
+
+googleclouddebugger.enable(use_firebase=True)
 
 from flask import Flask
 
 app = Flask(__name__)
 
+
 @app.route("/")
 def hello_world():
   return "<p>Hello World!</p>"
-
