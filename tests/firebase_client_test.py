@@ -156,10 +156,13 @@ class FirebaseClientTest(parameterized.TestCase):
     self._mock_register_ref.set.assert_called_once_with(expected_data)
 
   def testStartAlreadyPresent(self):
+    # Create a mock for just this test that claims the debuggee is registered.
+    mock_presence_ref = MagicMock()
+    mock_presence_ref.get.return_value = 'present!'
+
     self._mock_db_ref.side_effect = [
-        self._mock_presence_ref, self._mock_active_ref, self._fake_subscribe_ref
+        mock_presence_ref, self._mock_active_ref, self._fake_subscribe_ref
     ]
-    self._mock_presence_ref.get.return_value = 'present!'
 
     self._client.SetupAuth(project_id=TEST_PROJECT_ID)
     self._client.Start()
@@ -199,6 +202,7 @@ class FirebaseClientTest(parameterized.TestCase):
 
     # A new db ref is fetched on each retry.
     self._mock_db_ref.side_effect = [
+        self._mock_presence_ref,
         self._mock_register_ref,
         mock_subscribe_ref,  # Fail the first time
         self._fake_subscribe_ref  # Succeed the second time
@@ -208,7 +212,28 @@ class FirebaseClientTest(parameterized.TestCase):
     self._client.Start()
     self._client.subscription_complete.wait()
 
-    self.assertEqual(3, self._mock_db_ref.call_count)
+    self.assertEqual(4, self._mock_db_ref.call_count)
+
+  def testMarkActiveTimer(self):
+      # Make sure that there are enough refs queued up.
+      refs = list(self._mock_db_ref.side_effect)
+      refs.extend([self._mock_active_ref] * 10)
+      self._mock_db_ref.side_effect = refs
+
+      # Speed things WAY up rather than waiting for hours.
+      self._client._mark_active_interval_sec = 0.1
+
+      self._client.SetupAuth(project_id=TEST_PROJECT_ID)
+      self._client.Start()
+      self._client.subscription_complete.wait()
+
+      # wait long enough for the timer to trigger a few times.
+      time.sleep(0.5)
+
+      print(f'Timer triggered {self._mock_active_ref.set.call_count} times')
+      self.assertTrue(self._mock_active_ref.set.call_count > 3)
+      self._mock_active_ref.set.assert_called_with({'.sv': 'timestamp'})
+
 
   def testBreakpointSubscription(self):
     # This class will keep track of the breakpoint updates and will check

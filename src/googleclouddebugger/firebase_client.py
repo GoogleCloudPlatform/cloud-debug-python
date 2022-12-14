@@ -102,6 +102,8 @@ class FirebaseClient(object):
     self._transmission_thread = None
     self._transmission_thread_startup_lock = threading.Lock()
     self._transmission_queue = deque(maxlen=100)
+    self._mark_active_timer = None
+    self._mark_active_interval_sec = 60 * 60  # 1 hour in seconds
     self._new_updates = threading.Event()
     self._breakpoint_subscription = None
 
@@ -247,6 +249,10 @@ class FirebaseClient(object):
       self._transmission_thread.join()
       self._transmission_thread = None
 
+    if self._mark_active_timer is not None:
+      self._mark_active_timer.cancel()
+      self._mark_active_timer = None
+
     if self._breakpoint_subscription is not None:
       self._breakpoint_subscription.close()
       self._breakpoint_subscription = None
@@ -303,6 +309,8 @@ class FirebaseClient(object):
       subscription_required, delay = self._SubscribeToBreakpoints()
     self.subscription_complete.set()
 
+    self._StartMarkActiveTimer()
+
   def _TransmissionThreadProc(self):
     """Entry point for the transmission worker thread."""
 
@@ -312,6 +320,19 @@ class FirebaseClient(object):
       delay = self._TransmitBreakpointUpdates()
 
       self._new_updates.wait(delay)
+
+  def _MarkActiveTimerFunc(self):
+    """Entry point for the mark active timer."""
+
+    try:
+      self._MarkDebuggeeActive()
+    finally:
+      self._StartMarkActiveTimer()
+
+  def _StartMarkActiveTimer(self):
+    self._mark_active_timer = threading.Timer(self._mark_active_interval_sec,
+                                              self._MarkActiveTimerFunc)
+    self._mark_active_timer.start()
 
   def _RegisterDebuggee(self):
     """Single attempt to register the debuggee.
