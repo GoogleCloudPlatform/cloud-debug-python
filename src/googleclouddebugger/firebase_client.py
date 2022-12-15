@@ -326,6 +326,9 @@ class FirebaseClient(object):
 
     try:
       self._MarkDebuggeeActive()
+    except:
+      native.LogInfo(
+          f'Failed to mark debuggee as active: {traceback.format_exc()}')
     finally:
       self._StartMarkActiveTimer()
 
