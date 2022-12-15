@@ -102,6 +102,8 @@ class FirebaseClient(object):
     self._transmission_thread = None
     self._transmission_thread_startup_lock = threading.Lock()
     self._transmission_queue = deque(maxlen=100)
+    self._mark_active_timer = None
+    self._mark_active_interval_sec = 60 * 60  # 1 hour in seconds
     self._new_updates = threading.Event()
     self._breakpoint_subscription = None
 
@@ -206,7 +208,8 @@ class FirebaseClient(object):
         try:
           r = requests.get(
               f'{_METADATA_SERVER_URL}/project/project-id',
-              headers={'Metadata-Flavor': 'Google'})
+              headers={'Metadata-Flavor': 'Google'},
+              timeout=1)
           project_id = r.text
         except requests.exceptions.RequestException:
           native.LogInfo('Metadata server not available')
@@ -245,6 +248,10 @@ class FirebaseClient(object):
     if self._transmission_thread is not None:
       self._transmission_thread.join()
       self._transmission_thread = None
+
+    if self._mark_active_timer is not None:
+      self._mark_active_timer.cancel()
+      self._mark_active_timer = None
 
     if self._breakpoint_subscription is not None:
       self._breakpoint_subscription.close()
@@ -302,6 +309,8 @@ class FirebaseClient(object):
       subscription_required, delay = self._SubscribeToBreakpoints()
     self.subscription_complete.set()
 
+    self._StartMarkActiveTimer()
+
   def _TransmissionThreadProc(self):
     """Entry point for the transmission worker thread."""
 
@@ -311,6 +320,22 @@ class FirebaseClient(object):
       delay = self._TransmitBreakpointUpdates()
 
       self._new_updates.wait(delay)
+
+  def _MarkActiveTimerFunc(self):
+    """Entry point for the mark active timer."""
+
+    try:
+      self._MarkDebuggeeActive()
+    except:
+      native.LogInfo(
+          f'Failed to mark debuggee as active: {traceback.format_exc()}')
+    finally:
+      self._StartMarkActiveTimer()
+
+  def _StartMarkActiveTimer(self):
+    self._mark_active_timer = threading.Timer(self._mark_active_interval_sec,
+                                              self._MarkActiveTimerFunc)
+    self._mark_active_timer.start()
 
   def _RegisterDebuggee(self):
     """Single attempt to register the debuggee.
@@ -334,12 +359,21 @@ class FirebaseClient(object):
       return (True, self.register_backoff.Failed())
 
     try:
-      debuggee_path = f'cdbg/debuggees/{self._debuggee_id}'
-      native.LogInfo(
-          f'registering at {self._database_url}, path: {debuggee_path}')
-      firebase_admin.db.reference(debuggee_path).set(debuggee)
+      present = self._CheckDebuggeePresence()
+      if present:
+        self._MarkDebuggeeActive()
+      else:
+        debuggee_path = f'cdbg/debuggees/{self._debuggee_id}'
+        native.LogInfo(
+            f'registering at {self._database_url}, path: {debuggee_path}')
+        debuggee_data = copy.deepcopy(debuggee)
+        debuggee_data['registrationTimeUnixMsec'] = {'.sv': 'timestamp'}
+        debuggee_data['lastUpdateTimeUnixMsec'] = {'.sv': 'timestamp'}
+        firebase_admin.db.reference(debuggee_path).set(debuggee_data)
+
       native.LogInfo(
           f'Debuggee registered successfully, ID: {self._debuggee_id}')
+
       self.register_backoff.Succeeded()
       return (False, 0)  # Proceed immediately to subscribing to breakpoints.
     except BaseException:
@@ -347,6 +381,26 @@ class FirebaseClient(object):
       # in different ways; we will log and retry regardless.
       native.LogInfo(f'Failed to register debuggee: {traceback.format_exc()}')
       return (True, self.register_backoff.Failed())
+
+  def _CheckDebuggeePresence(self):
+    path = f'cdbg/debuggees/{self._debuggee_id}/registrationTimeUnixMsec'
+    try:
+      snapshot = firebase_admin.db.reference(path).get()
+      # The value doesn't matter; just return true if there's any value.
+      return snapshot is not None
+    except BaseException:
+      native.LogInfo(
+          f'Failed to check debuggee presence: {traceback.format_exc()}')
+      return False
+
+  def _MarkDebuggeeActive(self):
+    active_path = f'cdbg/debuggees/{self._debuggee_id}/lastUpdateTimeUnixMsec'
+    try:
+      server_time = {'.sv': 'timestamp'}
+      firebase_admin.db.reference(active_path).set(server_time)
+    except BaseException:
+      native.LogInfo(
+          f'Failed to mark debuggee active: {traceback.format_exc()}')
 
   def _SubscribeToBreakpoints(self):
     # Kill any previous subscriptions first.
@@ -374,7 +428,7 @@ class FirebaseClient(object):
         if event.path != '/':
           breakpoint_id = event.path[1:]
           # Breakpoint may have already been deleted, so pop for possible no-op.
-          self._breakpoints.pop(breakpoint_id, None) 
+          self._breakpoints.pop(breakpoint_id, None)
       else:
         if event.path == '/':
           # New set of breakpoints.
