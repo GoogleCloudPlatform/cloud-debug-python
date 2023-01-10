@@ -224,14 +224,16 @@ Alternatively, you can pass the `--noreload` flag when running the Django
 using the `--noreload` flag disables the autoreload feature in Django, which
 means local changes to files will not be automatically picked up by Django.
 
-### Experimental Firebase Realtime Database Backend
+### Snapshot Debugger - Firebase Realtime Database Backend
 
-This functionality is available for release 3.0 onward of this agent.
+This functionality is available for release 3.0 onward of this agent and
+provides support for the Snapshot Debugger, which is being provided as a
+replacement for the deprecated Cloud Debugger service.
 
 The agent can be configured to use Firebase Realtime Database as a backend
-instead of the deprecated Cloud Debugger service.  If the Firebase backend is
-used, breakpoints can be viewed and set using the Snapshot Debugger CLI instead
-of the Cloud Console.  
+instead of the Cloud Debugger service.  If the Firebase backend is used,
+breakpoints can be viewed and set using the Snapshot Debugger CLI instead of the
+Cloud Console.
 
 To use the Firebase backend, set the flag when enabling the agent:
 
@@ -258,7 +260,8 @@ except ImportError:
   pass
 ```
 
-See https://github.com/GoogleCloudPlatform/snapshot-debugger for more details.
+See https://github.com/GoogleCloudPlatform/snapshot-debugger and
+https://cloud.google.com/debugger/docs/deprecations for more details.
 
 
 ## Flag Reference
