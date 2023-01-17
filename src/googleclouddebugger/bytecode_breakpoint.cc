@@ -82,7 +82,7 @@ int BytecodeBreakpoint::CreateBreakpoint(
   // table in case "code_object" is already patched with another breakpoint.
   CodeObjectLinesEnumerator lines_enumerator(
       code_object->co_firstlineno,
-      code_object_breakpoints->original_lnotab.get());
+      code_object_breakpoints->original_linedata.get());
   while (lines_enumerator.line_number() != line) {
     if (!lines_enumerator.Next()) {
       LOG(ERROR) << "Line " << line << " not found in "
@@ -237,8 +237,13 @@ BytecodeBreakpoint::PreparePatchCodeObject(
     return nullptr;  // Probably a built-in method or uninitialized code object.
   }
 
-  data->original_lnotab =
+#if PY_VERSION_HEX < 0x030A0000
+  data->original_linedata =
       ScopedPyObject::NewReference(code_object.get()->co_lnotab);
+#else
+  data->original_linedata =
+      ScopedPyObject::NewReference(code_object.get()->co_linetable);
+#endif
 
   patches_[code_object] = data.get();
   return data.release();
@@ -262,29 +267,37 @@ void BytecodeBreakpoint::PatchCodeObject(CodeObjectBreakpoints* code) {
             << " from patched " << code->zombie_refs.back().get();
     Py_INCREF(code_object->co_code);
 
+#if PY_VERSION_HEX < 0x030A0000
     if (code_object->co_lnotab != nullptr) {
       code->zombie_refs.push_back(ScopedPyObject(code_object->co_lnotab));
     }
-    code_object->co_lnotab = code->original_lnotab.get();
+    code_object->co_lnotab = code->original_linedata.get();
     Py_INCREF(code_object->co_lnotab);
+#else
+    if (code_object->co_linetable != nullptr) {
+      code->zombie_refs.push_back(ScopedPyObject(code_object->co_linetable));
+    }
+    code_object->co_linetable = code->original_linedata.get();
+    Py_INCREF(code_object->co_linetable);
+#endif
 
     return;
   }
 
   std::vector<uint8_t> bytecode = PyBytesToByteArray(code->original_code.get());
 
-  bool has_lnotab = false;
-  std::vector<uint8_t> lnotab;
-  if (!code->original_lnotab.is_null() &&
-      PyBytes_CheckExact(code->original_lnotab.get())) {
-    has_lnotab = true;
-    lnotab = PyBytesToByteArray(code->original_lnotab.get());
+  bool has_linedata = false;
+  std::vector<uint8_t> linedata;
+  if (!code->original_linedata.is_null() &&
+      PyBytes_CheckExact(code->original_linedata.get())) {
+    has_linedata = true;
+    linedata = PyBytesToByteArray(code->original_linedata.get());
   }
 
   BytecodeManipulator bytecode_manipulator(
       std::move(bytecode),
-      has_lnotab,
-      std::move(lnotab));
+      has_linedata,
+      std::move(linedata));
 
   // Add callbacks to code object constants and patch the bytecode.
   std::vector<PyObject*> callbacks;
@@ -306,17 +319,16 @@ void BytecodeBreakpoint::PatchCodeObject(CodeObjectBreakpoints* code) {
 
     callbacks.push_back(breakpoint.hit_callable.get());
 
-#if PY_MAJOR_VERSION >= 3
     // In Python 3, since we allow upgrading of instructions to use
     // EXTENDED_ARG, the offsets for lines originally calculated might not be
     // accurate, so we need to recalculate them each insertion.
     offset_found = false;
-    if (bytecode_manipulator.has_lnotab()) {
-      ScopedPyObject lnotab(PyBytes_FromStringAndSize(
-          reinterpret_cast<const char*>(bytecode_manipulator.lnotab().data()),
-          bytecode_manipulator.lnotab().size()));
+    if (bytecode_manipulator.has_linedata()) {
+      ScopedPyObject linedata(PyBytes_FromStringAndSize(
+          reinterpret_cast<const char*>(bytecode_manipulator.linedata().data()),
+          bytecode_manipulator.linedata().size()));
       CodeObjectLinesEnumerator lines_enumerator(code_object->co_firstlineno,
-                                                 lnotab.release());
+                                                 linedata.release());
       while (lines_enumerator.line_number() != breakpoint.line) {
         if (!lines_enumerator.Next()) {
           break;
@@ -325,7 +337,6 @@ void BytecodeBreakpoint::PatchCodeObject(CodeObjectBreakpoints* code) {
       }
       offset_found = lines_enumerator.line_number() == breakpoint.line;
     }
-#endif
 
     if (!offset_found ||
         !bytecode_manipulator.InjectMethodCall(offset, const_index)) {
@@ -355,14 +366,25 @@ void BytecodeBreakpoint::PatchCodeObject(CodeObjectBreakpoints* code) {
           << " reassigned to " << code_object->co_code
           << ", original was " << code->original_code.get();
 
-  if (has_lnotab) {
+#if PY_VERSION_HEX < 0x030A0000
+  if (has_linedata) {
     code->zombie_refs.push_back(ScopedPyObject(code_object->co_lnotab));
     ScopedPyObject lnotab_string(PyBytes_FromStringAndSize(
-        reinterpret_cast<const char*>(bytecode_manipulator.lnotab().data()),
-        bytecode_manipulator.lnotab().size()));
+        reinterpret_cast<const char*>(bytecode_manipulator.linedata().data()),
+        bytecode_manipulator.linedata().size()));
     DCHECK(!lnotab_string.is_null());
     code_object->co_lnotab = lnotab_string.release();
   }
+#else
+  if (has_linedata) {
+    code->zombie_refs.push_back(ScopedPyObject(code_object->co_linetable));
+    ScopedPyObject linetable_string(PyBytes_FromStringAndSize(
+        reinterpret_cast<const char*>(bytecode_manipulator.linedata().data()),
+        bytecode_manipulator.linedata().size()));
+    DCHECK(!linetable_string.is_null());
+    code_object->co_linetable = linetable_string.release();
+  }
+#endif
 
   // Invoke error callback after everything else is done. The callback may
   // decide to remove the breakpoint, which will change "code".

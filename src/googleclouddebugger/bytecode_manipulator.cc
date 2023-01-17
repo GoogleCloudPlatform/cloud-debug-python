@@ -228,11 +228,11 @@ static std::vector<PythonInstruction> BuildMethodCall(int const_index) {
 }
 
 BytecodeManipulator::BytecodeManipulator(std::vector<uint8_t> bytecode,
-                                         const bool has_lnotab,
-                                         std::vector<uint8_t> lnotab)
-    : has_lnotab_(has_lnotab) {
+                                         const bool has_linedata,
+                                         std::vector<uint8_t> linedata)
+    : has_linedata_(has_linedata) {
   data_.bytecode = std::move(bytecode);
-  data_.lnotab = std::move(lnotab);
+  data_.linedata = std::move(linedata);
 
   strategy_ = STRATEGY_INSERT;  // Default strategy.
   for (auto it = data_.bytecode.begin(); it < data_.bytecode.end(); ) {
@@ -296,7 +296,7 @@ struct Insertion {
 // InsertAndUpdateBranchInstructions.
 static const int kMaxInsertionIterations = 10;
 
-
+#if PY_VERSION_HEX < 0x030A0000
 // Updates the line number table for an insertion in the bytecode.
 // This is different than what the Python 2 version of InsertMethodCall() does.
 // It should be more accurate, but is confined to Python 3 only for safety.
@@ -309,8 +309,8 @@ static const int kMaxInsertionIterations = 10;
 // before line 1 would result in an offset of 2, which is inaccurate as the
 // instruction before is an EXTENDED_ARG which will now be applied to the first
 // instruction inserted instead of its original target.
-static void InsertAndUpdateLnotab(int offset, int size,
-                                  std::vector<uint8_t>* lnotab) {
+static void InsertAndUpdateLineData(int offset, int size,
+                                    std::vector<uint8_t>* lnotab) {
   int current_offset = 0;
   for (auto it = lnotab->begin(); it != lnotab->end(); it += 2) {
     current_offset += it[0];
@@ -330,6 +330,12 @@ static void InsertAndUpdateLnotab(int offset, int size,
     }
   }
 }
+#else
+static void InsertAndUpdateLineData(int offset, int size,
+                                    std::vector<uint8_t>* linetable) {
+  // FIXME: Implement something.
+}
+#endif
 
 // Reserves space for instructions to be inserted into the bytecode, and
 // calculates the new offsets and arguments of branch instructions.
@@ -490,8 +496,8 @@ bool BytecodeManipulator::InsertMethodCall(
   // Insert the method call.
   data->bytecode.insert(data->bytecode.begin() + offset, method_call_size, NOP);
   WriteInstructions(data->bytecode.begin() + offset, method_call_instructions);
-  if (has_lnotab_) {
-    InsertAndUpdateLnotab(offset, method_call_size, &data->lnotab);
+  if (has_linedata_) {
+    InsertAndUpdateLineData(offset, method_call_size, &data->linedata);
   }
 
   // Write new branch instructions.
@@ -503,8 +509,8 @@ bool BytecodeManipulator::InsertMethodCall(
     int offset = it->current_offset;
     if (size_diff > 0) {
       data->bytecode.insert(data->bytecode.begin() + offset, size_diff, NOP);
-      if (has_lnotab_) {
-        InsertAndUpdateLnotab(it->current_offset, size_diff, &data->lnotab);
+      if (has_linedata_) {
+        InsertAndUpdateLineData(it->current_offset, size_diff, &data->linedata);
       }
     } else if (size_diff < 0) {
       // The Python compiler sometimes prematurely adds EXTENDED_ARG with an

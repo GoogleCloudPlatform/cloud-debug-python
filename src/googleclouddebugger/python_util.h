@@ -178,7 +178,7 @@ class CodeObjectLinesEnumerator {
   explicit CodeObjectLinesEnumerator(PyCodeObject* code_object);
 
   // Uses explicitly provided line table.
-  CodeObjectLinesEnumerator(int firstlineno, PyObject* lnotab);
+  CodeObjectLinesEnumerator(int firstlineno, PyObject* linedata);
 
   // Moves over to the next entry in code object line table.
   bool Next();
@@ -190,7 +190,7 @@ class CodeObjectLinesEnumerator {
   int32_t line_number() const { return line_number_; }
 
  private:
-  void Initialize(int firstlineno, PyObject* lnotab);
+  void Initialize(int firstlineno, PyObject* linedata);
 
  private:
   // Number of remaining entries in line table.

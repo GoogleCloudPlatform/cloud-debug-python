@@ -32,17 +32,22 @@ static PyObject* g_debuglet_module = nullptr;
 
 CodeObjectLinesEnumerator::CodeObjectLinesEnumerator(
     PyCodeObject* code_object) {
+#if PY_VERSION_HEX < 0x030A0000
   Initialize(code_object->co_firstlineno, code_object->co_lnotab);
+#else
+  Initialize(code_object->co_firstlineno, code_object->co_linetable);
+#endif
 }
 
 
 CodeObjectLinesEnumerator::CodeObjectLinesEnumerator(
     int firstlineno,
-    PyObject* lnotab) {
-  Initialize(firstlineno, lnotab);
+    PyObject* linedata) {
+  Initialize(firstlineno, linedata);
 }
 
 
+#if PY_VERSION_HEX < 0x030A0000
 void CodeObjectLinesEnumerator::Initialize(
     int firstlineno,
     PyObject* lnotab) {
@@ -86,7 +91,16 @@ bool CodeObjectLinesEnumerator::Next() {
     }
   }
 }
+#else
+// TODO: Implementations
+void CodeObjectLinesEnumerator::Initialize(
+    int firstlineno,
+    PyObject* lintable) {}
 
+bool CodeObjectLinesEnumerator::Next() {
+  return false;
+}
+#endif
 
 PyObject* GetDebugletModule() {
   DCHECK(g_debuglet_module != nullptr);
