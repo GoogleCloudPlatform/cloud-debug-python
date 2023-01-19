@@ -193,20 +193,27 @@ class CodeObjectLinesEnumerator {
   void Initialize(int firstlineno, PyObject* linedata);
 
  private:
-  // Number of remaining entries in line table.
-  int remaining_entries_;
-
-  // Pointer to the next entry of line table.
-  const uint8_t* next_entry_;
-
   // Bytecode offset of the current line.
   int32_t offset_;
 
   // Current source code line number
   int32_t line_number_;
 
+#if PY_VERSION_HEX < 0x030A0000
+  // Number of remaining entries in line table.
+  int remaining_entries_;
+
+  // Pointer to the next entry of line table.
+  const uint8_t* next_entry_;
+
+#else
+    // Current address range in the linetable data.
+    PyCodeAddressRange range_;
+
+#endif
   DISALLOW_COPY_AND_ASSIGN(CodeObjectLinesEnumerator);
 };
+
 
 template <typename TPointer>
 bool operator== (TPointer* ref1, const ScopedPyObjectT<TPointer>& ref2) {
