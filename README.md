@@ -315,6 +315,9 @@ The following instructions are intended to help with modifying the codebase.
 Run the `build_and_test.sh` script from the root of the repository to build and
 run the unit tests using the locally installed version of Python.
 
+Run `bazel test tests/cpp:all` from the root of the repository to run unit
+tests against the C++ portion of the codebase.
+
 #### Local development
 
 You may want to run an agent with local changes in an application in order to
