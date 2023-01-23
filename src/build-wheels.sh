@@ -72,7 +72,7 @@ for PY_VERSION in ${SUPPORTED_VERSIONS[@]}; do
 
     echo "Running tests"
     "/opt/python/${PY_VERSION}/bin/pip" install google-python-cloud-debugger --no-index -f /io/dist
-    "/opt/python/${PY_VERSION}/bin/pytest" /io/tests
+    "/opt/python/${PY_VERSION}/bin/pytest" /io/tests/py
 done
 
 popd
