@@ -25,7 +25,7 @@ http_archive(
     urls = ["https://github.com/google/glog/archive/v0.5.0.zip"],
 )
 
-# Pinning to the 1.12.1; the last release that supports C++11
+# Pinning to 1.12.1, the last release that supports C++11
 http_archive(
   name = "com_google_googletest",
   urls = ["https://github.com/google/googletest/archive/58d77fa8070e8cec2dc1ed015d66b454c8d78850.tar.gz"],
@@ -38,6 +38,7 @@ http_archive(
   strip_prefix = "pybind11_bazel-faf56fb3df11287f26dbc66fdedf60a2fc2c6631",
   urls = ["https://github.com/pybind/pybind11_bazel/archive/faf56fb3df11287f26dbc66fdedf60a2fc2c6631.zip"],
 )
+
 http_archive(
   name = "pybind11",
   build_file = "@pybind11_bazel//:pybind11.BUILD",
