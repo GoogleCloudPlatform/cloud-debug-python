@@ -237,6 +237,7 @@ BytecodeBreakpoint::PreparePatchCodeObject(
     return nullptr;  // Probably a built-in method or uninitialized code object.
   }
 
+  // Store the original (unmodified) line data.
 #if PY_VERSION_HEX < 0x030A0000
   data->original_linedata =
       ScopedPyObject::NewReference(code_object.get()->co_lnotab);
@@ -267,6 +268,7 @@ void BytecodeBreakpoint::PatchCodeObject(CodeObjectBreakpoints* code) {
             << " from patched " << code->zombie_refs.back().get();
     Py_INCREF(code_object->co_code);
 
+    // Restore the original line data to the code object.
 #if PY_VERSION_HEX < 0x030A0000
     if (code_object->co_lnotab != nullptr) {
       code->zombie_refs.push_back(ScopedPyObject(code_object->co_lnotab));
@@ -366,6 +368,7 @@ void BytecodeBreakpoint::PatchCodeObject(CodeObjectBreakpoints* code) {
           << " reassigned to " << code_object->co_code
           << ", original was " << code->original_code.get();
 
+  // Update the line data in the code object.
 #if PY_VERSION_HEX < 0x030A0000
   if (has_linedata) {
     code->zombie_refs.push_back(ScopedPyObject(code_object->co_lnotab));

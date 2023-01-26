@@ -78,15 +78,24 @@ def _GetLineNumbers(code_object):
   Yields:
     The next line number in the code object.
   """
-  # Get the line number deltas, which are the odd number entries, from the
-  # lnotab. See
-  # https://svn.python.org/projects/python/branches/pep-0384/Objects/lnotab_notes.txt
-  # In Python 3, this is just a byte array.
-  line_incrs = code_object.co_lnotab[1::2]
-  current_line = code_object.co_firstlineno
-  for line_incr in line_incrs:
-    current_line += line_incr
-    yield current_line
+
+  if sys.version_info.minor < 10:
+    # Get the line number deltas, which are the odd number entries, from the
+    # lnotab. See
+    # https://svn.python.org/projects/python/branches/pep-0384/Objects/lnotab_notes.txt
+    # In Python 3, this is just a byte array.
+    line_incrs = code_object.co_lnotab[1::2]
+    current_line = code_object.co_firstlineno
+    for line_incr in line_incrs:
+      current_line += line_incr
+      yield current_line
+  else:
+    # Get the line numbers directly, which are the third entry in the tuples.
+    # https://peps.python.org/pep-0626/#the-new-co-lines-method-of-code-objects
+    line_numbers = [entry[2] for entry in code_object.co_lines()]
+    for line_number in line_numbers:
+      if line_number is not None:
+        yield line_number
 
 
 def _GetModuleCodeObjects(module):

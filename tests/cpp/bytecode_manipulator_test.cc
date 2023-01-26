@@ -116,7 +116,6 @@ static std::string FormatOpcode(uint8_t opcode) {
     case SETUP_LOOP: return "SETUP_LOOP";
     case SETUP_EXCEPT: return "SETUP_EXCEPT";
 #endif
-#if PY_MAJOR_VERSION >= 3
     case DUP_TOP_TWO: return "DUP_TOP_TWO";
     case BINARY_MATRIX_MULTIPLY: return "BINARY_MATRIX_MULTIPLY";
     case INPLACE_MATRIX_MULTIPLY: return "INPLACE_MATRIX_MULTIPLY";
@@ -182,38 +181,7 @@ static std::string FormatOpcode(uint8_t opcode) {
     case DICT_MERGE: return "DICT_MERGE";
     case DICT_UPDATE: return "DICT_UPDATE";
 #endif
-#else
-    case STOP_CODE: return "STOP_CODE";
-    case ROT_FOUR: return "ROT_FOUR";
-    case UNARY_CONVERT: return "UNARY_CONVERT";
-    case BINARY_DIVIDE: return "BINARY_DIVIDE";
-    case SLICE: return "SLICE";
-    case SLICE_1: return "SLICE_1";
-    case SLICE_2: return "SLICE_2";
-    case SLICE_3: return "SLICE_3";
-    case STORE_SLICE: return "STORE_SLICE";
-    case STORE_SLICE_1: return "STORE_SLICE_1";
-    case STORE_SLICE_2: return "STORE_SLICE_2";
-    case STORE_SLICE_3: return "STORE_SLICE_3";
-    case DELETE_SLICE: return "DELETE_SLICE";
-    case DELETE_SLICE_1: return "DELETE_SLICE_1";
-    case DELETE_SLICE_2: return "DELETE_SLICE_2";
-    case DELETE_SLICE_3: return "DELETE_SLICE_3";
-    case STORE_MAP: return "STORE_MAP";
-    case INPLACE_DIVIDE: return "INPLACE_DIVIDE";
-    case PRINT_NEWLINE: return "PRINT_NEWLINE";
-    case PRINT_ITEM: return "PRINT_ITEM";
-    case PRINT_ITEM_TO: return "PRINT_ITEM_TO";
-    case PRINT_NEWLINE_TO: return "PRINT_NEWLINE_TO";
-    case LOAD_LOCALS: return "LOAD_LOCALS";
-    case EXEC_STMT: return "EXEC_STMT";
-    case BUILD_CLASS: return "BUILD_CLASS";
-    case DUP_TOPX: return "DUP_TOPX";
-    case MAKE_CLOSURE: return "MAKE_CLOSURE";
-    case CALL_FUNCTION_VAR: return "CALL_FUNCTION_VAR";
-    case CALL_FUNCTION_VAR_KW: return "CALL_FUNCTION_VAR_KW";
-    case WITH_CLEANUP: return "WITH_CLEANUP";
-#endif
+
     default: return std::to_string(static_cast<int>(opcode));
   }
 }
@@ -263,12 +231,12 @@ static void VerifyBytecode(const BytecodeManipulator& bytecode_manipulator,
 
 static void VerifyLineNumbersTable(
     const BytecodeManipulator& bytecode_manipulator,
-    std::vector<uint8_t> expected_lnotab) {
+    std::vector<uint8_t> expected_linedata) {
   // Convert to integers to better logging by EXPECT_EQ.
-  std::vector<int> expected(expected_lnotab.begin(), expected_lnotab.end());
+  std::vector<int> expected(expected_linedata.begin(), expected_linedata.end());
   std::vector<int> actual(
-      bytecode_manipulator.lnotab().begin(),
-      bytecode_manipulator.lnotab().end());
+      bytecode_manipulator.linedata().begin(),
+      bytecode_manipulator.linedata().end());
 
   EXPECT_EQ(expected, actual);
 }
@@ -281,10 +249,10 @@ TEST(BytecodeManipulatorTest, EmptyBytecode) {
 
 TEST(BytecodeManipulatorTest, HasLineNumbersTable) {
   BytecodeManipulator instance1({}, false, {});
-  EXPECT_FALSE(instance1.has_lnotab());
+  EXPECT_FALSE(instance1.has_linedata());
 
   BytecodeManipulator instance2({}, true, {});
-  EXPECT_TRUE(instance2.has_lnotab());
+  EXPECT_TRUE(instance2.has_linedata());
 }
 
 
@@ -724,7 +692,11 @@ TEST(BytecodeManipulatorTest, LineNumbersTableOverflow) {
       { 254, 1 });
   ASSERT_TRUE(instance.InjectMethodCall(2, 99));
 
+#if PY_VERSION_HEX >= 0x030A0000
+  VerifyLineNumbersTable(instance, { 254, 0, 6, 1 });
+#else
   VerifyLineNumbersTable(instance, { 255, 0, 5, 1 });
+#endif
 }
 
 

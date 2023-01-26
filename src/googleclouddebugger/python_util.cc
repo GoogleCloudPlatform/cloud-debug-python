@@ -99,23 +99,20 @@ bool CodeObjectLinesEnumerator::Next() {
 #else
 
 void CodeObjectLinesEnumerator::Initialize(
-    int firstlineno,
-    PyObject* linetable) {
-    Py_ssize_t length = PyBytes_Size(linetable) / 2;
-    _PyLineTable_InitAddressRange(PyBytes_AsString(linetable), length, firstlineno, &range_);
-}
+  int firstlineno,
+  PyObject* linetable) {
+  Py_ssize_t length = PyBytes_Size(linetable);
+  _PyLineTable_InitAddressRange(PyBytes_AsString(linetable), length, firstlineno, &range_);
+} 
 
 bool CodeObjectLinesEnumerator::Next() {
   while (_PyLineTable_NextAddressRange(&range_)) {
     if (range_.ar_line >= 0) {
       line_number_ = range_.ar_line;
-      // FIXME: Find out if this should be start or end.
-      offset_ = range_.ar_end;
+      offset_ = range_.ar_start;
       return true;
     }
-    return false;
   }
-
   return false;
 }
 #endif // PY_VERSION_HEX < 0x030A0000

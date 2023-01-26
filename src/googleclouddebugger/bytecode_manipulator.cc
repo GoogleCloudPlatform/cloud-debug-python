@@ -98,7 +98,12 @@ static int GetInstructionsSize(
     size += it->size;
   }
 
+//#if PY_VERSION_HEX < 0x030A0000
   return size;
+//#else
+  // Changed in version 3.10: The argument of jump, exception handling and loop instructions is now the instruction offset rather than the byte offset.
+//  return size / 2;
+//#endif
 }
 
 
@@ -333,7 +338,24 @@ static void InsertAndUpdateLineData(int offset, int size,
 #else
 static void InsertAndUpdateLineData(int offset, int size,
                                     std::vector<uint8_t>* linetable) {
-  // FIXME: Implement something.
+  int current_offset = 0;
+  for (auto it = linetable->begin(); it != linetable->end(); it += 2) {
+    current_offset += it[0];
+
+    if (current_offset > offset) {
+      int remaining_size = it[0] + size;
+      int remaining_lines = it[1];
+      it = linetable->erase(it, it + 2);
+      while (remaining_size > 0xFE) {  // Max address delta is listed as 254.
+        it = linetable->insert(it, 0xFE) + 1;
+        it = linetable->insert(it, 0) + 1;
+        remaining_size -= 0xFE;
+      }
+      it = linetable->insert(it, remaining_size) + 1;
+      it = linetable->insert(it, remaining_lines) + 1;
+      return;
+    }
+  }
 }
 #endif
 
@@ -432,8 +454,14 @@ static bool InsertAndUpdateBranchInstructions(
       }
 
       if (need_to_update) {
+#if PY_VERSION_HEX < 0x030A0000
+        int delta = insertion.size;
+#else
+        // Changed in version 3.10: The argument of jump, exception handling and loop instructions is now the instruction offset rather than the byte offset.
+        int delta = insertion.size / 2;
+#endif
         PythonInstruction new_instruction =
-            PythonInstructionArg(instruction.opcode, arg + insertion.size);
+            PythonInstructionArg(instruction.opcode, arg + delta);
         int size_diff = new_instruction.size - instruction.size;
         if (size_diff > 0) {
           insertions.push_back(Insertion { size_diff, it->current_offset });

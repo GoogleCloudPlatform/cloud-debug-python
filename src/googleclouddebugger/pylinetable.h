@@ -6,7 +6,9 @@
  * See https://peps.python.org/pep-0626/#out-of-process-debuggers-and-profilers
  */
 
-#if PY_VERSION_HEX >= 0x030A0000
+// Things are different in 3.11.
+// See https://github.com/python/cpython/Objects/locations.md
+#if PY_VERSION_HEX >= 0x030B0000
 
 typedef enum _PyCodeLocationInfoKind {
     /* short forms are 0 to 9 */
@@ -144,6 +146,53 @@ _PyLineTable_NextAddressRange(PyCodeAddressRange *range)
     assert(range->ar_end > range->ar_start);
     return 1;
 }
+#elif PY_VERSION_HEX >= 0x030A0000
+void
+_PyLineTable_InitAddressRange(const char *linetable, Py_ssize_t length, int firstlineno, PyCodeAddressRange *range)
+{
+    range->opaque.lo_next = linetable;
+    range->opaque.limit = range->opaque.lo_next + length;
+    range->ar_start = -1;
+    range->ar_end = 0;
+    range->opaque.computed_line = firstlineno;
+    range->ar_line = -1;
+}
 
-#endif  // PY_VERSION_HEX >= 0x030A0000
-#endif  // DEVTOOLS_CDBG_DEBUGLETS_PYTHON_NULLABLE_H_
+static void
+advance(PyCodeAddressRange *bounds)
+{
+    bounds->ar_start = bounds->ar_end;
+    int delta = ((unsigned char *)bounds->opaque.lo_next)[0];
+    bounds->ar_end += delta;
+    int ldelta = ((signed char *)bounds->opaque.lo_next)[1];
+    bounds->opaque.lo_next += 2;
+    if (ldelta == -128) {
+        bounds->ar_line = -1;
+    }
+    else {
+        bounds->opaque.computed_line += ldelta;
+        bounds->ar_line = bounds->opaque.computed_line;
+    }
+}
+
+static inline int
+at_end(PyCodeAddressRange *bounds) {
+    return bounds->opaque.lo_next >= bounds->opaque.limit;
+}
+
+int
+_PyLineTable_NextAddressRange(PyCodeAddressRange *range)
+{
+    if (at_end(range)) {
+        return 0;
+    }
+    advance(range);
+    while (range->ar_start == range->ar_end) {
+        assert(!at_end(range));
+        advance(range);
+    }
+    return 1;
+}
+#endif
+
+#endif  // DEVTOOLS_CDBG_DEBUGLETS_PYTHON_PYLINETABLE_H_
