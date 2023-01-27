@@ -98,12 +98,7 @@ static int GetInstructionsSize(
     size += it->size;
   }
 
-//#if PY_VERSION_HEX < 0x030A0000
   return size;
-//#else
-  // Changed in version 3.10: The argument of jump, exception handling and loop instructions is now the instruction offset rather than the byte offset.
-//  return size / 2;
-//#endif
 }
 
 

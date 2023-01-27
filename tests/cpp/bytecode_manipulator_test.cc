@@ -341,6 +341,25 @@ TEST(BytecodeManipulatorTest, InsertionOffsetUpdates) {
       {});
   ASSERT_TRUE(instance.InjectMethodCall(2, 47));
 
+#if PY_VERSION_HEX >= 0x030A0000
+  // Jump offsets are instruction offsets, not byte offsets.
+  VerifyBytecode(
+      instance,
+      {
+          JUMP_FORWARD,       // offset 0.
+          12 + 3,             // offset 1.
+          LOAD_CONST,         // offset 2.
+          47,                 // offset 3.
+          CALL_FUNCTION,      // offset 4.
+          0,                  // offset 5.
+          POP_TOP,            // offset 6.
+          0,                  // offset 7.
+          NOP,                // offset 8.
+          0,                  // offset 9.
+          JUMP_ABSOLUTE,      // offset 10.
+          34 + 3              // offset 11.
+      });
+#else
   VerifyBytecode(
       instance,
       {
@@ -357,6 +376,7 @@ TEST(BytecodeManipulatorTest, InsertionOffsetUpdates) {
           JUMP_ABSOLUTE,      // offset 10.
           34 + 6              // offset 11.
       });
+#endif
 }
 
 
@@ -386,6 +406,37 @@ TEST(BytecodeManipulatorTest, InsertionExtendedOffsetUpdates) {
       {});
   ASSERT_TRUE(instance.InjectMethodCall(8, 11));
 
+#if PY_VERSION_HEX >= 0x030A0000
+  // Jump offsets are instruction offsets, not byte offsets.
+  VerifyBytecode(
+      instance,
+      {
+          EXTENDED_ARG,       // offset 0.
+          12,                 // offset 1.
+          EXTENDED_ARG,       // offset 2.
+          34,                 // offset 3.
+          EXTENDED_ARG,       // offset 4.
+          56,                 // offset 5.
+          JUMP_FORWARD,       // offset 6.
+          78 + 3,             // offset 7.
+          LOAD_CONST,         // offset 8.
+          11,                 // offset 9.
+          CALL_FUNCTION,      // offset 10.
+          0,                  // offset 11.
+          POP_TOP,            // offset 12.
+          0,                  // offset 13.
+          NOP,                // offset 14.
+          0,                  // offset 15.
+          EXTENDED_ARG,       // offset 16.
+          98,                 // offset 17.
+          EXTENDED_ARG,       // offset 18.
+          76,                 // offset 19.
+          EXTENDED_ARG,       // offset 20.
+          54,                 // offset 21.
+          JUMP_ABSOLUTE,      // offset 22.
+          32 + 3              // offset 23.
+      });
+#else
   VerifyBytecode(
       instance,
       {
@@ -414,6 +465,7 @@ TEST(BytecodeManipulatorTest, InsertionExtendedOffsetUpdates) {
           JUMP_ABSOLUTE,      // offset 22.
           32 + 6              // offset 23.
       });
+#endif
 }
 
 
@@ -489,13 +541,15 @@ TEST(BytecodeManipulatorTest, InsertionOffsetUneededExtended) {
       {});
   ASSERT_TRUE(instance.InjectMethodCall(4, 11));
 
+#if PY_VERSION_HEX >= 0x030A0000
+  // Jump offsets are instruction offsets, not byte offsets.
   VerifyBytecode(
       instance,
       {
           EXTENDED_ARG,       // offset 0.
           0,                  // offset 1.
           JUMP_FORWARD,       // offset 2.
-          8,                  // offset 3.
+          2 + 3,              // offset 3.
           LOAD_CONST,         // offset 4.
           11,                 // offset 5.
           CALL_FUNCTION,      // offset 6.
@@ -505,13 +559,33 @@ TEST(BytecodeManipulatorTest, InsertionOffsetUneededExtended) {
           NOP,                // offset 10.
           0                   // offset 11.
       });
+#else
+  VerifyBytecode(
+      instance,
+      {
+          EXTENDED_ARG,       // offset 0.
+          0,                  // offset 1.
+          JUMP_FORWARD,       // offset 2.
+          2 + 6,              // offset 3.
+          LOAD_CONST,         // offset 4.
+          11,                 // offset 5.
+          CALL_FUNCTION,      // offset 6.
+          0,                  // offset 7.
+          POP_TOP,            // offset 8.
+          0,                  // offset 9.
+          NOP,                // offset 10.
+          0                   // offset 11.
+      });
+#endif
 }
 
 
 TEST(BytecodeManipulatorTest, InsertionOffsetUpgradeExtended) {
-  BytecodeManipulator instance({ JUMP_ABSOLUTE, 250 , NOP, 0 }, false, {});
+  BytecodeManipulator instance({ JUMP_ABSOLUTE, 254 , NOP, 0 }, false, {});
   ASSERT_TRUE(instance.InjectMethodCall(2, 11));
 
+#if PY_VERSION_HEX >= 0x030A0000
+  // Jump offsets are instruction offsets, not byte offsets.
   VerifyBytecode(
       instance,
       {
@@ -528,27 +602,47 @@ TEST(BytecodeManipulatorTest, InsertionOffsetUpgradeExtended) {
           NOP,                // offset 10.
           0                   // offset 11.
       });
+#else
+  VerifyBytecode(
+      instance,
+      {
+          EXTENDED_ARG,       // offset 0.
+          1,                  // offset 1.
+          JUMP_ABSOLUTE,      // offset 2.
+          6,                  // offset 3.
+          LOAD_CONST,         // offset 4.
+          11,                 // offset 5.
+          CALL_FUNCTION,      // offset 6.
+          0,                  // offset 7.
+          POP_TOP,            // offset 8.
+          0,                  // offset 9.
+          NOP,                // offset 10.
+          0                   // offset 11.
+      });
+#endif
 }
 
 
 TEST(BytecodeManipulatorTest, InsertionOffsetUpgradeExtendedTwice) {
   BytecodeManipulator instance(
-      { JUMP_ABSOLUTE, 248, JUMP_ABSOLUTE, 250, NOP, 0 },
+      { JUMP_ABSOLUTE, 252, JUMP_ABSOLUTE, 254, NOP, 0 },
       false,
       {});
   ASSERT_TRUE(instance.InjectMethodCall(4, 12));
 
+#if PY_VERSION_HEX >= 0x030A0000
+  // Jump offsets are instruction offsets, not byte offsets.
   VerifyBytecode(
       instance,
       {
           EXTENDED_ARG,       // offset 0.
           1,                  // offset 1.
           JUMP_ABSOLUTE,      // offset 2.
-          2,                  // offset 3.
+          1,                  // offset 3.
           EXTENDED_ARG,       // offset 4.
           1,                  // offset 5.
           JUMP_ABSOLUTE,      // offset 6.
-          4,                  // offset 7.
+          3,                  // offset 7.
           LOAD_CONST,         // offset 8.
           12,                 // offset 9.
           CALL_FUNCTION,      // offset 10.
@@ -558,6 +652,28 @@ TEST(BytecodeManipulatorTest, InsertionOffsetUpgradeExtendedTwice) {
           NOP,                // offset 14.
           0                   // offset 15.
       });
+#else
+  VerifyBytecode(
+      instance,
+      {
+          EXTENDED_ARG,       // offset 0.
+          1,                  // offset 1.
+          JUMP_ABSOLUTE,      // offset 2.
+          6,                  // offset 3.
+          EXTENDED_ARG,       // offset 4.
+          1,                  // offset 5.
+          JUMP_ABSOLUTE,      // offset 6.
+          8,                  // offset 7.
+          LOAD_CONST,         // offset 8.
+          12,                 // offset 9.
+          CALL_FUNCTION,      // offset 10.
+          0,                  // offset 11.
+          POP_TOP,            // offset 12.
+          0,                  // offset 13.
+          NOP,                // offset 14.
+          0                   // offset 15.
+      });
+#endif
 }
 
 
@@ -597,16 +713,16 @@ TEST(BytecodeManipulatorTest, InsertionMidInstruction) {
 TEST(BytecodeManipulatorTest, InsertionTooManyUpgrades) {
   BytecodeManipulator instance(
       {
-          JUMP_ABSOLUTE, 250,
-          JUMP_ABSOLUTE, 250,
-          JUMP_ABSOLUTE, 250,
-          JUMP_ABSOLUTE, 250,
-          JUMP_ABSOLUTE, 250,
-          JUMP_ABSOLUTE, 250,
-          JUMP_ABSOLUTE, 250,
-          JUMP_ABSOLUTE, 250,
-          JUMP_ABSOLUTE, 250,
-          JUMP_ABSOLUTE, 250,
+          JUMP_ABSOLUTE, 254,
+          JUMP_ABSOLUTE, 254,
+          JUMP_ABSOLUTE, 254,
+          JUMP_ABSOLUTE, 254,
+          JUMP_ABSOLUTE, 254,
+          JUMP_ABSOLUTE, 254,
+          JUMP_ABSOLUTE, 254,
+          JUMP_ABSOLUTE, 254,
+          JUMP_ABSOLUTE, 254,
+          JUMP_ABSOLUTE, 254,
           NOP, 0
       },
       false,
@@ -675,7 +791,7 @@ TEST(BytecodeManipulatorTest, LineNumbersTablePastEnd) {
 
 TEST(BytecodeManipulatorTest, LineNumbersTableUpgradeExtended) {
   BytecodeManipulator instance(
-      { JUMP_ABSOLUTE, 250, RETURN_VALUE, 0 },
+      { JUMP_ABSOLUTE, 254, RETURN_VALUE, 0 },
       true,
       { 2, 1, 2, 1 });
   ASSERT_TRUE(instance.InjectMethodCall(2, 99));
