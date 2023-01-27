@@ -24,7 +24,7 @@
 #include <cstdint>
 
 #if PY_VERSION_HEX >= 0x030A0000
-#include "pylinetable.h"
+#include "../third_party/pylinetable.h"
 #endif  // PY_VERSION_HEX >= 0x030A0000
 
 

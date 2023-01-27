@@ -24,6 +24,7 @@ cc_library(
     deps = [
         ":common",
         ":nullable",
+	"//src/third_party:pylinetable",
     ],
 )
 
