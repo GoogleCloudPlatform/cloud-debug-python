@@ -3,7 +3,7 @@
 GFLAGS_URL=https://github.com/gflags/gflags/archive/v2.2.2.tar.gz
 GLOG_URL=https://github.com/google/glog/archive/v0.4.0.tar.gz
 
-SUPPORTED_VERSIONS=(cp36-cp36m cp37-cp37m cp38-cp38 cp39-cp39)
+SUPPORTED_VERSIONS=(cp36-cp36m cp37-cp37m cp38-cp38 cp39-cp39 cp310-cp310)
 
 ROOT=$(cd $(dirname "${BASH_SOURCE[0]}") >/dev/null; /bin/pwd -P)
 
