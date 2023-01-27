@@ -3,11 +3,15 @@
 
 /* Python Linetable helper methods.
  * They are not part of the cpython api.
+ * This code has been extracted from:
+ * https://github.com/python/cpython/blob/main/Objects/codeobject.c
+ *
  * See https://peps.python.org/pep-0626/#out-of-process-debuggers-and-profilers
+ * for more information about this code and its usage.
  */
 
-// Things are different in 3.11.
-// See https://github.com/python/cpython/Objects/locations.md
+// Things are different in 3.11 than 3.10.
+// See https://github.com/python/cpython/blob/main/Objects/locations.md
 #if PY_VERSION_HEX >= 0x030B0000
 
 typedef enum _PyCodeLocationInfoKind {

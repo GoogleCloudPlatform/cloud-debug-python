@@ -452,7 +452,9 @@ static bool InsertAndUpdateBranchInstructions(
 #if PY_VERSION_HEX < 0x030A0000
         int delta = insertion.size;
 #else
-        // Changed in version 3.10: The argument of jump, exception handling and loop instructions is now the instruction offset rather than the byte offset.
+        // Changed in version 3.10: The argument of jump, exception handling
+        // and loop instructions is now the instruction offset rather than the
+        // byte offset.
         int delta = insertion.size / 2;
 #endif
         PythonInstruction new_instruction =
