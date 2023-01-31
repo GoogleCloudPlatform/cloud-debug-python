@@ -1,3 +1,11 @@
+/**
+ * Copyright (c) 2001-2023 Python Software Foundation; All Rights Reserved
+ *
+ * You may obtain a copy of the PSF License at
+ *
+ *      https://docs.python.org/3/license.html
+ */
+
 #ifndef DEVTOOLS_CDBG_DEBUGLETS_PYTHON_PYLINETABLE_H_
 #define DEVTOOLS_CDBG_DEBUGLETS_PYTHON_PYLINETABLE_H_
 
