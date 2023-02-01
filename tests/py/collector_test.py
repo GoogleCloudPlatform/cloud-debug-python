@@ -5,6 +5,7 @@ import datetime
 import inspect
 import logging
 import os
+import sys
 import time
 from unittest import mock
 
@@ -1428,7 +1429,8 @@ class LogCollectorTest(absltest.TestCase):
 
   def testMissingLogLevel(self):
     # Missing is equivalent to INFO.
-    log_collector = LogCollectorWithDefaultLocation({'logMessageFormat': 'hello'})
+    log_collector = LogCollectorWithDefaultLocation(
+        {'logMessageFormat': 'hello'})
     self.assertIsNone(log_collector.Log(inspect.currentframe()))
     self.assertTrue(self._verifier.GotMessage('LOGPOINT: hello'))
 
@@ -1487,11 +1489,17 @@ class LogCollectorTest(absltest.TestCase):
         'expressions': ['-', '+']
     })
     self.assertIsNone(log_collector.Log(inspect.currentframe()))
-    self.assertTrue(
-        self._verifier.GotMessage(
-            'LOGPOINT: a=<Expression could not be compiled: unexpected EOF while '
-            'parsing>, b=<Expression could not be compiled: unexpected EOF while '
-            'parsing>'))
+    if sys.version_info.minor < 10:
+      self.assertTrue(
+          self._verifier.GotMessage(
+              'LOGPOINT: a=<Expression could not be compiled: unexpected EOF while '
+              'parsing>, b=<Expression could not be compiled: unexpected EOF while '
+              'parsing>'))
+    else:
+      self.assertTrue(
+          self._verifier.GotMessage(
+              'LOGPOINT: a=<Expression could not be compiled: invalid syntax>, '
+              'b=<Expression could not be compiled: invalid syntax>'))
 
   def testDollarEscape(self):
     unused_integer = 12345

@@ -162,9 +162,10 @@ class BytecodeBreakpoint {
     // Original value of PyCodeObject::co_code before patching.
     ScopedPyObject original_code;
 
-    // Original value of PythonCode::co_lnotab before patching.
-    // "lnotab" stands for "line numbers table" in CPython lingo.
-    ScopedPyObject original_lnotab;
+    // Original value of PythonCode::co_lnotab or PythonCode::co_linetable
+    // before patching.  This is the line numbers table in CPython <= 3.9 and
+    // CPython >= 3.10 respectively
+    ScopedPyObject original_linedata;
   };
 
   // Loads code object into "patches_" if not there yet. Returns nullptr if

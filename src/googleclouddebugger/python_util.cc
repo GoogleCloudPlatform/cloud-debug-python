@@ -23,6 +23,11 @@
 
 #include <cstdint>
 
+#if PY_VERSION_HEX >= 0x030A0000
+#include "../third_party/pylinetable.h"
+#endif  // PY_VERSION_HEX >= 0x030A0000
+
+
 namespace devtools {
 namespace cdbg {
 
@@ -32,17 +37,22 @@ static PyObject* g_debuglet_module = nullptr;
 
 CodeObjectLinesEnumerator::CodeObjectLinesEnumerator(
     PyCodeObject* code_object) {
+#if PY_VERSION_HEX < 0x030A0000
   Initialize(code_object->co_firstlineno, code_object->co_lnotab);
+#else
+  Initialize(code_object->co_firstlineno, code_object->co_linetable);
+#endif // PY_VERSION_HEX < 0x030A0000
 }
 
 
 CodeObjectLinesEnumerator::CodeObjectLinesEnumerator(
     int firstlineno,
-    PyObject* lnotab) {
-  Initialize(firstlineno, lnotab);
+    PyObject* linedata) {
+  Initialize(firstlineno, linedata);
 }
 
 
+#if PY_VERSION_HEX < 0x030A0000
 void CodeObjectLinesEnumerator::Initialize(
     int firstlineno,
     PyObject* lnotab) {
@@ -86,7 +96,26 @@ bool CodeObjectLinesEnumerator::Next() {
     }
   }
 }
+#else
 
+void CodeObjectLinesEnumerator::Initialize(
+  int firstlineno,
+  PyObject* linetable) {
+  Py_ssize_t length = PyBytes_Size(linetable);
+  _PyLineTable_InitAddressRange(PyBytes_AsString(linetable), length, firstlineno, &range_);
+} 
+
+bool CodeObjectLinesEnumerator::Next() {
+  while (_PyLineTable_NextAddressRange(&range_)) {
+    if (range_.ar_line >= 0) {
+      line_number_ = range_.ar_line;
+      offset_ = range_.ar_start;
+      return true;
+    }
+  }
+  return false;
+}
+#endif // PY_VERSION_HEX < 0x030A0000
 
 PyObject* GetDebugletModule() {
   DCHECK(g_debuglet_module != nullptr);

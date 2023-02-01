@@ -83,8 +83,7 @@ class SearchModulesTest(absltest.TestCase):
 
       # Returned result should have a successful file match and symbolic
       # links should be kept.
-      self.assertEndsWith(
-          module_search.Search('b/first.py'), 'link/b/first.py')
+      self.assertEndsWith(module_search.Search('b/first.py'), 'link/b/first.py')
     finally:
       sys.path.remove(os.path.join(self._test_package_dir, 'link'))
 

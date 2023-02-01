@@ -401,6 +401,16 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8_t opcode) {
     // Added back in Python 3.8 (was in 2.7 as well)
     case ROT_FOUR:
 #endif
+#if PY_VERSION_HEX >= 0x030A0000
+    // Added in Python 3.10
+    case COPY_DICT_WITHOUT_KEYS:
+    case GET_LEN:
+    case MATCH_MAPPING:
+    case MATCH_SEQUENCE:
+    case MATCH_KEYS:
+    case MATCH_CLASS:
+    case ROT_N:
+#endif
       return OPCODE_NOT_MUTABLE;
 
     case PRINT_EXPR:
@@ -468,6 +478,10 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8_t opcode) {
     case RERAISE:
     case WITH_EXCEPT_START:
     case LOAD_ASSERTION_ERROR:
+#endif
+#if PY_VERSION_HEX >= 0x030A0000
+    // Added in Python 3.10
+    case GEN_START:
 #endif
       return OPCODE_MUTABLE;
 

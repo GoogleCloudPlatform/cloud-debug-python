@@ -71,17 +71,17 @@ namespace cdbg {
 //     19 JUMP_ABSOLUTE            3
 class BytecodeManipulator {
  public:
-  BytecodeManipulator(std::vector<uint8_t> bytecode, const bool has_lnotab,
-                      std::vector<uint8_t> lnotab);
+  BytecodeManipulator(std::vector<uint8_t> bytecode, const bool has_linedata,
+                      std::vector<uint8_t> linedata);
 
   // Gets the transformed method bytecode.
   const std::vector<uint8_t>& bytecode() const { return data_.bytecode; }
 
   // Returns true if this class was initialized with line numbers table.
-  bool has_lnotab() const { return has_lnotab_; }
+  bool has_linedata() const { return has_linedata_; }
 
   // Gets the method line numbers table or empty vector if not available.
-  const std::vector<uint8_t>& lnotab() const { return data_.lnotab; }
+  const std::vector<uint8_t>& linedata() const { return data_.linedata; }
 
   // Rewrites the method bytecode to invoke callable at the specified offset.
   // Return false if the method call could not be inserted. The bytecode
@@ -109,8 +109,8 @@ class BytecodeManipulator {
     // Bytecode of a transformed method.
     std::vector<uint8_t> bytecode;
 
-    // Method line numbers table or empty vector if "has_lnotab_" is false.
-    std::vector<uint8_t> lnotab;
+    // Method line numbers table or empty vector if "has_linedata_" is false.
+    std::vector<uint8_t> linedata;
   };
 
   // Insert space into the bytecode. This space is later used to add new
@@ -130,7 +130,7 @@ class BytecodeManipulator {
   Data data_;
 
   // True if the method has line number table.
-  const bool has_lnotab_;
+  const bool has_linedata_;
 
   // Algorithm to insert breakpoint callback into method bytecode.
   Strategy strategy_;
