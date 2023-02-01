@@ -18,9 +18,9 @@
  * for more information about this code and its usage.
  */
 
+#if PY_VERSION_HEX >= 0x030B0000
 // Things are different in 3.11 than 3.10.
 // See https://github.com/python/cpython/blob/main/Objects/locations.md
-#if PY_VERSION_HEX >= 0x030B0000
 
 typedef enum _PyCodeLocationInfoKind {
     /* short forms are 0 to 9 */

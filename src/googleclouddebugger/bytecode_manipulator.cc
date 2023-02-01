@@ -327,6 +327,9 @@ static void InsertAndUpdateLineData(int offset, int size,
 // Example for inserting 2 bytes at offset 2:
 // linetable: [{2, 1}, {4, 1}] // {address_end_delta, line_delta}
 // updated:   [{2, 1}, {6, 1}]
+//
+// For more information on the linetable format in Python 3.10, see:
+// https://github.com/python/cpython/blob/main/Objects/lnotab_notes.txt
 static void InsertAndUpdateLineData(int offset, int size,
                                     std::vector<uint8_t>* linetable) {
   int current_offset = 0;
