@@ -298,17 +298,9 @@ static const int kMaxInsertionIterations = 10;
 
 #if PY_VERSION_HEX < 0x030A0000
 // Updates the line number table for an insertion in the bytecode.
-// This is different than what the Python 2 version of InsertMethodCall() does.
-// It should be more accurate, but is confined to Python 3 only for safety.
-// This handles the case of adding insertion for EXTENDED_ARG better.
 // Example for inserting 2 bytes at offset 2:
-// lnotab: [{2, 1}, {4, 1}] // {offset_delta, line_delta}
-// Old algorithm: [{2, 0}, {2, 1}, {4, 1}]
-// New algorithm: [{2, 1}, {6, 1}]
-// In the old version, trying to get the offset to insert a breakpoint right
-// before line 1 would result in an offset of 2, which is inaccurate as the
-// instruction before is an EXTENDED_ARG which will now be applied to the first
-// instruction inserted instead of its original target.
+// lnotab:  [{2, 1}, {4, 1}] // {offset_delta, line_delta}
+// updated: [{2, 1}, {6, 1}]
 static void InsertAndUpdateLineData(int offset, int size,
                                     std::vector<uint8_t>* lnotab) {
   int current_offset = 0;
@@ -331,6 +323,10 @@ static void InsertAndUpdateLineData(int offset, int size,
   }
 }
 #else
+// Updates the line number table for an insertion in the bytecode.
+// Example for inserting 2 bytes at offset 2:
+// linetable: [{2, 1}, {4, 1}] // {address_end_delta, line_delta}
+// updated:   [{2, 1}, {6, 1}]
 static void InsertAndUpdateLineData(int offset, int size,
                                     std::vector<uint8_t>* linetable) {
   int current_offset = 0;

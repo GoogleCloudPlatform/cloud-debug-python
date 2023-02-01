@@ -403,6 +403,7 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8_t opcode) {
 #endif
 #if PY_VERSION_HEX >= 0x030A0000
     // Added in Python 3.10
+    case COPY_DICT_WITHOUT_KEYS:
     case GET_LEN:
     case MATCH_MAPPING:
     case MATCH_SEQUENCE:
@@ -480,7 +481,6 @@ static OpcodeMutableStatus IsOpcodeMutable(const uint8_t opcode) {
 #endif
 #if PY_VERSION_HEX >= 0x030A0000
     // Added in Python 3.10
-    case COPY_DICT_WITHOUT_KEYS:
     case GEN_START:
 #endif
       return OPCODE_MUTABLE;

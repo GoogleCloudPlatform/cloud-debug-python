@@ -83,7 +83,7 @@ def _GetLineNumbers(code_object):
     # Get the line number deltas, which are the odd number entries, from the
     # lnotab. See
     # https://svn.python.org/projects/python/branches/pep-0384/Objects/lnotab_notes.txt
-    # In Python 3, this is just a byte array.
+    # In Python 3, prior to 3.10, this is just a byte array.
     line_incrs = code_object.co_lnotab[1::2]
     current_line = code_object.co_firstlineno
     for line_incr in line_incrs:
