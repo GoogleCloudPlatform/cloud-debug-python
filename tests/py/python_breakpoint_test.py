@@ -1,7 +1,5 @@
 """Unit test for python_breakpoint module."""
 
-# TODO: Get this test to work with all supported versions of Python.
-
 from datetime import datetime
 from datetime import timedelta
 import inspect
@@ -12,7 +10,7 @@ import tempfile
 from absl.testing import absltest
 
 from googleclouddebugger import cdbg_native as native
-from googleclouddebugger import imphook2
+from googleclouddebugger import imphook
 from googleclouddebugger import python_breakpoint
 import python_test_util
 
@@ -102,7 +100,7 @@ class PythonBreakpointTest(absltest.TestCase):
                      self._update_queue[0]['stackFrames'][0]['function'])
     self.assertTrue(self._update_queue[0]['isFinalState'])
 
-    self.assertEmpty(imphook2._import_callbacks)
+    self.assertEmpty(imphook._import_callbacks)
 
   # Old module search algorithm rejects multiple matches. This test verifies
   # that the new module search algorithm searches sys.path sequentially, and
@@ -142,7 +140,7 @@ class PythonBreakpointTest(absltest.TestCase):
     self.assertEqual(
         '2', self._update_queue[0]['stackFrames'][0]['locals'][0]['value'])
 
-    self.assertEmpty(imphook2._import_callbacks)
+    self.assertEmpty(imphook._import_callbacks)
 
   # Old module search algorithm rejects multiple matches. This test verifies
   # that when the new module search cannot find any match in sys.path, it
@@ -183,7 +181,7 @@ class PythonBreakpointTest(absltest.TestCase):
     self.assertEqual(
         '1', self._update_queue[0]['stackFrames'][0]['locals'][0]['value'])
 
-    self.assertEmpty(imphook2._import_callbacks)
+    self.assertEmpty(imphook._import_callbacks)
 
   def testNeverLoadedBreakpoint(self):
     open(os.path.join(self._test_package_dir, 'never_print.py'), 'w').close()
@@ -223,7 +221,7 @@ class PythonBreakpointTest(absltest.TestCase):
     params = desc['parameters']
     self.assertIn('defer_empty.py', params[1])
     self.assertEqual(params[0], '10')
-    self.assertEmpty(imphook2._import_callbacks)
+    self.assertEmpty(imphook._import_callbacks)
 
   def testDeferredBreakpointCancelled(self):
     open(os.path.join(self._test_package_dir, 'defer_cancel.py'), 'w').close()
@@ -236,7 +234,7 @@ class PythonBreakpointTest(absltest.TestCase):
     breakpoint.Clear()
 
     self.assertFalse(self._completed)
-    self.assertEmpty(imphook2._import_callbacks)
+    self.assertEmpty(imphook._import_callbacks)
     unused_no_code_line_above = 0  # BPTAG: NO_CODE_LINE_ABOVE
 
   # BPTAG: NO_CODE_LINE
@@ -345,7 +343,7 @@ class PythonBreakpointTest(absltest.TestCase):
       self.assertEqual('DoPrint',
                        self._update_queue[0]['stackFrames'][0]['function'])
 
-      self.assertEmpty(imphook2._import_callbacks)
+      self.assertEmpty(imphook._import_callbacks)
       self._update_queue = []
 
   def testBreakpointInLoadedPackageFile(self):
@@ -414,15 +412,27 @@ class PythonBreakpointTest(absltest.TestCase):
     self.assertEqual(set(['BP_ID']), self._completed)
     self.assertLen(self._update_queue, 1)
     self.assertTrue(self._update_queue[0]['isFinalState'])
-    self.assertEqual(
-        {
-            'isError': True,
-            'refersTo': 'BREAKPOINT_CONDITION',
-            'description': {
-                'format': 'Expression could not be compiled: $0',
-                'parameters': ['unexpected EOF while parsing']
-            }
-        }, self._update_queue[0]['status'])
+    if sys.version_info.minor < 10:
+      self.assertEqual(
+          {
+              'isError': True,
+              'refersTo': 'BREAKPOINT_CONDITION',
+              'description': {
+                  'format': 'Expression could not be compiled: $0',
+                  'parameters': ['unexpected EOF while parsing']
+              }
+          }, self._update_queue[0]['status'])
+    else:
+      self.assertEqual(
+          {
+              'isError': True,
+              'refersTo': 'BREAKPOINT_CONDITION',
+              'description': {
+                  'format': 'Expression could not be compiled: $0',
+                  'parameters': ['invalid syntax']
+              }
+          }, self._update_queue[0]['status'])
+
 
   def testHit(self):
     breakpoint = python_breakpoint.PythonBreakpoint(self._template, self, self,

@@ -87,6 +87,9 @@ def _GetLineNumbers(code_object):
     line_incrs = code_object.co_lnotab[1::2]
     current_line = code_object.co_firstlineno
     for line_incr in line_incrs:
+      if line_incr >= 0x80:
+        # line_incrs is an array of 8-bit signed integers
+        line_incr -= 0x100
       current_line += line_incr
       yield current_line
   else:
