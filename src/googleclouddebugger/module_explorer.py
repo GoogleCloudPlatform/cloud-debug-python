@@ -62,7 +62,6 @@ def GetCodeObjectAtLine(module, line):
         prev_line = max(prev_line, co_line_number)
       elif co_line_number > line:
         next_line = min(next_line, co_line_number)
-        break
 
   prev_line = None if prev_line == 0 else prev_line
   next_line = None if next_line == sys.maxsize else next_line
