@@ -62,7 +62,7 @@ def GetCodeObjectAtLine(module, line):
         prev_line = max(prev_line, co_line_number)
       elif co_line_number > line:
         next_line = min(next_line, co_line_number)
-        break
+        # Continue because line numbers may not be sequential.
 
   prev_line = None if prev_line == 0 else prev_line
   next_line = None if next_line == sys.maxsize else next_line
@@ -87,6 +87,9 @@ def _GetLineNumbers(code_object):
     line_incrs = code_object.co_lnotab[1::2]
     current_line = code_object.co_firstlineno
     for line_incr in line_incrs:
+      if line_incr >= 0x80:
+        # line_incrs is an array of 8-bit signed integers
+        line_incr -= 0x100
       current_line += line_incr
       yield current_line
   else:

@@ -79,7 +79,7 @@ bool CodeObjectLinesEnumerator::Next() {
 
   while (true) {
     offset_ += next_entry_[0];
-    line_number_ += next_entry_[1];
+    line_number_ += static_cast<int8_t>(next_entry_[1]);
 
     bool stop = ((next_entry_[0] != 0xFF) || (next_entry_[1] != 0)) &&
                 ((next_entry_[0] != 0) || (next_entry_[1] != 0xFF));
