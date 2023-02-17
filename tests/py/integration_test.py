@@ -212,7 +212,6 @@ class IntegrationTest(absltest.TestCase):
 
       return FakeBreakpointUpdateCommand(self._incoming_breakpoint_updates)
 
-
 # We only need to attach the debugger exactly once. The IntegrationTest class
 # is created for each test case, so we need to keep this state global.
 
@@ -556,6 +555,7 @@ class IntegrationTest(absltest.TestCase):
             }]
         }, python_test_util.PackFrameVariable(result, 'x', frame=1))
     return x
+
 
 # FIXME: Broken in Python 3.10
 #  def testRecursion(self):

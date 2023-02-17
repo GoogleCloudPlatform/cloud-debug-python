@@ -433,7 +433,6 @@ class PythonBreakpointTest(absltest.TestCase):
               }
           }, self._update_queue[0]['status'])
 
-
   def testHit(self):
     breakpoint = python_breakpoint.PythonBreakpoint(self._template, self, self,
                                                     None)
