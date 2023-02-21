@@ -252,10 +252,18 @@ class PythonBreakpoint(object):
     return self.definition['id']
 
   def GetExpirationTime(self):
-    """Computes the timestamp at which this breakpoint will expire."""
+    """Computes the timestamp at which this breakpoint will expire.
+
+    If no creation time can be found an expiration time in the past will be
+    used.
+    """
     return self.GetCreateTime() + self.expiration_period
 
   def GetCreateTime(self):
+    """Retrieves the creation time of this breakpoint.
+
+    If no creation time can be found a creation time in the past will be used.
+    """
     if 'createTime' in self.definition:
       return self.GetTimeFromRfc3339Str(self.definition['createTime'])
     else:
