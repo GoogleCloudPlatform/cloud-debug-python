@@ -382,10 +382,10 @@ class FirebaseClient(object):
 
       self.register_backoff.Succeeded()
       return (False, 0)  # Proceed immediately to subscribing to breakpoints.
-    except BaseException:
+    except BaseException as e:
       # There is no significant benefit to handing different exceptions
       # in different ways; we will log and retry regardless.
-      native.LogInfo(f'Failed to register debuggee: {traceback.format_exc()}')
+      native.LogInfo(f'Failed to register debuggee: {repr(e)}')
       return (True, self.register_backoff.Failed())
 
   def _CheckDebuggeePresence(self):
@@ -394,9 +394,8 @@ class FirebaseClient(object):
       snapshot = firebase_admin.db.reference(path).get()
       # The value doesn't matter; just return true if there's any value.
       return snapshot is not None
-    except BaseException:
-      native.LogInfo(
-          f'Failed to check debuggee presence: {traceback.format_exc()}')
+    except BaseException as e:
+      native.LogInfo(f'Failed to check debuggee presence at {path}: {repr(e)}')
       return False
 
   def _MarkDebuggeeActive(self):
