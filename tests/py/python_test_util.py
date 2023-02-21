@@ -106,6 +106,10 @@ def DateTimeToTimestampNew(t):
   """
   return t.strftime('%Y-%m-%dT%H:%M:%S') + 'Z'
 
+def DateTimeToUnixMsec(t):
+  """Returns the Unix time as in integer value in milliseconds"""
+  return int(t.timestamp() * 1000)
+
 
 def PackFrameVariable(breakpoint, name, frame=0, collection='locals'):
   """Finds local variable or argument by name.

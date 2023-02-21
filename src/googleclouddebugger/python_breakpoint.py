@@ -252,16 +252,40 @@ class PythonBreakpoint(object):
     return self.definition['id']
 
   def GetExpirationTime(self):
-    """Computes the timestamp at which this breakpoint will expire."""
-    # TODO: Move this to a common method.
-    if '.' not in self.definition['createTime']:
+    """Computes the timestamp at which this breakpoint will expire.
+
+    If no creation time can be found an expiration time in the past will be
+    used.
+    """
+    return self.GetCreateTime() + self.expiration_period
+
+  def GetCreateTime(self):
+    """Retrieves the creation time of this breakpoint.
+
+    If no creation time can be found a creation time in the past will be used.
+    """
+    if 'createTime' in self.definition:
+      return self.GetTimeFromRfc3339Str(self.definition['createTime'])
+    else:
+      return self.GetTimeFromUnixMsec(
+          self.definition.get('createTimeUnixMsec', 0))
+
+  def GetTimeFromRfc3339Str(self, rfc3339_str):
+    if '.' not in rfc3339_str:
       fmt = '%Y-%m-%dT%H:%M:%S%Z'
     else:
       fmt = '%Y-%m-%dT%H:%M:%S.%f%Z'
 
-    create_datetime = datetime.strptime(
-        self.definition['createTime'].replace('Z', 'UTC'), fmt)
-    return create_datetime + self.expiration_period
+    return datetime.strptime(rfc3339_str.replace('Z', 'UTC'), fmt)
+
+  def GetTimeFromUnixMsec(self, unix_msec):
+    try:
+      return datetime.fromtimestamp(unix_msec / 1000)
+    except (TypeError, ValueError, OSError, OverflowError) as e:
+      native.LogWarning(
+        'Unexpected error (%s) occured processing unix_msec %s, breakpoint: %s'
+        % (repr(e), str(unix_msec), self.GetBreakpointId()))
+      return datetime.fromtimestamp(0)
 
   def ExpireBreakpoint(self):
     """Expires this breakpoint."""
