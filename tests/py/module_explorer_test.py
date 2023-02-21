@@ -1,7 +1,5 @@
 """Unit test for module_explorer module."""
 
-# TODO: Get this test to run properly on all supported versions of Python
-
 import dis
 import inspect
 import os
