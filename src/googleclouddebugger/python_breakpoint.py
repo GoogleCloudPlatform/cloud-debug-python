@@ -263,7 +263,6 @@ class PythonBreakpoint(object):
           self.definition.get('createTimeUnixMsec', 0))
 
   def GetTimeFromRfc3339Str(self, rfc3339_str):
-    #TODO : Move this to a common method.
     if '.' not in rfc3339_str:
       fmt = '%Y-%m-%dT%H:%M:%S%Z'
     else:

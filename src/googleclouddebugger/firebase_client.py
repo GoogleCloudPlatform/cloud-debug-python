@@ -315,7 +315,7 @@ class FirebaseClient(object):
       if self.on_idle is not None:
         self.on_idle()
 
-    time.sleep(1)
+      time.sleep(1)
 
   def _TransmissionThreadProc(self):
     """Entry point for the transmission worker thread."""
