@@ -457,6 +457,22 @@ class PythonBreakpointTest(absltest.TestCase):
     self.assertGreater(len(self._update_queue[0]['stackFrames']), 3)
     self.assertTrue(self._update_queue[0]['isFinalState'])
 
+  def testHitTimestampUnixMsec(self):
+    # Using the Snapshot Debugger (Firebase backend) version of creation time
+    self._template.pop('createTime', None);
+    self._template[
+      'createTimeUnixMsec'] = python_test_util.DateTimeToUnixMsec(
+        self._base_time)
+
+    breakpoint = python_breakpoint.PythonBreakpoint(self._template, self, self,
+                                                    None)
+    breakpoint._BreakpointEvent(native.BREAKPOINT_EVENT_HIT,
+                                inspect.currentframe())
+    self.assertEqual(set(['BP_ID']), self._completed)
+    self.assertLen(self._update_queue, 1)
+    self.assertGreater(len(self._update_queue[0]['stackFrames']), 3)
+    self.assertTrue(self._update_queue[0]['isFinalState'])
+
   def testDoubleHit(self):
     breakpoint = python_breakpoint.PythonBreakpoint(self._template, self, self,
                                                     None)
@@ -540,6 +556,18 @@ class PythonBreakpointTest(absltest.TestCase):
     breakpoint.Clear()
     self.assertEqual(
         datetime(year=2015, month=1, day=2), breakpoint.GetExpirationTime())
+
+  def testExpirationTimeUnixMsec(self):
+    # Using the Snapshot Debugger (Firebase backend) version of creation time
+    self._template.pop('createTime', None);
+    self._template[
+      'createTimeUnixMsec'] = python_test_util.DateTimeToUnixMsec(
+        self._base_time)
+    breakpoint = python_breakpoint.PythonBreakpoint(self._template, self, self,
+                                                    None)
+    breakpoint.Clear()
+    self.assertEqual(
+        self._base_time + timedelta(hours=24), breakpoint.GetExpirationTime())
 
   def testExpirationTimeWithExpiresIn(self):
     definition = self._template.copy()
