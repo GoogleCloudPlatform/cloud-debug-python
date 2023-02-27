@@ -108,6 +108,7 @@ class FirebaseClient(object):
     self._breakpoint_subscription = None
 
     # Events for unit testing.
+    self.connection_complete = threading.Event()
     self.registration_complete = threading.Event()
     self.subscription_complete = threading.Event()
 
@@ -285,10 +286,11 @@ class FirebaseClient(object):
     which will run in its own thread.  That thread will be owned by
     self._breakpoint_subscription.
     """
-    initialization_required, delay = True, 0
-    while initialization_required:
+    connection_required, delay = True, 0
+    while connection_required:
       time.sleep(delay)
-      initialization_required, delay = self._InitializeDb()
+      connection_required, delay = self._ConnectToDb()
+    self.connection_complete.set()
 
     registration_required, delay = True, 0
     while registration_required:
@@ -336,17 +338,15 @@ class FirebaseClient(object):
                                               self._MarkActiveTimerFunc)
     self._mark_active_timer.start()
 
-  def _InitializeDb(self):
+  def _ConnectToDb(self):
     urls = [self._database_url] if self._database_url is not None else \
       [f'https://{self._project_id}-cdbg.firebaseio.com',
       f'https://{self._project_id}-default-rtdb.firebaseio.com']
 
     for url in urls:
-      native.LogInfo(
-          f'Attempting to initialize DB with url: {url}')
+      native.LogInfo(f'Attempting to connect to DB with url: {url}')
       if self._TryInitializeDbForUrl(url):
-        native.LogInfo(
-            f'Successfully initialized DB with url: {url}')
+        native.LogInfo(f'Successfully connected to DB with url: {url}')
         self._database_url = url
         return (False, 0)  # Proceed immediately to registering the debuggee.
 
@@ -357,7 +357,7 @@ class FirebaseClient(object):
     app = None
     try:
       app = firebase_admin.initialize_app(self._credentials,
-                                    {'databaseURL': database_url})
+                                          {'databaseURL': database_url})
 
       if self._CheckSchemaVersionPresence():
         return True

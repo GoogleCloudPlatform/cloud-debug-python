@@ -20,6 +20,7 @@ from absl.testing import parameterized
 
 import firebase_admin.credentials
 from firebase_admin.exceptions import FirebaseError
+from firebase_admin.exceptions import NotFoundError
 
 TEST_PROJECT_ID = 'test-project-id'
 METADATA_PROJECT_URL = ('http://metadata.google.internal/computeMetadata/'
@@ -172,6 +173,63 @@ class FirebaseClientTest(parameterized.TestCase):
     expected_data['registrationTimeUnixMsec'] = {'.sv': 'timestamp'}
     expected_data['lastUpdateTimeUnixMsec'] = {'.sv': 'timestamp'}
     self._mock_register_ref.set.assert_called_once_with(expected_data)
+
+  def testStartConnectFallsBackToDefaultRtdb(self):
+    # A new schema_version ref will be fetched each time
+    self._mock_db_ref.side_effect = [
+        self._mock_schema_version_ref, self._mock_schema_version_ref,
+        self._mock_presence_ref, self._mock_register_ref,
+        self._fake_subscribe_ref
+    ]
+
+    # Fail on the '-cdbg' instance test, succeed on the '-default-rtdb' one.
+    self._mock_schema_version_ref.get.side_effect = [
+        NotFoundError("Not found", http_response=404), '2'
+    ]
+
+    self._client.SetupAuth(project_id=TEST_PROJECT_ID)
+    self._client.Start()
+    self._client.connection_complete.wait()
+
+    self.assertEqual([
+        call(None,
+             {'databaseURL': f'https://{TEST_PROJECT_ID}-cdbg.firebaseio.com'}),
+        call(None, {
+            'databaseURL':
+                f'https://{TEST_PROJECT_ID}-default-rtdb.firebaseio.com'
+        })
+    ], self._mock_initialize_app.call_args_list)
+
+  def testStartConnectFailsThenSucceeds(self):
+    # A new schema_version ref will be fetched each time
+    self._mock_db_ref.side_effect = [
+        self._mock_schema_version_ref, self._mock_schema_version_ref,
+        self._mock_schema_version_ref, self._mock_presence_ref,
+        self._mock_register_ref, self._fake_subscribe_ref
+    ]
+
+    # Completely fail on the initial attempt at reaching a DB, then succeed on
+    # 2nd attempt. One full attempt will try the '-cdbg' db instance followed by
+    # the '-default-rtdb' one.
+    self._mock_schema_version_ref.get.side_effect = [
+        NotFoundError("Not found", http_response=404),
+        NotFoundError("Not found", http_response=404), '2'
+    ]
+
+    self._client.SetupAuth(project_id=TEST_PROJECT_ID)
+    self._client.Start()
+    self._client.connection_complete.wait()
+
+    self.assertEqual([
+        call(None,
+             {'databaseURL': f'https://{TEST_PROJECT_ID}-cdbg.firebaseio.com'}),
+        call(None, {
+            'databaseURL':
+                f'https://{TEST_PROJECT_ID}-default-rtdb.firebaseio.com'
+        }),
+        call(None,
+             {'databaseURL': f'https://{TEST_PROJECT_ID}-cdbg.firebaseio.com'})
+    ], self._mock_initialize_app.call_args_list)
 
   def testStartAlreadyPresent(self):
     # Create a mock for just this test that claims the debuggee is registered.
