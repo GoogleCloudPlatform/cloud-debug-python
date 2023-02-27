@@ -194,9 +194,10 @@ class FirebaseClient(object):
       service_account_json_file: JSON file to use for credentials. If not
           provided, will default to application default credentials.
       database_url: Firebase realtime database URL to be used.  If not
-          provided, will default to either
-          https://{project_id}-cdbg.firebaseio.com or
-          https://{project_id}-default-rtdb.firebaseio.com
+          provided, connect attempts to the following DBs will be made, in
+          order:
+            https://{project_id}-cdbg.firebaseio.com
+            https://{project_id}-default-rtdb.firebaseio.com
     Raises:
       NoProjectIdError: If the project id cannot be determined.
     """

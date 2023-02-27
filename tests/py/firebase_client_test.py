@@ -174,6 +174,30 @@ class FirebaseClientTest(parameterized.TestCase):
     expected_data['lastUpdateTimeUnixMsec'] = {'.sv': 'timestamp'}
     self._mock_register_ref.set.assert_called_once_with(expected_data)
 
+  def testStartCustomeDbUrlConfigured(self):
+    self._client.SetupAuth(
+        project_id=TEST_PROJECT_ID,
+        database_url='https://custom-db.firebaseio.com')
+    self._client.Start()
+    self._client.subscription_complete.wait()
+
+    debuggee_id = self._client._debuggee_id
+
+    self._mock_initialize_app.assert_called_with(
+        None, {'databaseURL': 'https://custom-db.firebaseio.com'})
+    self.assertEqual([
+        call(f'cdbg/schema_version'),
+        call(f'cdbg/debuggees/{debuggee_id}/registrationTimeUnixMsec'),
+        call(f'cdbg/debuggees/{debuggee_id}'),
+        call(f'cdbg/breakpoints/{debuggee_id}/active')
+    ], self._mock_db_ref.call_args_list)
+
+    # Verify that the register call has been made.
+    expected_data = copy.deepcopy(self._client._GetDebuggee())
+    expected_data['registrationTimeUnixMsec'] = {'.sv': 'timestamp'}
+    expected_data['lastUpdateTimeUnixMsec'] = {'.sv': 'timestamp'}
+    self._mock_register_ref.set.assert_called_once_with(expected_data)
+
   def testStartConnectFallsBackToDefaultRtdb(self):
     # A new schema_version ref will be fetched each time
     self._mock_db_ref.side_effect = [
