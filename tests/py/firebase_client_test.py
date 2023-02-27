@@ -92,8 +92,8 @@ class FirebaseClientTest(parameterized.TestCase):
     self._fake_subscribe_ref = FakeReference()
 
 
-    # Common happy path returns for references to
-    # cdbg/schema_version),
+    # Setup common happy path reference sequence:
+    # cdbg/schema_version
     # cdbg/debuggees/{debuggee_id}/registrationTimeUnixMsec
     # cdbg/debuggees/{debuggee_id}
     # cdbg/breakpoints/{debuggee_id}/active
@@ -115,20 +115,12 @@ class FirebaseClientTest(parameterized.TestCase):
 
     self.assertEqual(TEST_PROJECT_ID, self._client._project_id)
 
-    # JCB ADD THIS CHECK ELSEHWERE
-    #self.assertEqual(f'https://{TEST_PROJECT_ID}-cdbg.firebaseio.com',
-                     #self._client._database_url)
-
   def testSetupAuthOverrideProjectIdNumber(self):
     # If a project id is provided, we use it.
     project_id = 'project2'
     self._client.SetupAuth(project_id=project_id)
 
     self.assertEqual(project_id, self._client._project_id)
-
-    # JCB ADD THIS CHECK ELSEHWERE
-    #self.assertEqual(f'https://{project_id}-cdbg.firebaseio.com',
-    #                 self._client._database_url)
 
   def testSetupAuthServiceAccountJsonAuth(self):
     # We'll load credentials from the provided file (mocked for simplicity)
@@ -174,29 +166,17 @@ class FirebaseClientTest(parameterized.TestCase):
     expected_data['lastUpdateTimeUnixMsec'] = {'.sv': 'timestamp'}
     self._mock_register_ref.set.assert_called_once_with(expected_data)
 
-  def testStartCustomeDbUrlConfigured(self):
+  def testStartCustomDbUrlConfigured(self):
     self._client.SetupAuth(
         project_id=TEST_PROJECT_ID,
         database_url='https://custom-db.firebaseio.com')
     self._client.Start()
-    self._client.subscription_complete.wait()
+    self._client.connection_complete.wait()
 
     debuggee_id = self._client._debuggee_id
 
-    self._mock_initialize_app.assert_called_with(
+    self._mock_initialize_app.assert_called_once_with(
         None, {'databaseURL': 'https://custom-db.firebaseio.com'})
-    self.assertEqual([
-        call(f'cdbg/schema_version'),
-        call(f'cdbg/debuggees/{debuggee_id}/registrationTimeUnixMsec'),
-        call(f'cdbg/debuggees/{debuggee_id}'),
-        call(f'cdbg/breakpoints/{debuggee_id}/active')
-    ], self._mock_db_ref.call_args_list)
-
-    # Verify that the register call has been made.
-    expected_data = copy.deepcopy(self._client._GetDebuggee())
-    expected_data['registrationTimeUnixMsec'] = {'.sv': 'timestamp'}
-    expected_data['lastUpdateTimeUnixMsec'] = {'.sv': 'timestamp'}
-    self._mock_register_ref.set.assert_called_once_with(expected_data)
 
   def testStartConnectFallsBackToDefaultRtdb(self):
     # A new schema_version ref will be fetched each time
@@ -223,6 +203,8 @@ class FirebaseClientTest(parameterized.TestCase):
                 f'https://{TEST_PROJECT_ID}-default-rtdb.firebaseio.com'
         })
     ], self._mock_initialize_app.call_args_list)
+
+    self.assertEqual(1, self._mock_delete_app.call_count)
 
   def testStartConnectFailsThenSucceeds(self):
     # A new schema_version ref will be fetched each time
@@ -254,6 +236,8 @@ class FirebaseClientTest(parameterized.TestCase):
         call(None,
              {'databaseURL': f'https://{TEST_PROJECT_ID}-cdbg.firebaseio.com'})
     ], self._mock_initialize_app.call_args_list)
+
+    self.assertEqual(2, self._mock_delete_app.call_count)
 
   def testStartAlreadyPresent(self):
     # Create a mock for just this test that claims the debuggee is registered.
