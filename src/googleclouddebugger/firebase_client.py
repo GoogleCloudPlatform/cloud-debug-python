@@ -193,7 +193,9 @@ class FirebaseClient(object):
       service_account_json_file: JSON file to use for credentials. If not
           provided, will default to application default credentials.
       database_url: Firebase realtime database URL to be used.  If not
-          provided, will default to https://{project_id}-cdbg.firebaseio.com
+          provided, will default to either
+          https://{project_id}-cdbg.firebaseio.com or
+          https://{project_id}-default-rtdb.firebaseio.com
     Raises:
       NoProjectIdError: If the project id cannot be determined.
     """
@@ -220,11 +222,7 @@ class FirebaseClient(object):
           'Please specify the project id using the --project_id flag.')
 
     self._project_id = project_id
-
-    if database_url:
-      self._database_url = database_url
-    else:
-      self._database_url = f'https://{self._project_id}-cdbg.firebaseio.com'
+    self._database_url = database_url
 
   def Start(self):
     """Starts the worker thread."""
@@ -287,15 +285,10 @@ class FirebaseClient(object):
     which will run in its own thread.  That thread will be owned by
     self._breakpoint_subscription.
     """
-    # Note: if self._credentials is None, default app credentials will be used.
-    try:
-      firebase_admin.initialize_app(self._credentials,
-                                    {'databaseURL': self._database_url})
-    except ValueError:
-      native.LogWarning(
-          f'Failed to initialize firebase: {traceback.format_exc()}')
-      native.LogError('Failed to start debugger agent.  Giving up.')
-      return
+    initialization_required, delay = True, 0
+    while initialization_required:
+      time.sleep(delay)
+      initialization_required, delay = self._InitializeDb()
 
     registration_required, delay = True, 0
     while registration_required:
@@ -343,6 +336,42 @@ class FirebaseClient(object):
                                               self._MarkActiveTimerFunc)
     self._mark_active_timer.start()
 
+  def _InitializeDb(self):
+    urls = [self._database_url] if self._database_url is not None else \
+      [f'https://{self._project_id}-cdbg.firebaseio.com',
+      f'https://{self._project_id}-default-rtdb.firebaseio.com']
+
+    for url in urls:
+      native.LogInfo(
+          f'Attempting to initialize DB with url: {url}')
+      if self._TryInitializeDbForUrl(url):
+        native.LogInfo(
+            f'Successfully initialized DB with url: {url}')
+        self._database_url = url
+        return (False, 0)  # Proceed immediately to registering the debuggee.
+
+    return (True, self.register_backoff.Failed())
+
+  def _TryInitializeDbForUrl(self, database_url):
+    # Note: if self._credentials is None, default app credentials will be used.
+    app = None
+    try:
+      app = firebase_admin.initialize_app(self._credentials,
+                                    {'databaseURL': database_url})
+
+      if self._CheckSchemaVersionPresence():
+        return True
+
+    except ValueError:
+      native.LogWarning(
+          f'Failed to initialize firebase: {traceback.format_exc()}')
+
+    # This is the failure path, if we hit here we must cleanup the app handle
+    if app is not None:
+      firebase_admin.delete_app(app)
+
+    return False
+
   def _RegisterDebuggee(self):
     """Single attempt to register the debuggee.
 
@@ -371,7 +400,7 @@ class FirebaseClient(object):
       else:
         debuggee_path = f'cdbg/debuggees/{self._debuggee_id}'
         native.LogInfo(
-            f'registering at {self._database_url}, path: {debuggee_path}')
+            f'Registering at {self._database_url}, path: {debuggee_path}')
         debuggee_data = copy.deepcopy(debuggee)
         debuggee_data['registrationTimeUnixMsec'] = {'.sv': 'timestamp'}
         debuggee_data['lastUpdateTimeUnixMsec'] = {'.sv': 'timestamp'}
@@ -387,6 +416,17 @@ class FirebaseClient(object):
       # in different ways; we will log and retry regardless.
       native.LogInfo(f'Failed to register debuggee: {repr(e)}')
       return (True, self.register_backoff.Failed())
+
+  def _CheckSchemaVersionPresence(self):
+    path = f'cdbg/schema_version'
+    try:
+      snapshot = firebase_admin.db.reference(path).get()
+      # The value doesn't matter; just return true if there's any value.
+      return snapshot is not None
+    except BaseException as e:
+      native.LogInfo(
+          f'Failed to check schema version presence at {path}: {repr(e)}')
+      return False
 
   def _CheckDebuggeePresence(self):
     path = f'cdbg/debuggees/{self._debuggee_id}/registrationTimeUnixMsec'
