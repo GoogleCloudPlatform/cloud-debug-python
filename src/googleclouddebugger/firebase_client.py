@@ -106,6 +106,7 @@ class FirebaseClient(object):
     self._mark_active_interval_sec = 60 * 60  # 1 hour in seconds
     self._new_updates = threading.Event()
     self._breakpoint_subscription = None
+    self._firebase_app = None
 
     # Events for unit testing.
     self.connection_complete = threading.Event()
@@ -117,6 +118,7 @@ class FirebaseClient(object):
     #
 
     # Delay before retrying failed request.
+    self.connect_backoff = backoff.Backoff()  # Connect to the DB.
     self.register_backoff = backoff.Backoff()  # Register debuggee.
     self.subscribe_backoff = backoff.Backoff()  # Subscribe to updates.
     self.update_backoff = backoff.Backoff()  # Update breakpoint.
@@ -346,22 +348,26 @@ class FirebaseClient(object):
 
     for url in urls:
       native.LogInfo(f'Attempting to connect to DB with url: {url}')
-      if self._TryInitializeDbForUrl(url):
+
+      status, firebase_app = self._TryInitializeDbForUrl(url)
+      if status:
         native.LogInfo(f'Successfully connected to DB with url: {url}')
         self._database_url = url
+        self._firebase_app = firebase_app
+        self.connect_backoff.Succeeded()
         return (False, 0)  # Proceed immediately to registering the debuggee.
 
-    return (True, self.register_backoff.Failed())
+    return (True, self.connect_backoff.Failed())
 
   def _TryInitializeDbForUrl(self, database_url):
     # Note: if self._credentials is None, default app credentials will be used.
     app = None
     try:
-      app = firebase_admin.initialize_app(self._credentials,
-                                          {'databaseURL': database_url})
+      app = firebase_admin.initialize_app(
+          self._credentials, {'databaseURL': database_url}, name='cdbg')
 
-      if self._CheckSchemaVersionPresence():
-        return True
+      if self._CheckSchemaVersionPresence(app):
+        return True, app
 
     except ValueError:
       native.LogWarning(
@@ -370,8 +376,9 @@ class FirebaseClient(object):
     # This is the failure path, if we hit here we must cleanup the app handle
     if app is not None:
       firebase_admin.delete_app(app)
+      app = None
 
-    return False
+    return False, app
 
   def _RegisterDebuggee(self):
     """Single attempt to register the debuggee.
@@ -405,7 +412,8 @@ class FirebaseClient(object):
         debuggee_data = copy.deepcopy(debuggee)
         debuggee_data['registrationTimeUnixMsec'] = {'.sv': 'timestamp'}
         debuggee_data['lastUpdateTimeUnixMsec'] = {'.sv': 'timestamp'}
-        firebase_admin.db.reference(debuggee_path).set(debuggee_data)
+        firebase_admin.db.reference(debuggee_path,
+                                    self._firebase_app).set(debuggee_data)
 
       native.LogInfo(
           f'Debuggee registered successfully, ID: {self._debuggee_id}')
@@ -418,10 +426,10 @@ class FirebaseClient(object):
       native.LogInfo(f'Failed to register debuggee: {repr(e)}')
       return (True, self.register_backoff.Failed())
 
-  def _CheckSchemaVersionPresence(self):
+  def _CheckSchemaVersionPresence(self, firebase_app):
     path = f'cdbg/schema_version'
     try:
-      snapshot = firebase_admin.db.reference(path).get()
+      snapshot = firebase_admin.db.reference(path, firebase_app).get()
       # The value doesn't matter; just return true if there's any value.
       return snapshot is not None
     except BaseException as e:
@@ -432,7 +440,7 @@ class FirebaseClient(object):
   def _CheckDebuggeePresence(self):
     path = f'cdbg/debuggees/{self._debuggee_id}/registrationTimeUnixMsec'
     try:
-      snapshot = firebase_admin.db.reference(path).get()
+      snapshot = firebase_admin.db.reference(path, self._firebase_app).get()
       # The value doesn't matter; just return true if there's any value.
       return snapshot is not None
     except BaseException as e:
@@ -443,7 +451,8 @@ class FirebaseClient(object):
     active_path = f'cdbg/debuggees/{self._debuggee_id}/lastUpdateTimeUnixMsec'
     try:
       server_time = {'.sv': 'timestamp'}
-      firebase_admin.db.reference(active_path).set(server_time)
+      firebase_admin.db.reference(active_path,
+                                  self._firebase_app).set(server_time)
     except BaseException:
       native.LogInfo(
           f'Failed to mark debuggee active: {traceback.format_exc()}')
@@ -456,7 +465,7 @@ class FirebaseClient(object):
 
     path = f'cdbg/breakpoints/{self._debuggee_id}/active'
     native.LogInfo(f'Subscribing to breakpoint updates at {path}')
-    ref = firebase_admin.db.reference(path)
+    ref = firebase_admin.db.reference(path, self._firebase_app)
     try:
       self._breakpoint_subscription = ref.listen(self._ActiveBreakpointCallback)
       return (False, 0)
@@ -549,7 +558,8 @@ class FirebaseClient(object):
 
         # First, remove from the active breakpoints.
         bp_ref = firebase_admin.db.reference(
-            f'cdbg/breakpoints/{self._debuggee_id}/active/{bp_id}')
+            f'cdbg/breakpoints/{self._debuggee_id}/active/{bp_id}',
+            self._firebase_app)
         bp_ref.delete()
 
         summary_data = breakpoint_data
@@ -557,7 +567,8 @@ class FirebaseClient(object):
         if is_snapshot:
           # Note that there may not be snapshot data.
           bp_ref = firebase_admin.db.reference(
-              f'cdbg/breakpoints/{self._debuggee_id}/snapshot/{bp_id}')
+              f'cdbg/breakpoints/{self._debuggee_id}/snapshot/{bp_id}',
+              self._firebase_app)
           bp_ref.set(breakpoint_data)
 
           # Now strip potential snapshot data.
@@ -568,7 +579,8 @@ class FirebaseClient(object):
 
         # Then add it to the list of final breakpoints.
         bp_ref = firebase_admin.db.reference(
-            f'cdbg/breakpoints/{self._debuggee_id}/final/{bp_id}')
+            f'cdbg/breakpoints/{self._debuggee_id}/final/{bp_id}',
+            self._firebase_app)
         bp_ref.set(summary_data)
 
         native.LogInfo(f'Breakpoint {bp_id} update transmitted successfully')
