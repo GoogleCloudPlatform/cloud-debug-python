@@ -34,7 +34,7 @@ def NormalizePath(path):
   #  target/a.py
   # Python interpreter treats these as two separate modules. So, we also need to
   # handle them the same way.
-  return os.path.normpath(path.strip().lstrip(os.sep))
+  return os.path.normpath(path)
 
 
 def IsPathSuffix(mod_path, path):
