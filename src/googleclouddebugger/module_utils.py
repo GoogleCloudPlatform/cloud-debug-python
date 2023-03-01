@@ -16,6 +16,26 @@
 import os
 import sys
 
+def NormalizePath(path):
+  """Normalizes a path.
+
+  E.g. One example is it will convert "/a/b/./c" -> "/a/b/c"
+  """
+  # TODO: Calling os.path.normpath "may change the meaning of a
+  # path that contains symbolic links" (e.g., "A/foo/../B" != "A/B" if foo is a
+  # symlink). This might cause trouble when matching against loaded module
+  # paths. We should try to avoid using it.
+  # Example:
+  #  > import symlink.a
+  #  > symlink.a.__file__
+  #  symlink/a.py
+  #  > import target.a
+  #  > starget.a.__file__
+  #  target/a.py
+  # Python interpreter treats these as two separate modules. So, we also need to
+  # handle them the same way.
+  return os.path.normpath(path)
+
 
 def IsPathSuffix(mod_path, path):
   """Checks whether path is a full path suffix of mod_path.
@@ -68,6 +88,11 @@ def GetLoadedModuleBySuffix(path):
     # Therefore, we only convert relative to absolute path.
     if not os.path.isabs(mod_root):
       mod_root = os.path.join(os.getcwd(), mod_root)
+
+    # In the following invocation 'python3 ./main.py' (using the ./), the
+    # mod_root variable will '/base/path/./main'. In order to correctly compare
+    # it with the root variable, it needs to be '/base/path/main'.
+    mod_root = NormalizePath(mod_root)
 
     if IsPathSuffix(mod_root, root):
       return module

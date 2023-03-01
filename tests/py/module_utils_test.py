@@ -156,6 +156,13 @@ class ModuleUtilsTest(absltest.TestCase):
     self.assertTrue(m1, 'Module not found')
     self.assertEqual('/a/b/p/m.pyc', m1.__file__)
 
+  def testMainWithDotSlashLoadedModuleFromSuffix(self):
+    # Lookup module started via 'python3 ./m.py', notice the './'
+    _AddSysModule('__main__', '/a/b/p/./m.pyc')
+    m1 = module_utils.GetLoadedModuleBySuffix('/a/b/p/m.py')
+    self.assertIsNotNone(m1)
+    self.assertTrue(m1, 'Module not found')
+    self.assertEqual('/a/b/p/./m.pyc', m1.__file__)
 
 if __name__ == '__main__':
   absltest.main()

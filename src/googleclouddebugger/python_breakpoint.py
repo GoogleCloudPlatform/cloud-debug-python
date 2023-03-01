@@ -134,20 +134,7 @@ def _MultipleModulesFoundError(path, candidates):
 
 def _NormalizePath(path):
   """Removes surrounding whitespace, leading separator and normalize."""
-  # TODO: Calling os.path.normpath "may change the meaning of a
-  # path that contains symbolic links" (e.g., "A/foo/../B" != "A/B" if foo is a
-  # symlink). This might cause trouble when matching against loaded module
-  # paths. We should try to avoid using it.
-  # Example:
-  #  > import symlink.a
-  #  > symlink.a.__file__
-  #  symlink/a.py
-  #  > import target.a
-  #  > starget.a.__file__
-  #  target/a.py
-  # Python interpreter treats these as two separate modules. So, we also need to
-  # handle them the same way.
-  return os.path.normpath(path.strip().lstrip(os.sep))
+  return module_utils.NormalizePath(path.strip().lstrip(os.sep))
 
 
 class PythonBreakpoint(object):
