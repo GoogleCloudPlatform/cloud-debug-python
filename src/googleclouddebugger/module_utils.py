@@ -89,10 +89,10 @@ def GetLoadedModuleBySuffix(path):
     if not os.path.isabs(mod_root):
       mod_root = os.path.join(os.getcwd(), mod_root)
 
-    # In the following invocation 'python3 ./main.py' (using the ./) , the
+    # In the following invocation 'python3 ./main.py' (using the ./), the
     # mod_root variable will '/base/path/./main'. In order to correctly compare
     # it with the root variable, it needs to be '/base/path/main'.
-    mod_root = os.path.normpath(mod_root)
+    mod_root = NormalizePath(mod_root)
 
     if IsPathSuffix(mod_root, root):
       return module
