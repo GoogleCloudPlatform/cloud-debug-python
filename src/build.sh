@@ -42,7 +42,11 @@ ROOT=$(cd $(dirname "${BASH_SOURCE[0]}") >/dev/null; /bin/pwd -P)
 PARALLEL_BUILD_OPTION="-j $(($(nproc 2> /dev/null || echo 4)*3/2))"
 
 # Clean up any previous build files.
-rm -rf ${ROOT}/build ${ROOT}/dist ${ROOT}/setup.cfg
+rm -rf \
+  ${ROOT}/build \
+  ${ROOT}/dist \
+  ${ROOT}/setup.cfg \
+  ${ROOT}/google_python_cloud_debugger.egg-info
 
 # Create directory for third-party libraries.
 mkdir -p ${ROOT}/build/third_party
@@ -91,3 +95,8 @@ pushd ${ROOT}
 "${PYTHON:-python3}" -m pip wheel . --no-deps -w dist
 popd
 
+# Clean up temporary directories.
+rm -rf \
+  ${ROOT}/build \
+  ${ROOT}/setup.cfg \
+  ${ROOT}/google_python_cloud_debugger.egg-info

@@ -10,8 +10,14 @@ ROOT=$(cd $(dirname "${BASH_SOURCE[0]}") >/dev/null; /bin/pwd -P)
 # Parallelize the build over N threads where N is the number of cores * 1.5.
 PARALLEL_BUILD_OPTION="-j $(($(nproc 2> /dev/null || echo 4)*3/2))"
 
-# Clean up any previous build files.
-rm -rf ${ROOT}/build ${ROOT}/dist ${ROOT}/setup.cfg
+# Clean up any previous build/test files.
+rm -rf \
+  ${ROOT}/build \
+  ${ROOT}/dist \
+  ${ROOT}/setup.cfg \
+  ${ROOT}/google_python_cloud_debugger.egg-info \
+  /io/dist \
+  /io/tests/py/__pycache__
 
 # Create directory for third-party libraries.
 mkdir -p ${ROOT}/build/third_party
@@ -78,6 +84,11 @@ done
 popd
 
 # Clean up temporary directories.
-rm -rf ${ROOT}/build ${ROOT}/setup.cfg
+rm -rf \
+  ${ROOT}/build \
+  ${ROOT}/setup.cfg \
+  ${ROOT}/google_python_cloud_debugger.egg-info \
+  /io/tests/py/__pycache__
+
 echo "Build artifacts are in the dist directory"
 
