@@ -154,7 +154,6 @@ static int GetBranchTarget(int offset, PythonInstruction instruction) {
 #endif
 
     case BRANCH_ABSOLUTE_OPCODE:
-      LOG(INFO) << "branch absolute";
 #if PY_VERSION_HEX < 0x030A0000
       return instruction.argument;
 #else
