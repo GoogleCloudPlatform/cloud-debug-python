@@ -133,6 +133,9 @@ static PythonOpcodeType GetOpcodeType(uint8_t opcode) {
     // Removed in Python 3.8.
     case CONTINUE_LOOP:
 #endif
+#if PY_VERSION_HEX >= 0x03090000
+    case JUMP_IF_NOT_EXC_MATCH:
+#endif
       return BRANCH_ABSOLUTE_OPCODE;
 
     default:
@@ -144,10 +147,18 @@ static PythonOpcodeType GetOpcodeType(uint8_t opcode) {
 static int GetBranchTarget(int offset, PythonInstruction instruction) {
   switch (GetOpcodeType(instruction.opcode)) {
     case BRANCH_DELTA_OPCODE:
+#if PY_VERSION_HEX < 0x030A0000
       return offset + instruction.size + instruction.argument;
+#else
+      return offset + instruction.size + instruction.argument * 2;
+#endif
 
     case BRANCH_ABSOLUTE_OPCODE:
+#if PY_VERSION_HEX < 0x030A0000
       return instruction.argument;
+#else
+      return instruction.argument * 2;
+#endif
 
     default:
       DCHECK(false) << "Not a branch instruction";
@@ -428,13 +439,21 @@ static bool InsertAndUpdateBranchInstructions(
         // argument of 0 even when it is not required. This needs to be taken
         // into account when calculating the target of a branch instruction.
         int inst_size = std::max(instruction.size, it->original_size);
+#if PY_VERSION_HEX < 0x030A0000
         int32_t target = it->current_offset + inst_size + arg;
+#else
+        int32_t target = it->current_offset + inst_size + arg * 2;
+#endif
         need_to_update = it->current_offset < insertion.current_offset &&
                          insertion.current_offset < target;
       } else if (opcode_type == BRANCH_ABSOLUTE_OPCODE) {
         // For absolute branches, the argument needs to be updated if the
         // insertion before the target.
+#if PY_VERSION_HEX < 0x030A0000
         need_to_update = insertion.current_offset < arg;
+#else
+        need_to_update = insertion.current_offset < arg * 2;
+#endif
       }
 
       // If we are inserting the original method call instructions, we want to
