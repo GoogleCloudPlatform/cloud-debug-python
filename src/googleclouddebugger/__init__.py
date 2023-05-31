@@ -29,7 +29,6 @@ from . import appengine_pretty_printers
 from . import breakpoints_manager
 from . import collector
 from . import error_data_visibility_policy
-from . import gcp_hub_client
 from . import firebase_client
 from . import glob_data_visibility_policy
 from . import yaml_data_visibility_config_reader
@@ -52,20 +51,10 @@ def _StartDebugger():
   cdbg_native.LogInfo(
       f'Initializing Cloud Debugger Python agent version: {__version__}')
 
-  use_firebase = _flags.get('use_firebase')
-  if use_firebase:
-    _backend_client = firebase_client.FirebaseClient()
-    _backend_client.SetupAuth(
-        _flags.get('project_id'), _flags.get('service_account_json_file'),
-        _flags.get('firebase_db_url'))
-  else:
-    _backend_client = gcp_hub_client.GcpHubClient()
-    _backend_client.SetupAuth(
-        _flags.get('project_id'), _flags.get('project_number'),
-        _flags.get('service_account_json_file'))
-    _backend_client.SetupCanaryMode(
-        _flags.get('breakpoint_enable_canary'),
-        _flags.get('breakpoint_allow_canary_override'))
+  _backend_client = firebase_client.FirebaseClient()
+  _backend_client.SetupAuth(
+      _flags.get('project_id'), _flags.get('service_account_json_file'),
+      _flags.get('firebase_db_url'))
 
   visibility_policy = _GetVisibilityPolicy()
 
