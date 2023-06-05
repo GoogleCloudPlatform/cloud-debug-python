@@ -1,22 +1,22 @@
 # Python Cloud Debugger Agent
 
-Google [Cloud Debugger](https://cloud.google.com/debugger/) for
-Python 3.6, Python 3.7, Python 3.8, Python 3.9, and Python 3.10.
+[Snapshot debugger](https://github.com/GoogleCloudPlatform/snapshot-debugger/)
+agent for Python 3.6, Python 3.7, Python 3.8, Python 3.9, and Python 3.10.
 
 ## Overview
 
-Cloud Debugger (also known as Stackdriver Debugger) lets you inspect the state
+Snapshot Debugger lets you inspect the state
 of a running cloud application, at any code location, without stopping or
 slowing it down. It is not your traditional process debugger but rather an
 always on, whole app debugger taking snapshots from any instance of the app.
 
-Cloud Debugger is safe for use with production apps or during development. The
+Snapshot Debugger is safe for use with production apps or during development. The
 Python debugger agent only few milliseconds to the request latency when a debug
 snapshot is captured. In most cases, this is not noticeable to users.
 Furthermore, the Python debugger agent does not allow modification of
 application state in any way, and has close to zero impact on the app instances.
 
-Cloud Debugger attaches to all instances of the app providing the ability to
+Snapshot Debugger attaches to all instances of the app providing the ability to
 take debug snapshots and add logpoints. A snapshot captures the call-stack and
 variables from any one instance that executes the snapshot location. A logpoint
 writes a formatted message to the application log whenever any instance of the
@@ -25,26 +25,22 @@ app executes the logpoint location.
 The Python debugger agent is only supported on Linux at the moment. It was
 tested on Debian Linux, but it should work on other distributions as well.
 
-Cloud Debugger consists of 3 primary components:
+Snapshot Debugger consists of 3 primary components:
 
 1.  The Python debugger agent (this repo implements one for CPython 3.6,
     3.7, 3.8, 3.9, and 3.10).
-2.  Cloud Debugger service storing and managing snapshots/logpoints. Explore the
-    APIs using
-    [APIs Explorer](https://cloud.google.com/debugger/api/reference/rest/).
+2.  A Firebase Realtime Database for storing and managing snapshots/logpoints.
+    Explore the 
+    [schema](https://github.com/GoogleCloudPlatform/snapshot-debugger/blob/main/docs/SCHEMA.md).
 3.  User interface, including a command line interface
-    [`gcloud debug`](https://cloud.google.com/sdk/gcloud/reference/debug/) and a
-    Web interface on
-    [Google Cloud Console](https://console.cloud.google.com/debug/). See the
-    [online help](https://cloud.google.com/debugger/docs/using/snapshots) on how
-    to use Google Cloud Console Debug page.
+    [`snapshot-dbg-cli`](https://github.com/GoogleCloudPlatform/snapshot-debugger) and a
+    [VSCode extension](https://github.com/GoogleCloudPlatform/snapshot-debugger/tree/main/snapshot_dbg_extension)
 
 ## Getting Help
 
+1.  File an [issue](https://github.com/GoogleCloudPlatform/cloud-debug-python/issues)
 1.  StackOverflow:
     http://stackoverflow.com/questions/tagged/google-cloud-debugger
-2.  Send email to: [Cloud Debugger Feedback](mailto:cdbg-feedback@google.com)
-3.  Send Feedback from Google Cloud Console
 
 ## Installation
 
@@ -86,22 +82,13 @@ minimal image with the agent installed.
 
 ### Google Cloud Platform
 
-1.  First, make sure that you created the VM with this option enabled:
-
-    > Allow API access to all Google Cloud services in the same project.
-
-    This option lets the Python debugger agent authenticate with the machine
-    account of the Virtual Machine.
-
-    It is possible to use the Python debugger agent without it. Please see the
-    [next section](#outside-google-cloud-platform) for details.
+1.  First, make sure that the VM has the
+    [required scopes](https://github.com/GoogleCloudPlatform/snapshot-debugger/blob/main/docs/configuration.md#access-scopes).
 
 2.  Install the Python debugger agent as explained in the
     [Installation](#installation) section.
 
-3.  Enable the debugger in your application using one of the two options:
-
-    _Option A_: add this code to the beginning of your `main()` function:
+3.  Enable the debugger in your application:
 
     ```python
     # Attach Python Cloud Debugger
@@ -112,20 +99,7 @@ minimal image with the agent installed.
       pass
     ```
 
-    _Option B_: run the debugger agent as a module:
-
-    <pre>
-    python \
-        <b>-m googleclouddebugger --module=[MODULE] --version=[VERSION] --</b> \
-        myapp.py
-    </pre>
-
-    **Note:** This option does not work well with tools such as
-    `multiprocessing` or `gunicorn`. These tools spawn workers in separate
-    processes, but the debugger does not get enabled on these worker processes.
-    Please use _Option A_ instead.
-
-    Where, in both cases:
+    Where:
 
     *   `[MODULE]` is the name of your app. This, along with the version, is
         used to identify the debug target in the UI.<br>
@@ -160,7 +134,7 @@ account.
 1.  Use the Google Cloud Console Service Accounts
     [page](https://console.cloud.google.com/iam-admin/serviceaccounts/project)
     to create a credentials file for an existing or new service account. The
-    service account must have at least the `Stackdriver Debugger Agent` role.
+    service account must have at least the `roles/firebasedatabase.admin` role.
 
 2.  Once you have the service account credentials JSON file, deploy it alongside
     the Python debugger agent.
@@ -174,8 +148,6 @@ account.
     Alternatively, you can provide the path to the credentials file directly to
     the debugger agent.
 
-    _Option A_:
-
     ```python
     # Attach Python Cloud Debugger
     try:
@@ -187,19 +159,6 @@ account.
     except ImportError:
       pass
     ```
-
-    _Option B_:
-
-    <pre>
-    python \
-        <b>-m googleclouddebugger \
-        --module=[MODULE] \
-        --version=[VERSION] \
-        --service_account_json_file=<i>/path/to/credentials.json</i> \
-        --</b> \
-        myapp.py
-    </pre>
-
 4.  Follow the rest of the steps in the [GCP](#google-cloud-platform) section.
 
 ### Django Web Framework
