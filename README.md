@@ -1,4 +1,4 @@
-# Python Cloud Debugger Agent
+# Python Snapshot Debugger Agent
 
 [Snapshot debugger](https://github.com/GoogleCloudPlatform/snapshot-debugger/)
 agent for Python 3.6, Python 3.7, Python 3.8, Python 3.9, and Python 3.10.
@@ -33,7 +33,7 @@ Snapshot Debugger consists of 3 primary components:
     Explore the 
     [schema](https://github.com/GoogleCloudPlatform/snapshot-debugger/blob/main/docs/SCHEMA.md).
 3.  User interface, including a command line interface
-    [`snapshot-dbg-cli`](https://github.com/GoogleCloudPlatform/snapshot-debugger) and a
+    [`snapshot-dbg-cli`](https://pypi.org/project/snapshot-dbg-cli/) and a
     [VSCode extension](https://github.com/GoogleCloudPlatform/snapshot-debugger/tree/main/snapshot_dbg_extension)
 
 ## Getting Help
@@ -183,45 +183,15 @@ Alternatively, you can pass the `--noreload` flag when running the Django
 using the `--noreload` flag disables the autoreload feature in Django, which
 means local changes to files will not be automatically picked up by Django.
 
-### Snapshot Debugger - Firebase Realtime Database Backend
+## Historical note
 
-This functionality is available for release 3.0 onward of this agent and
-provides support for the Snapshot Debugger, which is being provided as a
-replacement for the deprecated Cloud Debugger service.
-
-The agent can be configured to use Firebase Realtime Database as a backend
-instead of the Cloud Debugger service.  If the Firebase backend is used,
-breakpoints can be viewed and set using the Snapshot Debugger CLI instead of the
-Cloud Console.
-
-To use the Firebase backend, set the flag when enabling the agent:
-
-```python
-try:
-  import googleclouddebugger
-  googleclouddebugger.enable(use_firebase=True)
-except ImportError:
-  pass
-```
-
-Additional configuration can be provided if necessary:
-
-```python
-try:
-  import googleclouddebugger
-  googleclouddebugger.enable(
-      use_firebase=True,
-      project_id='my-project-id',
-      firebase_db_url='https://my-database-url.firebaseio.com',
-      service_account_json_file='path/to/service_account.json',
-  )
-except ImportError:
-  pass
-```
-
-See https://github.com/GoogleCloudPlatform/snapshot-debugger and
-https://cloud.google.com/debugger/docs/deprecations for more details.
-
+Version 3.x of this agent supported both the now shutdown Cloud Debugger service
+(by default) and the
+[Snapshot Debugger](https://github.com/GoogleCloudPlatform/snapshot-debugger/)
+(Firebase RTDB backend) by setting the `use_firebase` flag to true. Version 4.0
+removed support for the Cloud Debugger service, making the Snapshot Debugger the
+default.  To note the `use_firebase` flag is now obsolete, but still present for
+backward compatibility.
 
 ## Flag Reference
 
@@ -257,11 +227,10 @@ which are automatically available on machines hosted on GCP, or can be set via
 `gcloud auth application-default login` or the `GOOGLE_APPLICATION_CREDENTIALS`
 environment variable.
 
-`breakpoint_enable_canary`: Whether to enable the
-[breakpoint canary feature](https://cloud.google.com/debugger/docs/using/snapshots#with_canarying).
-It expects a boolean value (`True`/`False`) or a string, with `'True'`
-interpreted as `True` and any other string interpreted as `False`). If not
-provided, the breakpoint canarying will not be enabled.
+`firebase_db_url`: Url pointing to a configured Firebase Realtime Database for
+the agent to use to store snapshot data.
+https://**PROJECT_ID**-cdbg.firebaseio.com will be used if not provided. where
+**PROJECT_ID** is your project ID.
 
 ## Development
 
