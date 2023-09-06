@@ -3,6 +3,14 @@
 [Snapshot debugger](https://github.com/GoogleCloudPlatform/snapshot-debugger/)
 agent for Python 3.6, Python 3.7, Python 3.8, Python 3.9, and Python 3.10.
 
+
+## Project Status: Archived
+
+This project has been archived and is no longer supported. There will be no
+further bug fixes or security patches. The repository can be forked by users
+if they want to maintain it going forward.
+
+
 ## Overview
 
 Snapshot Debugger lets you inspect the state
@@ -35,12 +43,6 @@ Snapshot Debugger consists of 3 primary components:
 3.  User interface, including a command line interface
     [`snapshot-dbg-cli`](https://pypi.org/project/snapshot-dbg-cli/) and a
     [VSCode extension](https://github.com/GoogleCloudPlatform/snapshot-debugger/tree/main/snapshot_dbg_extension)
-
-## Getting Help
-
-1.  File an [issue](https://github.com/GoogleCloudPlatform/cloud-debug-python/issues)
-1.  StackOverflow:
-    http://stackoverflow.com/questions/tagged/google-cloud-debugger
 
 ## Installation
 
